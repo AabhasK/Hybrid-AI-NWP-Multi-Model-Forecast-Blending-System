@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Blend Desk — Hybrid AI/NWP Forecast Console</title>
+<meta name="description" content="Operational console for a dynamically blended multi-model rainfall and temperature forecast over Maharashtra." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  /* --- surfaces: cool deep slate, the palette of a night radar console ---- */
+  --plane:      #0b1015;
+  --surface:    #121a21;
+  --raised:     #17222b;
+  --rule:       #22303b;
+  --rule-soft:  #1a2630;
+
+  --ink:        #eef4f8;
+  --ink-2:      #9fb2c0;
+  --ink-3:      #6e8494;
+
+  /* --- categorical series: validated for CVD on #121a21 (worst adj dE 9.4) */
+  --m-a: #3987e5;   /* Physics NWP    */
+  --m-b: #d95926;   /* AI / ML        */
+  --m-c: #199e70;   /* Ensemble mean  */
+  --m-d: #9085e9;   /* Persistence    */
+  --blend: #ffffff; /* the answer, not a peer series */
+
+  /* --- status (fixed, never themed; always paired with icon + label) ------ */
+  --ok:       #0ca30c;
+  --warning:  #fab219;
+  --serious:  #ec835a;
+  --critical: #d03b3b;
+
+  --focus: #6fd3e4;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--plane);
+  color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:14px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.cond{font-family:"IBM Plex Sans Condensed","IBM Plex Sans",system-ui,sans-serif}
+.num{font-variant-numeric:tabular-nums}
+
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:2px}
+
+.wrap{max-width:1560px;margin:0 auto;padding:0 20px 56px}
+
+/* ====================== run strip ====================================== */
+.runbar{
+  display:flex;align-items:flex-end;gap:28px;flex-wrap:wrap;
+  padding:20px 0 16px;border-bottom:1px solid var(--rule);
+}
+.brand{display:flex;align-items:center;gap:14px;min-width:0}
+.sigil{
+  width:38px;height:38px;flex:none;border-radius:50%;
+  background:
+    radial-gradient(circle at 50% 50%, transparent 0 34%, var(--m-a) 34% 42%, transparent 42%),
+    radial-gradient(circle at 50% 50%, transparent 0 56%, var(--m-c) 56% 62%, transparent 62%),
+    conic-gradient(from 210deg, var(--m-b) 0 22%, transparent 22%);
+  border:1px solid var(--rule);
+}
+.brand h1{
+  font-family:"IBM Plex Sans Condensed",sans-serif;
+  font-size:25px;font-weight:600;letter-spacing:.01em;margin:0;line-height:1.1;
+}
+.brand p{margin:2px 0 0;color:var(--ink-3);font-size:12.5px}
+.runmeta{display:flex;gap:26px;margin-left:auto;flex-wrap:wrap}
+.runmeta div{min-width:88px}
+.runmeta dt{font-size:11px;color:var(--ink-3);letter-spacing:.02em;margin:0}
+.runmeta dd{margin:1px 0 0;font-size:14.5px;font-weight:600}
+.pill{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:3px 11px 3px 8px;border-radius:999px;font-size:12.5px;font-weight:600;
+  border:1px solid;
+}
+.pill .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.pill.active  {color:#ffb4a0;border-color:#6d3324;background:#2a1710}
+.pill.break   {color:#8fd8c0;border-color:#1d4e3f;background:#0f2019}
+.pill.normal  {color:#a8c6e6;border-color:#274b70;background:#111c28}
+
+/* ====================== headline readout =============================== */
+.readout{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  border-bottom:1px solid var(--rule);
+}
+.readout > div{padding:15px 22px;border-left:1px solid var(--rule-soft)}
+.readout > div:first-child{border-left:0;padding-left:0}
+.readout .k{font-size:11.5px;color:var(--ink-3);margin-bottom:5px}
+.readout .v{font-family:"IBM Plex Sans Condensed",sans-serif;font-size:30px;font-weight:600;line-height:1}
+.readout .v small{font-size:14px;font-weight:500;color:var(--ink-2);margin-left:3px}
+.readout .s{font-size:11.5px;color:var(--ink-3);margin-top:5px}
+.readout .good{color:#7fe08a}
+
+/* ====================== horizon rail (the hero control) ================= */
+.rail{
+  padding:22px 0 8px;
+}
+.rail-head{display:flex;align-items:baseline;gap:14px;margin-bottom:16px;flex-wrap:wrap}
+.rail-head h2{font-family:"IBM Plex Sans Condensed",sans-serif;font-size:16px;font-weight:600;margin:0}
+.rail-head span{color:var(--ink-3);font-size:12.5px}
+.track{
+  position:relative;height:62px;cursor:pointer;
+  touch-action:none;user-select:none;
+}
+.track::before{
+  content:"";position:absolute;left:0;right:0;top:11px;height:1px;background:var(--rule);
+}
+.fill{
+  position:absolute;left:0;top:10px;height:3px;background:var(--m-a);
+  border-radius:2px;transition:width .34s cubic-bezier(.4,0,.2,1),background-color .34s;
+}
+.stations{position:absolute;inset:0;display:flex}
+.stn{
+  flex:1;position:relative;background:none;border:0;padding:0;cursor:pointer;
+  color:var(--ink-3);font-family:"IBM Plex Sans Condensed",sans-serif;
+  display:flex;flex-direction:column;align-items:center;gap:0;
+}
+.stn .knob{
+  width:11px;height:11px;border-radius:50%;background:var(--plane);
+  border:1px solid var(--rule);margin-top:6px;
+  transition:transform .22s,background-color .22s,border-color .22s;
+}
+.stn .lead{font-size:16px;font-weight:600;margin-top:9px;letter-spacing:.01em}
+.stn .vd{font-size:11.5px;margin-top:1px}
+.stn[aria-checked="true"]{color:var(--ink)}
+.stn[aria-checked="true"] .knob{transform:scale(1.55);background:var(--m-a);border-color:var(--m-a)}
+.stn:hover .knob{border-color:var(--ink-3)}
+
+/* ====================== panels ========================================= */
+.grid{
+  display:grid;gap:18px;margin-top:10px;
+  grid-template-columns:repeat(12,1fr);
+  grid-template-areas:
+    "map map map map map map map wgt wgt wgt wgt wgt"
+    "map map map map map map map alr alr alr alr alr"
+    "skl skl skl skl skl skl rel rel rel rel rel rel";
+}
+.p-map{grid-area:map}
+.p-wgt{grid-area:wgt}
+.p-alr{grid-area:alr}
+.p-skl{grid-area:skl}
+.p-rel{grid-area:rel}
+
+.panel{
+  background:var(--surface);border:1px solid var(--rule);
+  display:flex;flex-direction:column;min-width:0;
+}
+.p-head{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:13px 16px;border-bottom:1px solid var(--rule-soft);
+}
+.p-head h3{font-family:"IBM Plex Sans Condensed",sans-serif;font-size:15px;font-weight:600;margin:0}
+.p-head .why{font-size:12px;color:var(--ink-3);margin:0}
+.p-body{padding:14px 16px;flex:1;min-height:0}
+.p-body.flush{padding:0}
+
+/* segmented control */
+.seg{display:flex;margin-left:auto;border:1px solid var(--rule);border-radius:3px;overflow:hidden}
+.seg button{
+  background:none;border:0;color:var(--ink-3);cursor:pointer;
+  font-family:"IBM Plex Sans Condensed",sans-serif;font-size:12.5px;font-weight:600;
+  padding:5px 12px;transition:background-color .18s,color .18s;
+}
+.seg button + button{border-left:1px solid var(--rule)}
+.seg button[aria-pressed="true"]{background:var(--raised);color:var(--ink)}
+
+/* ====================== map ============================================ */
+/* the map panel is the tall one; let the canvas absorb whatever height the
+   right-hand column forces on the row instead of leaving a dead band */
+.p-map .p-body{display:flex}
+#map{flex:1;min-height:520px;width:100%;background:#0e161d}
+.leaflet-container{background:#0e161d;font-family:"IBM Plex Sans",sans-serif}
+.leaflet-interactive{transition:fill .34s cubic-bezier(.4,0,.2,1)}
+.leaflet-popup-content-wrapper{
+  background:var(--raised);color:var(--ink);border:1px solid var(--rule);
+  border-radius:3px;box-shadow:0 10px 34px rgba(0,0,0,.55)
+}
+.leaflet-popup-tip{background:var(--raised);border:1px solid var(--rule)}
+.leaflet-popup-content{margin:13px 15px;width:266px!important}
+.leaflet-popup-close-button{color:var(--ink-3)!important}
+.leaflet-control-attribution{background:rgba(11,16,21,.82)!important;color:var(--ink-3)!important}
+.leaflet-control-attribution a{color:var(--ink-2)!important}
+.leaflet-bar a{background:var(--raised);color:var(--ink);border-color:var(--rule)}
+.leaflet-bar a:hover{background:var(--rule)}
+
+.pop h4{margin:0;font-family:"IBM Plex Sans Condensed",sans-serif;font-size:14px;font-weight:600}
+.pop .coords{color:var(--ink-3);font-size:11.5px;margin:1px 0 10px}
+.pop .big{display:flex;align-items:baseline;gap:7px;margin-bottom:2px}
+.pop .big b{font-family:"IBM Plex Sans Condensed",sans-serif;font-size:31px;font-weight:600;line-height:1}
+.pop .big span{color:var(--ink-2);font-size:12.5px}
+.pop .cat{font-size:12px;margin-bottom:11px}
+.pop .srcrow{display:grid;grid-template-columns:13px 1fr 46px 38px;align-items:center;gap:7px;margin:5px 0;font-size:12px}
+.pop .swatch{width:9px;height:9px;border-radius:2px}
+.pop .bar{height:5px;background:var(--rule-soft);position:relative;border-radius:3px;overflow:hidden}
+.pop .bar i{position:absolute;left:0;top:0;bottom:0;border-radius:3px}
+.pop .foot{margin-top:11px;padding-top:9px;border-top:1px solid var(--rule);display:flex;justify-content:space-between;font-size:12px;color:var(--ink-2)}
+
+/* legend */
+.legend{display:flex;align-items:center;gap:0;padding:11px 16px;border-top:1px solid var(--rule-soft);flex-wrap:wrap}
+.legend .lg{display:flex;flex-direction:column;gap:4px;flex:1;min-width:56px}
+.legend .sw{height:9px}
+.legend .lb{font-size:10.5px;color:var(--ink-3);font-family:"IBM Plex Sans Condensed",sans-serif;line-height:1.2}
+.legend .unit{font-size:11px;color:var(--ink-3);margin-right:12px;white-space:nowrap}
+
+/* ====================== alerts ========================================= */
+.alerts{max-height:262px;overflow-y:auto;padding:4px 0}
+.alerts::-webkit-scrollbar{width:9px}
+.alerts::-webkit-scrollbar-thumb{background:var(--rule);border-radius:9px}
+.alert{
+  display:grid;grid-template-columns:auto 1fr auto;gap:11px;align-items:center;
+  padding:10px 16px;border-bottom:1px solid var(--rule-soft);cursor:pointer;
+  background:none;border-left:0;border-right:0;border-top:0;width:100%;text-align:left;
+  color:inherit;font:inherit;transition:background-color .16s;
+}
+.alert:hover{background:var(--raised)}
+.alert .icon{width:19px;height:19px;flex:none}
+.alert .ttl{display:block;font-weight:600;font-size:13px}
+.alert .sub{display:block;font-size:11.5px;color:var(--ink-3);margin-top:2px}
+.alert .pct{display:block;font-family:"IBM Plex Sans Condensed",sans-serif;font-size:19px;font-weight:600;text-align:right;line-height:1}
+.alert .pctl{display:block;font-size:10px;color:var(--ink-3);text-align:right;margin-top:2px}
+.sev-critical .ttl{color:#ff9b9b}
+.sev-serious  .ttl{color:#ffbc9c}
+.sev-warning  .ttl{color:#ffd77a}
+.empty{padding:34px 16px;text-align:center;color:var(--ink-3);font-size:13px}
+
+/* ====================== reliability matrix ============================= */
+.matrix{display:grid;grid-template-columns:78px repeat(5,1fr);gap:3px}
+.matrix .hd{font-size:11.5px;color:var(--ink-3);font-family:"IBM Plex Sans Condensed",sans-serif;padding:0 0 5px;text-align:center}
+.matrix .rh{font-size:12px;color:var(--ink-2);display:flex;align-items:center;font-family:"IBM Plex Sans Condensed",sans-serif}
+.cellm{
+  border:1px solid var(--rule-soft);padding:9px 4px;text-align:center;border-radius:2px;
+  transition:outline-color .2s;outline:1px solid transparent;
+}
+.cellm.on{outline-color:var(--ink)}
+.cellm b{font-family:"IBM Plex Sans Condensed",sans-serif;font-size:17px;font-weight:700;display:block;line-height:1}
+.cellm span{font-size:10.5px;color:var(--ink-2);display:block;margin-top:2px}
+
+/* ====================== table view ===================================== */
+.tabletoggle{
+  background:none;border:0;color:var(--ink-3);font:inherit;font-size:12px;cursor:pointer;
+  padding:9px 16px;border-top:1px solid var(--rule-soft);width:100%;text-align:left;
+}
+.tabletoggle:hover{color:var(--ink-2)}
+table.dt{width:100%;border-collapse:collapse;font-size:12px}
+table.dt th,table.dt td{padding:5px 8px;text-align:right;border-bottom:1px solid var(--rule-soft)}
+table.dt th:first-child,table.dt td:first-child{text-align:left}
+table.dt th{color:var(--ink-3);font-weight:500;font-size:11px}
+table.dt tr.hl td{color:#fff;font-weight:600}
+
+/* ====================== footer ========================================= */
+.foot{
+  margin-top:26px;padding-top:18px;border-top:1px solid var(--rule);
+  display:flex;gap:34px;flex-wrap:wrap;font-size:12px;color:var(--ink-3);
+}
+.foot p{margin:0;max-width:62ch;line-height:1.65}
+.foot b{color:var(--ink-2);font-weight:600}
+
+.chartbox{position:relative;height:250px}
+.chartbox.tall{height:288px}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition-duration:.01ms!important;animation-duration:.01ms!important}
+}
+@media (max-width:1180px){
+  .grid{grid-template-areas:
+    "map map map map map map map map map map map map"
+    "wgt wgt wgt wgt wgt wgt alr alr alr alr alr alr"
+    "skl skl skl skl skl skl rel rel rel rel rel rel"}
+}
+@media (max-width:820px){
+  .wrap{padding:0 16px 40px}
+  .grid{grid-template-columns:1fr;grid-template-areas:"map" "wgt" "alr" "skl" "rel"}
+  .readout{grid-template-columns:repeat(2,1fr)}
+  .readout > div:nth-child(3){border-left:0;padding-left:0}
+  .runmeta{margin-left:0;gap:18px}
+  #map{min-height:380px}
+  .brand h1{font-size:21px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ============================ run strip ============================ -->
+  <header class="runbar">
+    <div class="brand">
+      <div class="sigil" aria-hidden="true"></div>
+      <div>
+        <h1>Blend Desk</h1>
+        <p>Hybrid AI–NWP multi-model forecast blending &nbsp;|&nbsp; SIH26081</p>
+      </div>
+    </div>
+    <dl class="runmeta">
+      <div>
+        <dt>Region</dt>
+        <dd class="cond" id="mRegion">—</dd>
+      </div>
+      <div>
+        <dt>Run issued</dt>
+        <dd class="cond num" id="mIssued">—</dd>
+      </div>
+      <div>
+        <dt>Diagnosed spell</dt>
+        <dd><span class="pill normal" id="mRegime"><span class="dot"></span>—</span></dd>
+      </div>
+      <div>
+        <dt>Console time</dt>
+        <dd class="cond num" id="mClock">—</dd>
+      </div>
+    </dl>
+  </header>
+
+  <!-- ========================= headline readout ======================== -->
+  <section class="readout" aria-label="Headline verification scores">
+    <div>
+      <p class="k">Blended forecast RMSE</p>
+      <p class="v num" id="kRmse">—<small>mm</small></p>
+      <p class="s">All leads, out-of-sample</p>
+    </div>
+    <div>
+      <p class="k">Error cut vs best single model</p>
+      <p class="v num good" id="kGain">—</p>
+      <p class="s" id="kGainSub">—</p>
+    </div>
+    <div>
+      <p class="k">Skill score vs persistence</p>
+      <p class="v num" id="kSkill">—</p>
+      <p class="s">Murphy skill, 1.0 is perfect</p>
+    </div>
+    <div>
+      <p class="k">Heavy-rain flagger ROC-AUC</p>
+      <p class="v num" id="kAuc">—</p>
+      <p class="s" id="kAucSub">—</p>
+    </div>
+  </section>
+
+  <!-- ========================== horizon rail =========================== -->
+  <section class="rail">
+    <div class="rail-head">
+      <h2>Forecast horizon</h2>
+      <span>One run, walked out day by day. Everything below follows this control.</span>
+      <div class="seg" style="margin-left:auto">
+        <label for="runSel" style="display:none">Forecast run</label>
+        <select id="runSel" style="background:var(--raised);color:var(--ink);border:0;
+                font-family:'IBM Plex Sans Condensed',sans-serif;font-size:12.5px;
+                font-weight:600;padding:5px 10px;cursor:pointer"></select>
+      </div>
+    </div>
+    <div class="track" id="track" role="radiogroup" aria-label="Forecast lead time in days">
+      <div class="fill" id="railFill"></div>
+      <div class="stations" id="stations"></div>
+    </div>
+  </section>
+
+  <!-- ============================= panels ============================== -->
+  <div class="grid">
+
+    <!-- map -->
+    <section class="panel p-map">
+      <div class="p-head">
+        <h3>Blended field</h3>
+        <p class="why">Grid cells at 0.5°, coloured by the blended forecast. Click a cell for its model mix.</p>
+        <div class="seg" role="group" aria-label="Variable">
+          <button id="vRain" aria-pressed="true">Rainfall</button>
+          <button id="vTemp" aria-pressed="false">Temperature</button>
+        </div>
+      </div>
+      <div class="p-body flush"><div id="map"></div></div>
+      <div class="legend" id="legend"></div>
+    </section>
+
+    <!-- weights -->
+    <section class="panel p-wgt">
+      <div class="p-head">
+        <h3>Who is driving the forecast</h3>
+        <p class="why">Learned blend weights for the diagnosed spell. They sum to 100%.</p>
+      </div>
+      <div class="p-body"><div class="chartbox"><canvas id="cWeights"></canvas></div></div>
+    </section>
+
+    <!-- alerts -->
+    <section class="panel p-alr">
+      <div class="p-head">
+        <h3 id="alertTitle">Heavy rainfall watch</h3>
+        <p class="why" id="alertWhy">—</p>
+      </div>
+      <div class="p-body flush"><div class="alerts" id="alerts"></div></div>
+    </section>
+
+    <!-- skill -->
+    <section class="panel p-skl">
+      <div class="p-head">
+        <h3>Verification against every source</h3>
+        <p class="why">Out-of-sample RMSE by lead time. Lower is better.</p>
+      </div>
+      <div class="p-body"><div class="chartbox tall"><canvas id="cSkill"></canvas></div></div>
+      <button class="tabletoggle" id="tblBtn" aria-expanded="false" aria-controls="tblWrap">Show the numbers</button>
+      <div id="tblWrap" hidden style="padding:0 16px 14px"></div>
+    </section>
+
+    <!-- reliability -->
+    <section class="panel p-rel">
+      <div class="p-head">
+        <h3>Model reliability map</h3>
+        <p class="why">Which source earns the largest weight, by spell and lead time.</p>
+      </div>
+      <div class="p-body">
+        <div class="matrix" id="matrix"></div>
+        <div id="matLegend" style="display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;
+             font-size:11.5px;color:var(--ink-2)"></div>
+        <p style="margin:12px 0 0;font-size:11.5px;color:var(--ink-3);line-height:1.55">
+          Each tile names the dominant source and its share. Tint depth tracks how
+          decisive that lead is — a pale tile means the sources are close and the
+          blend is spreading its bet.
+        </p>
+      </div>
+    </section>
+  </div>
+
+  <footer class="foot">
+    <p>
+      <b>Ground truth.</b> ERA5 reanalysis, <span id="fNcells">—</span> cells at 0.5°
+      over <span id="fRegion">—</span>, <span id="fSeason">—</span>.
+      Verification uses contiguous time-block cross-validation, so every score on this
+      page comes from days the model was not trained on.
+    </p>
+    <p>
+      <b>Forecast sources.</b> The four contributing model streams are synthetically
+      generated with distinct, physically-motivated error signatures. The blending
+      method is source-agnostic — see DATA_NOTE.md.
+    </p>
+  </footer>
+</div>
+
+<script>
+const DATA = /*__NWP_DATA__*/null;
+
+/* ===================================================================== */
+/* palette + scales                                                       */
+/* ===================================================================== */
+const SERIES = {A:'#3987e5', B:'#d95926', C:'#199e70', D:'#9085e9'};
+const BLEND  = '#ffffff';
+const INK2   = '#9fb2c0', INK3 = '#6e8494';
+const GRID   = '#22303b', SURFACE = '#121a21';
+
+/* IMD operational daily-rainfall classes. A forecaster reads rain in these
+   bands, so the map is binned to them rather than to a smooth ramp. */
+const RAIN_BINS = [
+  {max:0.1,   c:'#16212b', l:'No rain',      r:'0'},
+  {max:2.5,   c:'#0f3644', l:'Very light',   r:'0.1–2.4'},
+  {max:7.6,   c:'#0d505f', l:'Light',        r:'2.5–7.5'},
+  {max:35.6,  c:'#0b6e7c', l:'Moderate',     r:'7.6–35.5'},
+  {max:64.5,  c:'#0a8c94', l:'Rather heavy', r:'35.6–64.4'},
+  {max:124.5, c:'#17aaa8', l:'Heavy',        r:'64.5–124.4'},
+  {max:244.5, c:'#4fc9be', l:'Very heavy',   r:'124.5–244.4'},
+  {max:1e9,   c:'#9ee5d5', l:'Extremely hvy',r:'≥244.5'}
+];
+const TEMP_BINS = [
+  {max:22, c:'#33281a', l:'< 22',  r:''},
+  {max:25, c:'#5c4016', l:'22–25', r:''},
+  {max:27, c:'#8a5a11', l:'25–27', r:''},
+  {max:29, c:'#b3780e', l:'27–29', r:''},
+  {max:31, c:'#d99a18', l:'29–31', r:''},
+  {max:33, c:'#efbc52', l:'31–33', r:''},
+  {max:99, c:'#fadf9f', l:'≥ 33',  r:''}
+];
+const binOf = (v,bins)=> bins.find(b=>v<b.max) || bins[bins.length-1];
+
+const REGIME_COPY = {
+  active:{label:'Active spell', cls:'active'},
+  break :{label:'Break spell',  cls:'break'},
+  normal:{label:'Normal',       cls:'normal'}
+};
+const fmtDate = s => {
+  const d = new Date(s+'T00:00:00Z');
+  return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',timeZone:'UTC'});
+};
+
+/* ===================================================================== */
+/* state                                                                  */
+/* ===================================================================== */
+let runKey = DATA.issue_dates[Math.min(7, DATA.issue_dates.length-1)];
+let lead   = 3;
+let variable = 'rain';
+
+const run  = () => DATA.runs[runKey];
+const slice= () => run()[String(lead)];
+
+/* ===================================================================== */
+/* header + readout                                                       */
+/* ===================================================================== */
+const M = DATA.meta;
+const overall = DATA.metrics.overall;
+const blendRow = overall.find(r=>r.source.startsWith('BLENDED'));
+const singles  = overall.filter(r=>!r.source.startsWith('BLENDED') && !r.source.includes('Persistence'));
+const bestSingle = Math.min(...singles.map(r=>r.rmse));
+const clf50 = DATA.metrics.classifier.find(r=>Math.abs(r.threshold-0.4)<1e-6) || DATA.metrics.classifier[0];
+
+document.getElementById('mRegion').textContent = M.region.split(',')[0];
+document.getElementById('kRmse').innerHTML = blendRow.rmse.toFixed(2)+'<small>mm</small>';
+document.getElementById('kGain').textContent = '−'+(100*(1-blendRow.rmse/bestSingle)).toFixed(1)+'%';
+document.getElementById('kGainSub').textContent = 'Best single source: '+bestSingle.toFixed(2)+' mm';
+document.getElementById('kSkill').textContent = blendRow.skill.toFixed(3);
+document.getElementById('fNcells').textContent = M.n_cells;
+document.getElementById('fRegion').textContent = M.region;
+document.getElementById('fSeason').textContent = M.season;
+
+function tickClock(){
+  /* the desk this console imitates sits in India, so show IST explicitly
+     rather than whatever the viewing machine happens to be set to */
+  document.getElementById('mClock').textContent =
+    new Date().toLocaleTimeString('en-GB',
+      {hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kolkata'}) + ' IST';
+}
+tickClock(); setInterval(tickClock, 20000);
+
+/* ===================================================================== */
+/* horizon rail                                                           */
+/* ===================================================================== */
+const stationsEl = document.getElementById('stations');
+const railFill   = document.getElementById('railFill');
+
+function buildRail(){
+  stationsEl.innerHTML = '';
+  for(let L=1; L<=5; L++){
+    const b = document.createElement('button');
+    b.className='stn'; b.type='button';
+    b.setAttribute('role','radio');
+    b.setAttribute('aria-checked', String(L===lead));
+    b.tabIndex = L===lead ? 0 : -1;
+    b.innerHTML = '<span class="knob"></span><span class="lead">T+'+L+'</span>'+
+                  '<span class="vd num">'+fmtDate(run()[String(L)].valid)+'</span>';
+    b.setAttribute('aria-label','Lead time '+L+' day'+(L>1?'s':'')+', valid '+run()[String(L)].valid);
+    b.addEventListener('click',()=>setLead(L));
+    stationsEl.appendChild(b);
+  }
+  paintRail();
+}
+function paintRail(){
+  [...stationsEl.children].forEach((b,i)=>{
+    const on = (i+1)===lead;
+    b.setAttribute('aria-checked', String(on));
+    b.tabIndex = on ? 0 : -1;
+  });
+  railFill.style.width = ((lead-0.5)/5*100)+'%';
+  const dom = DATA.weights.cell_lead[String(lead)].dom;
+  const tally = {}; dom.forEach(d=>tally[d]=(tally[d]||0)+1);
+  const top = Object.keys(tally).sort((a,b)=>tally[b]-tally[a])[0];
+  railFill.style.backgroundColor = SERIES[top] || SERIES.A;
+}
+
+/* pointer drag along the track, so the control feels continuous */
+const track = document.getElementById('track');
+function leadFromX(clientX){
+  const r = track.getBoundingClientRect();
+  return Math.min(5, Math.max(1, Math.ceil(((clientX-r.left)/r.width)*5) || 1));
+}
+let dragging=false;
+track.addEventListener('pointerdown', e=>{
+  if(e.target.closest('.stn')) return;
+  dragging=true; track.setPointerCapture(e.pointerId); setLead(leadFromX(e.clientX));
+});
+track.addEventListener('pointermove', e=>{ if(dragging) setLead(leadFromX(e.clientX)); });
+track.addEventListener('pointerup',   ()=>{dragging=false});
+track.addEventListener('keydown', e=>{
+  if(e.key==='ArrowRight'||e.key==='ArrowUp'){ setLead(Math.min(5,lead+1)); focusStn(); e.preventDefault(); }
+  if(e.key==='ArrowLeft' ||e.key==='ArrowDown'){ setLead(Math.max(1,lead-1)); focusStn(); e.preventDefault(); }
+  if(e.key==='Home'){ setLead(1); focusStn(); e.preventDefault(); }
+  if(e.key==='End'){ setLead(5); focusStn(); e.preventDefault(); }
+});
+const focusStn = ()=> stationsEl.children[lead-1].focus();
+
+function setLead(L){
+  if(L===lead) return;
+  lead = L;
+  paintRail(); paintMap(); paintWeights(); paintAlerts(); paintSkill(); paintMatrix(); paintRunMeta();
+}
+
+/* run selector */
+const runSel = document.getElementById('runSel');
+DATA.issue_dates.forEach(d=>{
+  const o=document.createElement('option');
+  o.value=d;
+  o.textContent='Run '+fmtDate(d)+' — '+REGIME_COPY[DATA.runs[d]['1'].regime].label.toLowerCase();
+  runSel.appendChild(o);
+});
+runSel.value = runKey;
+runSel.addEventListener('change', ()=>{
+  runKey = runSel.value;
+  buildRail(); paintMap(); paintWeights(); paintAlerts(); paintMatrix(); paintRunMeta();
+});
+
+function paintRunMeta(){
+  document.getElementById('mIssued').textContent = fmtDate(runKey)+' 00Z';
+  const rg = REGIME_COPY[slice().regime];
+  const el = document.getElementById('mRegime');
+  el.className = 'pill '+rg.cls;
+  el.innerHTML = '<span class="dot"></span>'+rg.label;
+}
+
+/* ===================================================================== */
+/* map                                                                    */
+/* ===================================================================== */
+const map = L.map('map', {zoomControl:true, attributionControl:true, scrollWheelZoom:false});
+/* Esri's Dark Gray Canvas: keyless, and its low-chroma grey lets the rainfall
+   ramp carry all the colour on the page. */
+const ESRI = 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/';
+L.tileLayer(ESRI+'World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',{
+  attribution:'Truth: ERA5 · Basemap &copy; Esri', maxZoom:12
+}).addTo(map);
+L.tileLayer(ESRI+'World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',{
+  maxZoom:12, opacity:.85
+}).addTo(map);
+map.fitBounds([[M.bbox[0],M.bbox[1]],[M.bbox[2],M.bbox[3]]], {padding:[6,6]});
+
+const half = M.cell_deg/2;
+const rects = DATA.cells.map((c,i)=>{
+  const r = L.rectangle([[c.lat-half,c.lon-half],[c.lat+half,c.lon+half]],{
+    weight:.5, color:'#0b1015', opacity:.55, fillOpacity:.82, className:'cellrect'
+  }).addTo(map);
+  r.on('click', ()=> r.bindPopup(popupHtml(i),{maxWidth:300}).openPopup());
+  r.on('mouseover',()=> r.setStyle({weight:1.6, color:'#eef4f8'}));
+  r.on('mouseout', ()=> r.setStyle({weight:.5, color:'#0b1015'}));
+  return r;
+});
+
+function paintMap(){
+  const s = slice();
+  const arr  = variable==='rain' ? s.rain : s.t2m;
+  const bins = variable==='rain' ? RAIN_BINS : TEMP_BINS;
+  rects.forEach((r,i)=> r.setStyle({fillColor: binOf(arr[i],bins).c}));
+  paintLegend();
+}
+
+function paintLegend(){
+  const bins = variable==='rain' ? RAIN_BINS : TEMP_BINS;
+  const unit = variable==='rain' ? 'mm / day' : '°C';
+  const el = document.getElementById('legend');
+  el.innerHTML = '<span class="unit cond">'+unit+'</span>' + bins.map(b=>
+    '<span class="lg"><span class="sw" style="background:'+b.c+'"></span>'+
+    '<span class="lb">'+b.l+(b.r?'<br>'+b.r:'')+'</span></span>').join('');
+}
+
+function popupHtml(i){
+  const s = slice(), c = DATA.cells[i];
+  const isRain = variable==='rain';
+  const val  = isRain ? s.rain[i] : s.t2m[i];
+  const srcs = isRain ? [s.ma[i],s.mb[i],s.mc[i],s.md[i]] : [s.ta[i],s.tb[i],s.tc[i],s.td[i]];
+  const w    = [s.wa[i],s.wb[i],s.wc[i],s.wd[i]];
+  const keys = ['A','B','C','D'];
+  const maxS = Math.max(...srcs, 0.001);
+  const cat  = isRain ? binOf(val,RAIN_BINS) : binOf(val,TEMP_BINS);
+
+  const rows = keys.map((k,j)=>{
+    const meta = M.sources[j];
+    return '<div class="srcrow">'+
+      '<span class="swatch" style="background:'+SERIES[k]+'"></span>'+
+      '<span class="bar"><i style="width:'+(100*srcs[j]/maxS).toFixed(1)+'%;background:'+SERIES[k]+'"></i></span>'+
+      '<span class="num" style="text-align:right">'+srcs[j].toFixed(1)+'</span>'+
+      '<span class="num" style="text-align:right;color:var(--ink-3)">'+Math.round(100*w[j])+'%</span>'+
+      '</div>';
+  }).join('');
+
+  return '<div class="pop">'+
+    '<h4>Cell '+c.id+' · '+(isRain?'Rainfall':'2 m temperature')+'</h4>'+
+    '<p class="coords num">'+c.lat.toFixed(2)+'°N, '+c.lon.toFixed(2)+'°E · '+c.elev+' m · T+'+lead+'</p>'+
+    '<div class="big"><b class="num">'+val.toFixed(1)+'</b><span>'+(isRain?'mm':'°C')+' blended</span></div>'+
+    '<p class="cat"><span class="swatch" style="display:inline-block;background:'+cat.c+
+      ';margin-right:6px;vertical-align:1px"></span>'+cat.l+'</p>'+
+    '<div style="font-size:11px;color:var(--ink-3);margin-bottom:3px">Source · forecast · weight</div>'+
+    rows+
+    '<div class="foot"><span>Confidence '+s.conf[i].toFixed(0)+'%</span>'+
+    '<span>P(heavy) '+(100*s.pext[i]).toFixed(0)+'%</span></div>'+
+    '</div>';
+}
+
+document.getElementById('vRain').addEventListener('click',()=>setVar('rain'));
+document.getElementById('vTemp').addEventListener('click',()=>setVar('temp'));
+function setVar(v){
+  if(v===variable) return;
+  variable=v;
+  document.getElementById('vRain').setAttribute('aria-pressed', String(v==='rain'));
+  document.getElementById('vTemp').setAttribute('aria-pressed', String(v==='temp'));
+  map.closePopup();
+  paintMap(); paintAlerts();
+}
+
+/* ===================================================================== */
+/* weights — 100% stacked bars, one per lead                              */
+/* ===================================================================== */
+Chart.defaults.font.family = "'IBM Plex Sans Condensed','IBM Plex Sans',sans-serif";
+Chart.defaults.font.size = 12;
+Chart.defaults.color = INK3;
+
+const wctx = document.getElementById('cWeights');
+let weightChart;
+
+function weightRowsForRegime(reg){
+  return [1,2,3,4,5].map(L=>{
+    const r = DATA.weights.by_regime_lead.find(x=>x.regime===reg && x.lead_time===L);
+    return r || {w_a:.25,w_b:.25,w_c:.25,w_d:.25};
+  });
+}
+
+function paintWeights(){
+  const reg  = slice().regime;
+  const rows = weightRowsForRegime(reg);
+  const keys = ['a','b','c','d'];
+  const data = {
+    labels:[1,2,3,4,5].map(L=>'T+'+L),
+    datasets: keys.map((k,j)=>({
+      label: M.sources[j].key+' · '+M.sources[j].name,
+      data: rows.map(r=>100*r['w_'+k]),
+      backgroundColor: rows.map((_,i)=> (i+1)===lead
+        ? SERIES[keys[j].toUpperCase()]
+        : SERIES[keys[j].toUpperCase()]+'59'),
+      borderColor: SURFACE, borderWidth:2, borderSkipped:false,
+      borderRadius: j===3?{topRight:4,bottomRight:4}:(j===0?{topLeft:4,bottomLeft:4}:0)
+    }))
+  };
+  const opts = {
+    indexAxis:'y', responsive:true, maintainAspectRatio:false,
+    animation:{duration:320},
+    layout:{padding:{right:4}},
+    scales:{
+      x:{stacked:true, max:100, grid:{color:GRID, drawTicks:false},
+         border:{display:false}, ticks:{callback:v=>v+'%', color:INK3}},
+      y:{stacked:true, grid:{display:false}, border:{color:GRID},
+         ticks:{color:(c)=> (c.index+1)===lead ? '#eef4f8' : INK3,
+                font:{weight:(c)=>(c.index+1)===lead?'700':'500', size:13}}}
+    },
+    plugins:{
+      legend:{position:'bottom', labels:{boxWidth:9, boxHeight:9, padding:11,
+              usePointStyle:true, pointStyle:'rect', color:INK2, font:{size:11.5}}},
+      tooltip:{
+        backgroundColor:'#17222b', borderColor:GRID, borderWidth:1,
+        titleColor:'#eef4f8', bodyColor:INK2, padding:10, displayColors:true,
+        callbacks:{ label:c=> ' '+c.dataset.label+': '+c.parsed.x.toFixed(1)+'%' }
+      }
+    }
+  };
+  if(weightChart){ weightChart.data=data; weightChart.options=opts; weightChart.update(); }
+  else weightChart = new Chart(wctx,{type:'bar',data,options:opts});
+}
+
+/* ===================================================================== */
+/* skill — RMSE by lead time                                              */
+/* ===================================================================== */
+const sctx = document.getElementById('cSkill');
+let skillChart;
+
+/* a thin rule marking the lead the rail is sitting on, so the panels read
+   as one instrument rather than four unrelated charts */
+const leadMarker = {
+  id:'leadMarker',
+  beforeDatasetsDraw(chart){
+    const x = chart.scales.x.getPixelForValue(lead-1);
+    const {top,bottom} = chart.chartArea;
+    const g = chart.ctx;
+    g.save();
+    g.strokeStyle='rgba(238,244,248,.22)'; g.lineWidth=1;
+    g.beginPath(); g.moveTo(x,top); g.lineTo(x,bottom); g.stroke();
+    g.restore();
+  }
+};
+
+function paintSkill(){
+  const rows = DATA.metrics.by_lead.slice().sort((a,b)=>a.lead_time-b.lead_time);
+  const mk = (label,key,color,width,dash)=>({
+    label, data: rows.map(r=>r[key]), borderColor:color, backgroundColor:color,
+    borderWidth:width, borderDash:dash||[], tension:.32,
+    pointRadius: rows.map(r=>r.lead_time===lead?5.5:3.5),
+    pointHoverRadius:7, pointBackgroundColor:color,
+    pointBorderColor:SURFACE, pointBorderWidth:2
+  });
+  const data = {
+    labels: rows.map(r=>'T+'+r.lead_time),
+    datasets:[
+      mk('Blended (ours)','blend',BLEND,3),
+      mk('A · Physics NWP','model_a',SERIES.A,2),
+      mk('B · AI / ML','model_b',SERIES.B,2),
+      mk('C · Ensemble mean','model_c',SERIES.C,2),
+      mk('D · Persistence','model_d',SERIES.D,2,[5,4])
+    ]
+  };
+  const opts = {
+    responsive:true, maintainAspectRatio:false, animation:{duration:320},
+    interaction:{mode:'index', intersect:false},
+    layout:{padding:{right:74,top:6}},
+    scales:{
+      y:{ title:{display:true,text:'RMSE  (mm / day)',color:INK3,font:{size:11.5}},
+          grid:{color:GRID,drawTicks:false}, border:{display:false},
+          ticks:{color:INK3}, beginAtZero:true },
+      x:{ grid:{display:false}, border:{color:GRID},
+          ticks:{color:(c)=>(c.index+1)===lead?'#eef4f8':INK3,
+                 font:{weight:(c)=>(c.index+1)===lead?'700':'500',size:13}} }
+    },
+    plugins:{
+      legend:{position:'bottom', labels:{boxWidth:22, boxHeight:2, padding:13,
+              color:INK2, font:{size:11.5}}},
+      tooltip:{backgroundColor:'#17222b',borderColor:GRID,borderWidth:1,
+               titleColor:'#eef4f8',bodyColor:INK2,padding:10,
+               callbacks:{label:c=>' '+c.dataset.label+': '+c.parsed.y.toFixed(2)+' mm'}}
+    }
+  };
+  /* direct labels at the line ends — identity never rests on colour alone */
+  const endLabels = {
+    id:'endLabels',
+    afterDatasetsDraw(chart){
+      const g = chart.ctx; g.save();
+      g.font = "600 11.5px 'IBM Plex Sans Condensed',sans-serif";
+      g.textBaseline='middle';
+
+      /* Sources can finish within a few hundredths of a mm of each other
+         (B and C at T+5 differ by 0.02), so the labels would sit on top of
+         one another and one would simply vanish. Lay them out top-down and
+         push any overlap apart by the line height. */
+      const GAP = 13;
+      const items = chart.data.datasets.map((ds,i)=>{
+        const meta = chart.getDatasetMeta(i);
+        const last = meta.data[meta.data.length-1];
+        return last ? {y:last.y, x:last.x, text:ds.label.split(' ')[0], c:ds.borderColor} : null;
+      }).filter(Boolean).sort((a,b)=>a.y-b.y);
+
+      for(let i=1;i<items.length;i++){
+        if(items[i].y - items[i-1].y < GAP) items[i].y = items[i-1].y + GAP;
+      }
+      const overflow = items.length && items[items.length-1].y - chart.chartArea.bottom;
+      if(overflow > 0) items.forEach(it => it.y -= overflow);
+
+      items.forEach(it=>{ g.fillStyle = it.c; g.fillText(it.text, it.x+10, it.y); });
+      g.restore();
+    }
+  };
+  if(skillChart){ skillChart.data=data; skillChart.options=opts; skillChart.update(); }
+  else skillChart = new Chart(sctx,{type:'line',data,options:opts,plugins:[leadMarker,endLabels]});
+  paintTable(rows);
+}
+
+function paintTable(rows){
+  const el = document.getElementById('tblWrap');
+  el.innerHTML =
+   '<table class="dt num"><caption style="text-align:left;color:var(--ink-3);font-size:11.5px;'+
+   'padding:6px 0 8px">Out-of-sample RMSE in mm per day, by lead time.</caption>'+
+   '<thead><tr><th>Lead</th><th>A</th><th>B</th><th>C</th><th>D</th>'+
+   '<th>Blended</th><th>Skill</th></tr></thead><tbody>'+
+   rows.map(r=>'<tr class="'+(r.lead_time===lead?'hl':'')+'"><td>T+'+r.lead_time+'</td>'+
+     ['model_a','model_b','model_c','model_d'].map(k=>'<td>'+r[k].toFixed(2)+'</td>').join('')+
+     '<td>'+r.blend.toFixed(2)+'</td><td>'+r.skill_blend.toFixed(3)+'</td></tr>').join('')+
+   '</tbody></table>';
+}
+const tblBtn = document.getElementById('tblBtn');
+tblBtn.addEventListener('click',()=>{
+  const w = document.getElementById('tblWrap');
+  const open = w.hasAttribute('hidden');
+  if(open){ w.removeAttribute('hidden'); } else { w.setAttribute('hidden',''); }
+  tblBtn.setAttribute('aria-expanded', String(open));
+  tblBtn.textContent = open ? 'Hide the numbers' : 'Show the numbers';
+});
+
+/* ===================================================================== */
+/* alerts                                                                 */
+/* ===================================================================== */
+const ICON = {
+  rain:'<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 15.5a4.5 4.5 0 0 1 .5-8.97A5.5 5.5 0 0 1 18 7.5a3.5 3.5 0 0 1 .5 6.96"/><path d="M8 18.5 7 21M12 18.5 11 21M16 18.5 15 21"/></svg>',
+  heat:'<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3.6"/><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6"/></svg>'
+};
+
+function paintAlerts(){
+  const s = slice(), box = document.getElementById('alerts');
+  const isRain = variable==='rain';
+  document.getElementById('alertTitle').textContent = isRain ? 'Heavy rainfall watch' : 'Heat stress watch';
+  document.getElementById('alertWhy').textContent = isRain
+    ? 'Cells where the classifier puts P(≥'+M.extreme_mm+' mm) above 25%, at T+'+lead+'.'
+    : 'Cells running 1.5 °C or more above their seasonal normal at T+'+lead+
+      '. Break spells are when this bites.';
+
+  let items = [];
+  if(isRain){
+    DATA.cells.forEach((c,i)=>{
+      const p = s.pext[i];
+      /* rank on probability first, then on how much rain is actually coming -
+         in a full active spell dozens of cells sit at p≈1 and the amount is
+         what separates them */
+      if(p >= 0.25) items.push({i, c, score: p*1000 + s.rain[i],
+        sev: p>=0.65?'critical' : p>=0.45?'serious' : 'warning',
+        ttl: s.rain[i].toFixed(0)+' mm expected',
+        sub: binOf(s.rain[i],RAIN_BINS).l+' · confidence '+s.conf[i].toFixed(0)+'%',
+        pct: p>=0.995 ? '>99%' : Math.round(100*p)+'%', pctl:'P(heavy)'});
+    });
+  }else{
+    /* Inside a monsoon window an absolute heatwave cut is the wrong
+       instrument - monsoon air is cool and saturated. The heat signal that
+       matters is the BREAK-SPELL warm anomaly: when the trough shifts and
+       skies clear, cells run several degrees above their local normal. */
+    DATA.cells.forEach((c,i)=>{
+      const t = s.t2m[i], nrm = s.ct2m[i], an = t - nrm;
+      if(an >= 1.5 || t >= M.heat_c) items.push({i, c, score: an,
+        sev: (an>=3 || t>=M.heat_c) ? 'critical' : an>=2.2 ? 'serious' : 'warning',
+        ttl: t.toFixed(1)+' °C, normal is '+nrm.toFixed(1)+' °C',
+        sub: 'Cell sits '+an.toFixed(1)+' °C above its seasonal mean · '+c.elev+' m',
+        pct: (an>=0?'+':'')+an.toFixed(1)+'°', pctl:'vs normal'});
+    });
+  }
+  items.sort((a,b)=>b.score-a.score);
+  const shown = items.slice(0,40);
+
+  if(!shown.length){
+    box.innerHTML = '<p class="empty">Nothing above threshold at T+'+lead+
+      '.<br>Move the horizon rail or pick another run.</p>';
+    return;
+  }
+  box.innerHTML = shown.map(it=>
+    '<button class="alert sev-'+it.sev+'" data-i="'+it.i+'">'+
+      '<span style="color:var(--'+it.sev+')">'+(isRain?ICON.rain:ICON.heat)+'</span>'+
+      '<span><span class="ttl">'+it.ttl+'</span>'+
+      '<span class="sub">Cell '+it.c.id+' · '+it.c.lat.toFixed(1)+'°N '+it.c.lon.toFixed(1)+'°E · '+it.sub+'</span></span>'+
+      '<span><span class="pct num">'+it.pct+'</span><span class="pctl">'+it.pctl+'</span></span>'+
+    '</button>').join('') +
+    (items.length>40 ? '<p class="empty" style="padding:12px">'+(items.length-40)+' more cells above threshold</p>' : '');
+
+  box.querySelectorAll('.alert').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const i = +b.dataset.i, c = DATA.cells[i];
+      map.setView([c.lat,c.lon], Math.max(map.getZoom(),8));
+      rects[i].bindPopup(popupHtml(i),{maxWidth:300}).openPopup();
+    });
+  });
+}
+
+/* ===================================================================== */
+/* reliability matrix                                                     */
+/* ===================================================================== */
+function paintMatrix(){
+  const el = document.getElementById('matrix');
+  const regs = [['active','Active'],['normal','Normal'],['break','Break']];
+  let html = '<div></div>' + [1,2,3,4,5].map(L=>'<div class="hd">T+'+L+'</div>').join('');
+  regs.forEach(([key,label])=>{
+    html += '<div class="rh">'+label+'</div>';
+    for(let L=1;L<=5;L++){
+      const r = DATA.weights.by_regime_lead.find(x=>x.regime===key && x.lead_time===L);
+      const dom = r.dominant_model, w = r.dominant_weight;
+      /* tint depth tracks decisiveness: 0.25 (a four-way tie) -> 0.70 */
+      const a = Math.max(.10, Math.min(.62, (w-0.22)*1.35));
+      const on = (L===lead && key===slice().regime);
+      html += '<div class="cellm'+(on?' on':'')+'" style="background:'+hexA(SERIES[dom],a)+'">'+
+              '<b style="color:'+SERIES[dom]+'">'+dom+'</b>'+
+              '<span class="num">'+Math.round(100*w)+'%</span></div>';
+    }
+  });
+  el.innerHTML = html;
+
+  document.getElementById('matLegend').innerHTML = M.sources.map(s=>
+    '<span style="display:inline-flex;align-items:center;gap:6px">'+
+    '<span style="width:9px;height:9px;border-radius:2px;background:'+SERIES[s.key]+'"></span>'+
+    s.key+' · '+s.name+'</span>').join('');
+}
+function hexA(hex,a){
+  const n = parseInt(hex.slice(1),16);
+  return 'rgba('+(n>>16&255)+','+(n>>8&255)+','+(n&255)+','+a.toFixed(3)+')';
+}
+
+/* ===================================================================== */
+/* classifier readout + boot                                              */
+/* ===================================================================== */
+(function(){
+  const h = DATA.metrics.classifier_headline;
+  document.getElementById('kAuc').textContent = h.auc.toFixed(3);
+  document.getElementById('kAucSub').textContent =
+    'Precision '+(100*clf50.precision).toFixed(0)+'% · recall '+
+    (100*clf50.recall).toFixed(0)+'% at p≥0.40';
+})();
+
+buildRail(); paintRunMeta(); paintMap(); paintWeights(); paintAlerts(); paintSkill(); paintMatrix();
+setTimeout(()=>map.invalidateSize(), 60);
+window.addEventListener('resize', ()=>map.invalidateSize());
+</script>
+</body>
+</html>
