@@ -721,6 +721,11 @@ const clf50 = DATA.metrics.classifier.find(r=>Math.abs(r.threshold-0.4)<1e-6) ||
 
 document.getElementById('mRegion').textContent = M.region.split(',')[0];
 document.getElementById('fNcells').textContent = M.n_cells;
+(function(){
+  const t = document.getElementById('teamLine');
+  if (t && M.team) t.innerHTML = '<br>Built by <b style="color:var(--ink-2)">' + M.team +
+    '</b>' + (M.institute ? ', ' + M.institute : '') + '.';
+})();
 document.getElementById('fRegion').textContent = M.region;
 document.getElementById('fSeason').textContent = M.season;
 

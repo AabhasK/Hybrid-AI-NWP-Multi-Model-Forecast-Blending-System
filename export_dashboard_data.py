@@ -23,6 +23,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+import config
 from sklearn.metrics import average_precision_score, brier_score_loss, roc_auc_score
 
 ROOT = Path(__file__).parent
@@ -261,6 +263,8 @@ def main():
     payload = {
         "geo": geo,
         "meta": {
+            "team": config.TEAM_NAME,
+            "institute": config.TEAM_INSTITUTE,
             "region": "India" if USE_LIVE else "Maharashtra, India",
             # the map frames itself on this; it must follow the actual grid
             "bbox": (geo.get("bbox") or [6.5, 68.0, 37.5, 97.5]) if USE_LIVE
