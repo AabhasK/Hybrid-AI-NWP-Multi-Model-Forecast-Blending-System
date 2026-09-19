@@ -238,11 +238,15 @@ def main():
     if places_f.exists():
         geo["places"] = json.loads(places_f.read_text())
 
-    grid_f = DATA / "grid_cells.json"
-    if grid_f.exists():
-        g = json.loads(grid_f.read_text())
-        geo["bbox"] = g["bbox"]
-        geo["grid_deg"] = g["grid_deg"]
+    # cell size must describe the grid the FORECAST is on, not the coarser
+    # grid the weights were trained on
+    for name in ("grid_cells_live.json", "grid_cells.json"):
+        gf = DATA / name
+        if gf.exists():
+            g = json.loads(gf.read_text())
+            geo["bbox"] = g["bbox"]
+            geo["grid_deg"] = g["grid_deg"]
+            break
 
     # per-cell dominant source. On the live national grid the trained per-cell
     # weights do not exist yet (that needs the national archive), so each cell
@@ -253,9 +257,12 @@ def main():
             sl = runs[default_run].get(str(lead))
             if not sl:
                 continue
-            per = [[sl["w" + m][i] for m in BLEND] for i in range(len(order))]
-            doms = [BLEND[int(np.argmax(w))].upper() for w in per]
-            domw = [round(float(max(w)), 3) for w in per]
+            # a live run carries one weight vector per lead, shared by every
+            # cell, so the dominant source is the same everywhere at that lead
+            w = [float(sl["w"][m]) for m in BLEND]
+            dom = BLEND[int(np.argmax(w))].upper()
+            doms = [dom] * len(order)
+            domw = [round(float(max(w)), 3)] * len(order)
         else:
             doms = [wlook[(c, lead)].dominant_model for c in order]
             domw = [round(float(wlook[(c, lead)].dominant_weight), 3) for c in order]
