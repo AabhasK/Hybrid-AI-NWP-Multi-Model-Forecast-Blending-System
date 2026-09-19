@@ -26,11 +26,15 @@
   --ink-2:      #9fb2c0;
   --ink-3:      #6e8494;
 
-  /* --- categorical series: validated for CVD on #121a21 (worst adj dE 9.4) */
-  --m-a: #3987e5;   /* Physics NWP    */
-  --m-b: #d95926;   /* AI / ML        */
-  --m-c: #199e70;   /* Ensemble mean  */
-  --m-d: #9085e9;   /* Persistence    */
+  /* --- categorical series: validated for CVD on #121a21 (worst adj dE 9.4).
+         Five blend members; persistence is a reference, not a series, so it
+         takes a deliberately recessive slate rather than a sixth hue. */
+  --m-a: #3987e5;   /* ECMWF IFS   */
+  --m-b: #d95926;   /* ECMWF AIFS  */
+  --m-c: #199e70;   /* NOAA GFS    */
+  --m-d: #9085e9;   /* DWD ICON    */
+  --m-e: #c98500;   /* EC GEM      */
+  --m-f: #64788c;   /* Persistence */
   --blend: #ffffff; /* the answer, not a peer series */
 
   /* --- status (fixed, never themed; always paired with icon + label) ------ */
@@ -232,7 +236,9 @@ body{
 .pop .big b{font-family:"IBM Plex Sans Condensed",sans-serif;font-size:31px;font-weight:600;line-height:1}
 .pop .big span{color:var(--ink-2);font-size:12.5px}
 .pop .cat{font-size:12px;margin-bottom:11px}
-.pop .srcrow{display:grid;grid-template-columns:13px 1fr 46px 38px;align-items:center;gap:7px;margin:5px 0;font-size:12px}
+.pop .srcrow{display:grid;grid-template-columns:11px 52px 1fr 40px 34px;align-items:center;gap:6px;margin:4px 0;font-size:11.5px}
+.pop .srcrow .nm{color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pop{width:292px}
 .pop .swatch{width:9px;height:9px;border-radius:2px}
 .pop .bar{height:5px;background:var(--rule-soft);position:relative;border-radius:3px;overflow:hidden}
 .pop .bar i{position:absolute;left:0;top:0;bottom:0;border-radius:3px}
@@ -479,8 +485,15 @@ const DATA = {"meta":{"region":"Maharashtra, India","bbox":[16.0,73.0,21.0,78.0]
 /* ===================================================================== */
 /* palette + scales                                                       */
 /* ===================================================================== */
-const SERIES = {A:'#3987e5', B:'#d95926', C:'#199e70', D:'#9085e9'};
+const SERIES = {A:'#3987e5', B:'#d95926', C:'#199e70', D:'#9085e9',
+                E:'#c98500', F:'#64788c'};
 const BLEND  = '#ffffff';
+/* keys of the sources that actually carry blend weight, in display order */
+const KEYS  = DATA.meta.sources.filter(s => s.blend !== false).map(s => s.key);
+const ALLK  = DATA.meta.sources.map(s => s.key);
+const NAMEOF = Object.fromEntries(DATA.meta.sources.map(s => [s.key, s.name]));
+const lc = k => k.toLowerCase();
+const SHORT = k => NAMEOF[k].split(' ').pop();
 const INK2   = '#9fb2c0', INK3 = '#6e8494';
 const GRID   = '#22303b', SURFACE = '#121a21';
 
@@ -952,8 +965,8 @@ function paintLegend(){
 function showInspector(i){
   const s = slice(), c = DATA.cells[i], isRain = variable === 'rain';
   const val = isRain ? s.rain[i] : s.t2m[i];
-  const w = [s.wa[i],s.wb[i],s.wc[i],s.wd[i]];
-  const keys = ['A','B','C','D'];
+  const keys = KEYS;
+  const w = keys.map(k => s['w'+lc(k)][i]);
   const cat = binOf(val, isRain ? RAIN_BINS : TEMP_BINS);
   const el = document.getElementById('inspector');
   el.innerHTML =
@@ -994,18 +1007,21 @@ function popupHtml(i){
   const s = slice(), c = DATA.cells[i];
   const isRain = variable === 'rain';
   const val  = isRain ? s.rain[i] : s.t2m[i];
-  const srcs = isRain ? [s.ma[i],s.mb[i],s.mc[i],s.md[i]] : [s.ta[i],s.tb[i],s.tc[i],s.td[i]];
-  const w    = [s.wa[i],s.wb[i],s.wc[i],s.wd[i]];
-  const keys = ['A','B','C','D'];
+  const keys = ALLK;
+  const srcs = keys.map(k => s[(isRain ? 'm' : 't') + lc(k)][i]);
+  /* persistence has no weight - it is the reference, not a member */
+  const w    = keys.map(k => s['w'+lc(k)] ? s['w'+lc(k)][i] : null);
   const maxS = Math.max(Math.max.apply(null, srcs), 0.001);
   const cat  = binOf(val, isRain ? RAIN_BINS : TEMP_BINS);
 
   const rows = keys.map(function(k,j){
     return '<div class="srcrow">'+
       '<span class="swatch" style="background:'+SERIES[k]+'"></span>'+
+      '<span class="nm">'+SHORT(k)+'</span>'+
       '<span class="bar"><i style="width:'+(100*srcs[j]/maxS).toFixed(1)+'%;background:'+SERIES[k]+'"></i></span>'+
       '<span class="num" style="text-align:right">'+srcs[j].toFixed(1)+'</span>'+
-      '<span class="num" style="text-align:right;color:var(--ink-3)">'+Math.round(100*w[j])+'%</span>'+
+      '<span class="num" style="text-align:right;color:var(--ink-3)">'+
+        (w[j] === null ? '—' : Math.round(100*w[j])+'%')+'</span>'+
     '</div>'; }).join('');
 
   return '<div class="pop">'+
@@ -1016,7 +1032,7 @@ function popupHtml(i){
     '<p class="cat"><span class="swatch" style="display:inline-block;background:'+cat.c+
       ';margin-right:6px;vertical-align:1px"></span>'+cat.l+'</p>'+
     '<div class="srcrow" style="font-size:10.5px;color:var(--ink-3);margin-bottom:2px">'+
-      '<span></span><span>Source</span>'+
+      '<span></span><span>Source</span><span></span>'+
       '<span style="text-align:right">'+(isRain?'mm':'°C')+'</span>'+
       '<span style="text-align:right">weight</span></div>'+
     rows+
@@ -1072,26 +1088,24 @@ const wctx = document.getElementById('cWeights');
 let weightChart;
 
 function weightRowsForRegime(reg){
-  return [1,2,3,4,5].map(L=>{
-    const r = DATA.weights.by_regime_lead.find(x=>x.regime===reg && x.lead_time===L);
-    return r || {w_a:.25,w_b:.25,w_c:.25,w_d:.25};
-  });
+  const even = {};
+  KEYS.forEach(k => { even['w_'+lc(k)] = 1 / KEYS.length; });
+  return [1,2,3,4,5].map(L=>
+    DATA.weights.by_regime_lead.find(x=>x.regime===reg && x.lead_time===L) || even);
 }
 
 function paintWeights(){
   const reg  = slice().regime;
   const rows = weightRowsForRegime(reg);
-  const keys = ['a','b','c','d'];
+  const last = KEYS.length - 1;
   const data = {
     labels:[1,2,3,4,5].map(L=>'T+'+L),
-    datasets: keys.map((k,j)=>({
-      label: M.sources[j].name,
-      data: rows.map(r=>100*r['w_'+k]),
-      backgroundColor: rows.map((_,i)=> (i+1)===lead
-        ? SERIES[keys[j].toUpperCase()]
-        : SERIES[keys[j].toUpperCase()]+'59'),
+    datasets: KEYS.map((k,j)=>({
+      label: NAMEOF[k],
+      data: rows.map(r=>100*(r['w_'+lc(k)] || 0)),
+      backgroundColor: rows.map((_,i)=> (i+1)===lead ? SERIES[k] : SERIES[k]+'59'),
       borderColor: SURFACE, borderWidth:2, borderSkipped:false,
-      borderRadius: j===3?{topRight:4,bottomRight:4}:(j===0?{topLeft:4,bottomLeft:4}:0)
+      borderRadius: j===last?{topRight:4,bottomRight:4}:(j===0?{topLeft:4,bottomLeft:4}:0)
     }))
   };
   const opts = {
@@ -1151,13 +1165,10 @@ function paintSkill(){
   });
   const data = {
     labels: rows.map(r=>'T+'+r.lead_time),
-    datasets:[
-      mk('Blended (ours)','blend',BLEND,3),
-      mk('A  Physics NWP','model_a',SERIES.A,2),
-      mk('B  AI / ML','model_b',SERIES.B,2),
-      mk('C  Ensemble mean','model_c',SERIES.C,2),
-      mk('D  Persistence','model_d',SERIES.D,2,[5,4])
-    ]
+    datasets:[mk('Blended (ours)','blend',BLEND,3)].concat(
+      ALLK.filter(k => rows[0]['model_'+lc(k)] !== undefined)
+          .map(k => mk(SHORT(k), 'model_'+lc(k), SERIES[k], 2,
+                       KEYS.indexOf(k) === -1 ? [5,4] : null)))
   };
   const opts = {
     responsive:true, maintainAspectRatio:false, animation:{duration:320},
@@ -1218,10 +1229,12 @@ function paintTable(rows){
   el.innerHTML =
    '<table class="dt num"><caption style="text-align:left;color:var(--ink-3);font-size:11.5px;'+
    'padding:6px 0 8px">Out-of-sample RMSE in mm per day, by lead time.</caption>'+
-   '<thead><tr><th>Lead</th><th>A</th><th>B</th><th>C</th><th>D</th>'+
+   '<thead><tr><th>Lead</th>'+
+   ALLK.filter(k=>rows[0]['model_'+lc(k)]!==undefined).map(k=>'<th>'+SHORT(k)+'</th>').join('')+
    '<th>Blended</th><th>Skill</th></tr></thead><tbody>'+
    rows.map(r=>'<tr class="'+(r.lead_time===lead?'hl':'')+'"><td>T+'+r.lead_time+'</td>'+
-     ['model_a','model_b','model_c','model_d'].map(k=>'<td>'+r[k].toFixed(2)+'</td>').join('')+
+     ALLK.filter(k=>r['model_'+lc(k)]!==undefined)
+         .map(k=>'<td>'+r['model_'+lc(k)].toFixed(2)+'</td>').join('')+
      '<td>'+r.blend.toFixed(2)+'</td><td>'+r.skill_blend.toFixed(3)+'</td></tr>').join('')+
    '</tbody></table>';
 }
@@ -1324,7 +1337,7 @@ function paintMatrix(){
   });
   el.innerHTML = html;
 
-  document.getElementById('matLegend').innerHTML = M.sources.map(s=>
+  document.getElementById('matLegend').innerHTML = M.sources.filter(x=>x.blend!==false).map(s=>
     '<span style="display:inline-flex;align-items:center;gap:6px">'+
     '<span style="width:9px;height:9px;border-radius:2px;background:'+SERIES[s.key]+'"></span>'+
     s.name+'</span>').join('');
@@ -1349,11 +1362,10 @@ function paintScore(){
     .slice().sort((a, b) => a.rmse - b.rmse);
   const worst = Math.max(...rows.map(r => r.rmse));
 
-  const colourFor = src => {
+  const colourFor = (src, keyOf) => {
     if (/BLENDED/.test(src)) return BLEND;
     if (/Equal-weight/.test(src)) return '#5b7186';
-    const k = (src.match(/^(?:Model\s+)?([A-F])(?![A-Za-z])/) || [])[1];
-    return SERIES[k] || '#5b7186';
+    return SERIES[keyOf] || '#5b7186';
   };
   const nameFor = src => src
     .replace('BLENDED (ours)', 'Blend (ours)')
@@ -1365,7 +1377,7 @@ function paintScore(){
     return '<div class="scorerow'+(ours ? ' ours' : '')+'">'+
       '<span class="nm">'+nameFor(r.source)+'</span>'+
       '<span class="tr"><i style="width:'+(100*r.rmse/worst).toFixed(1)+
-        '%;background:'+colourFor(r.source)+'"></i></span>'+
+        '%;background:'+colourFor(r.source, r.key)+'"></i></span>'+
       '<span class="vl num">'+r.rmse.toFixed(2)+'</span></div>';
   }).join('');
 

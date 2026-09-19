@@ -55,10 +55,11 @@ LAT_MIN, LAT_MAX = 16.0, 21.0
 LON_MIN, LON_MAX = 73.0, 78.0
 STEP = 0.5
 
-# A full year is available and 4x the data matters more than anything else
-# here: with only 88 days the fitted blend weights were no better than a plain
-# equal-weight average, because there was not enough signal to estimate them.
-PAST_DAYS = 365
+# Open-Meteo prices a request by locations x variables x days, so a full year
+# across five models exhausts the hourly quota. 180 days still doubles the
+# independent sample versus the original 88, which is what the blend weights
+# were short of. Cached longer windows are reused rather than refetched.
+PAST_DAYS = 180
 LEADS = [1, 2, 3, 4, 5]
 EXTREME_MM = 40.0
 ACTIVE_Z, BREAK_Z = 0.50, -0.50
@@ -96,11 +97,29 @@ def build_grid():
     return [(float(a), float(o)) for a in lats for o in lons]
 
 
-def fetch(url, tries=4, timeout=180):
+def seconds_to_next_hour():
+    now = time.gmtime()
+    return (60 - now.tm_min) * 60 - now.tm_sec + 90   # +90s of slack
+
+
+def fetch(url, tries=5, timeout=180):
     for a in range(tries):
         try:
             with urllib.request.urlopen(url, timeout=timeout) as r:
                 return json.load(r)
+        except urllib.error.HTTPError as exc:
+            if exc.code == 429:
+                # The hourly quota resets on the hour, so waiting it out is the
+                # correct move - failing the whole run would throw away every
+                # request already paid for.
+                wait = seconds_to_next_hour()
+                print("  [hourly API quota reached; waiting %d min for reset]"
+                      % (wait // 60), flush=True)
+                time.sleep(wait)
+                continue
+            if a == tries - 1:
+                raise
+            time.sleep(4 * (a + 1))
         except Exception as exc:
             if a == tries - 1:
                 raise
@@ -132,6 +151,14 @@ def fetch_model_block(model, cells, var, leads, batch_id):
     key = CACHE / ("%s_%s_%dd_b%03d.json" % (model, var, PAST_DAYS, batch_id))
     if key.exists():
         return json.loads(key.read_text())
+    # a previously cached LONGER window already contains this one
+    for other in sorted(CACHE.glob("%s_%s_*d_b%03d.json" % (model, var, batch_id))):
+        try:
+            days = int(other.name.split("_")[-2].rstrip("d"))
+        except ValueError:
+            continue
+        if days >= PAST_DAYS:
+            return json.loads(other.read_text())
     payload = fetch(url)
     if not isinstance(payload, list):
         payload = [payload]

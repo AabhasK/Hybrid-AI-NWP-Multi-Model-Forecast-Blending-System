@@ -28,12 +28,17 @@ from sklearn.metrics import average_precision_score, brier_score_loss, roc_auc_s
 ROOT = Path(__file__).parent
 DATA = ROOT / "data"
 
-SOURCES = ["a", "b", "c", "d"]
+# Five real forecasting centres enter the blend; persistence is the skill
+# reference and carries no weight, so it is listed but flagged.
+SOURCES = ["a", "b", "c", "d", "e", "f"]
+BLEND = ["a", "b", "c", "d", "e"]
 SOURCE_META = [
-    {"key": "A", "name": "Physics NWP", "sub": "IFS/GFS-class dynamical model"},
-    {"key": "B", "name": "AI / ML Model", "sub": "GraphCast/Pangu-class data-driven"},
-    {"key": "C", "name": "Ensemble Mean", "sub": "Multi-member ensemble average"},
-    {"key": "D", "name": "Persistence", "sub": "Naive baseline / lower bound"},
+    {"key": "A", "name": "ECMWF IFS", "sub": "Physics NWP, ECMWF", "blend": True},
+    {"key": "B", "name": "ECMWF AIFS", "sub": "AI model, ECMWF", "blend": True},
+    {"key": "C", "name": "NOAA GFS", "sub": "Physics NWP, NOAA", "blend": True},
+    {"key": "D", "name": "DWD ICON", "sub": "Physics NWP, DWD", "blend": True},
+    {"key": "E", "name": "EC GEM", "sub": "Physics NWP, Env. Canada", "blend": True},
+    {"key": "F", "name": "Persistence", "sub": "Skill reference, not blended", "blend": False},
 ]
 N_ISSUE_DATES = 12
 EXTREME_MM = 40.0
@@ -105,12 +110,13 @@ def main():
             if g.blend_rain.isna().any():
                 continue
 
-            wa, wb, wc, wd = [], [], [], []
+            weights = {m: [] for m in BLEND}
             for c in order:
                 w = wlook.get((c, lead))
-                wa.append(w.w_a); wb.append(w.w_b); wc.append(w.w_c); wd.append(w.w_d)
+                for m in BLEND:
+                    weights[m].append(getattr(w, "w_%s" % m))
 
-            by_lead[str(lead)] = {
+            slice_ = {
                 "valid": valid_date.strftime("%Y-%m-%d"),
                 "regime": str(g.regime.iloc[0]),
                 "rain": r1(g.blend_rain),
@@ -119,12 +125,13 @@ def main():
                 "truth": r1(g.truth_rain),
                 "conf": r1(g.confidence),
                 "pext": r3(g.prob_extreme),
-                "ma": r1(g.model_a_rain), "mb": r1(g.model_b_rain),
-                "mc": r1(g.model_c_rain), "md": r1(g.model_d_rain),
-                "ta": r1(g.model_a_t2m), "tb": r1(g.model_b_t2m),
-                "tc": r1(g.model_c_t2m), "td": r1(g.model_d_t2m),
-                "wa": r3(wa), "wb": r3(wb), "wc": r3(wc), "wd": r3(wd),
             }
+            for m in SOURCES:
+                slice_["m" + m] = r1(g["model_%s_rain" % m])
+                slice_["t" + m] = r1(g["model_%s_t2m" % m])
+            for m in BLEND:
+                slice_["w" + m] = r3(weights[m])
+            by_lead[str(lead)] = slice_
         if len(by_lead) == 5:
             runs[key] = by_lead
             print("  %s  regime=%-7s  T+1 valid %s"
@@ -139,11 +146,12 @@ def main():
     imp = pd.read_csv(DATA / "feature_importance.csv", index_col=0)
 
     # ---- dominant-source share per lead (the reliability headline) --------
+    keys = [m.upper() for m in BLEND]
     share = (wmap.groupby(["lead_time", "dominant_model"]).size().unstack(fill_value=0))
-    for m in ["A", "B", "C", "D"]:
+    for m in keys:
         if m not in share.columns:
             share[m] = 0
-    share = share[["A", "B", "C", "D"]]
+    share = share[keys]
     share_pct = (100 * share.div(share.sum(axis=1), axis=0)).round(1)
 
     # ---- empirical P(heavy | blended amount), for the live panel ----------
@@ -187,9 +195,12 @@ def main():
         "issue_dates": list(runs.keys()),
         "runs": runs,
         "metrics": {
+            # `key` is carried explicitly so the dashboard can colour a row by
+            # its source rather than parsing a letter out of a display string
             "overall": [
                 {"source": r.source, "rmse": round(r.rmse, 3),
-                 "mae": round(r.mae, 3), "skill": round(r.skill, 3)}
+                 "mae": round(r.mae, 3), "skill": round(r.skill, 3),
+                 "key": (r.source.strip()[0] if r.source.strip()[0] in "ABCDEF" else None)}
                 for r in overall.itertuples(index=False)
             ],
             "by_lead": by_lead_m.round(3).to_dict(orient="records"),
@@ -210,7 +221,7 @@ def main():
         "weights": {
             "by_regime_lead": wreg.round(3).to_dict(orient="records"),
             "dominant_share": {
-                str(int(lead)): {m: float(share_pct.loc[lead, m]) for m in ["A", "B", "C", "D"]}
+                str(int(lead)): {m: float(share_pct.loc[lead, m]) for m in keys}
                 for lead in share_pct.index
             },
             "cell_lead": {
