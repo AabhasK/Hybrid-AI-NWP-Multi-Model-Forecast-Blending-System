@@ -231,6 +231,10 @@ def main():
     mask_f = DATA / "india_mask.json"
     if mask_f.exists():
         geo["mask"] = json.loads(mask_f.read_text())
+    places_f = DATA / "places.json"
+    if places_f.exists():
+        geo["places"] = json.loads(places_f.read_text())
+
     grid_f = DATA / "grid_cells.json"
     if grid_f.exists():
         g = json.loads(grid_f.read_text())

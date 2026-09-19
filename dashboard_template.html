@@ -142,6 +142,39 @@ body{
 .stn:hover .knob{border-color:var(--ink-3)}
 
 /* ====================== panels ========================================= */
+/* ====================== place finder ================================== */
+.finder{position:relative;display:flex;align-items:center;gap:8px;
+  background:var(--raised);border:1px solid var(--rule);border-radius:3px;
+  padding:0 10px;min-width:272px}
+.finder svg{width:14px;height:14px;color:var(--ink-3);flex:none}
+.finder input{
+  background:none;border:0;outline:none;color:var(--ink);flex:1;
+  font-family:"IBM Plex Sans",sans-serif;font-size:13px;padding:7px 0;
+}
+.finder input::placeholder{color:var(--ink-3)}
+.finder button{background:none;border:0;color:var(--ink-3);cursor:pointer;
+  font-size:17px;line-height:1;padding:0 2px}
+.finder button:hover{color:var(--ink)}
+#placeResults{
+  position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:40;margin:0;
+  padding:4px;list-style:none;max-height:320px;overflow-y:auto;
+  background:var(--raised);border:1px solid var(--rule);border-radius:3px;
+  box-shadow:0 14px 40px rgba(0,0,0,.6);
+}
+#placeResults li{
+  padding:7px 10px;border-radius:2px;cursor:pointer;display:flex;
+  align-items:baseline;gap:8px;font-size:13px;
+}
+#placeResults li .sub{color:var(--ink-3);font-size:11.5px;margin-left:auto}
+#placeResults li[aria-selected="true"]{background:var(--rule)}
+#placeResults li:hover{background:var(--rule-soft)}
+#placeResults .none{color:var(--ink-3);cursor:default;font-size:12.5px}
+.areachip{
+  display:inline-flex;align-items:center;gap:7px;margin-left:10px;
+  padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;
+  background:#132433;border:1px solid #27455f;color:#bcd8ef;
+}
+
 /* ====================== tabs ========================================== */
 .tabs{
   display:flex;gap:2px;margin-top:20px;border-bottom:1px solid var(--rule);
@@ -402,7 +435,17 @@ table.dt tr.hl td{color:#fff;font-weight:600}
     <div class="rail-head">
       <h2>Forecast horizon</h2>
       <span>One run, walked out day by day. Everything below follows this control.</span>
-      <div class="seg" style="margin-left:auto">
+      <div class="finder" style="margin-left:auto">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+             stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>
+        <input id="placeSearch" type="text" autocomplete="off" spellcheck="false"
+               role="combobox" aria-expanded="false" aria-controls="placeResults"
+               aria-autocomplete="list"
+               placeholder="Search any state or district" />
+        <button id="placeClear" hidden aria-label="Clear the area filter">&times;</button>
+        <ul id="placeResults" role="listbox" hidden></ul>
+      </div>
+      <div class="seg">
         <label for="runSel" style="display:none">Forecast run</label>
         <select id="runSel" style="background:var(--raised);color:var(--ink);border:0;
                 font-family:'IBM Plex Sans Condensed',sans-serif;font-size:12.5px;
@@ -1476,6 +1519,12 @@ const ICON = {
   heat:'<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3.6"/><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6"/></svg>'
 };
 
+/* cells the panels should consider: the selected area, or all of India */
+function scopeCells(){
+  const idx = (typeof areaCells === 'function') ? areaCells() : null;
+  return idx || DATA.cells.map((_, i) => i);
+}
+
 function paintAlerts(){
   const s = slice(), box = document.getElementById('alerts');
   const isRain = variable==='rain';
@@ -1486,8 +1535,9 @@ function paintAlerts(){
       '. Break spells are when this bites.';
 
   let items = [];
+  const scope = scopeCells();
   if(isRain){
-    DATA.cells.forEach((c,i)=>{
+    scope.forEach(i=>{ const c = DATA.cells[i];
       const p = s.pext[i];
       /* rank on probability first, then on how much rain is actually coming -
          in a full active spell dozens of cells sit at p≈1 and the amount is
@@ -1503,7 +1553,7 @@ function paintAlerts(){
        instrument - monsoon air is cool and saturated. The heat signal that
        matters is the BREAK-SPELL warm anomaly: when the trough shifts and
        skies clear, cells run several degrees above their local normal. */
-    DATA.cells.forEach((c,i)=>{
+    scope.forEach(i=>{ const c = DATA.cells[i];
       const t = s.t2m[i], nrm = s.ct2m[i], an = t - nrm;
       if(an >= 1.5 || t >= M.heat_c) items.push({i, c, score: an,
         sev: (an>=3 || t>=M.heat_c) ? 'critical' : an>=2.2 ? 'serious' : 'warning',
@@ -1516,7 +1566,7 @@ function paintAlerts(){
   const shown = items.slice(0,40);
 
   if(!shown.length){
-    box.innerHTML = '<p class="empty">Nothing above threshold at T+'+lead+
+    box.innerHTML = '<p class="empty">Nothing above threshold'+(area?' in '+area.n:'')+' at T+'+lead+
       '.<br>Move the horizon rail or pick another run.</p>';
     return;
   }
@@ -1760,7 +1810,8 @@ function paintExtremes(){
     : '<p class="empty">'+empty+'</p>';
 
   const rain = [], heat = [], wind = [];
-  DATA.cells.forEach(function(c, i){
+  scopeCells().forEach(function(i){
+    const c = DATA.cells[i];
     const where = c.id+' at '+c.lat.toFixed(1)+'°N '+c.lon.toFixed(1)+'°E';
     const p = s.pext ? s.pext[i] : 0;
     if (p >= 0.25) rain.push({i, sev: p>=0.65?'critical':p>=0.45?'serious':'warning',
@@ -1803,6 +1854,196 @@ function paintExtremes(){
   document.querySelectorAll('#pane-extremes .alert').forEach(function(b){
     b.addEventListener('click', function(){ showPane('forecast'); focusCell(+b.dataset.i); });
   });
+}
+
+/* =====================================================================
+   Place finder.
+
+   Type any state or district and the map flies there. States carry a
+   simplified outline, so selecting one draws its border and restricts the
+   watch lists to cells inside it. Districts carry only a centroid, because
+   at a 1 degree analysis grid a district is usually smaller than one cell -
+   "filter to the cells in this district" would be a meaningless operation
+   dressed up as a feature. Selecting a district zooms in and pins the cell
+   that actually contains it, which is what the data can honestly support.
+===================================================================== */
+const PLACES = (DATA.geo && DATA.geo.places) || [];
+let area = null;                       // the currently selected place
+let hi = -1;                           // highlighted row in the result list
+
+const $search  = document.getElementById('placeSearch');
+const $results = document.getElementById('placeResults');
+const $clear   = document.getElementById('placeClear');
+
+function searchPlaces(q){
+  q = q.trim().toLowerCase();
+  if (q.length < 2) return [];
+  const starts = [], contains = [];
+  for (const p of PLACES){
+    const n = p.n.toLowerCase();
+    const i = n.indexOf(q);
+    if (i === 0){ starts.push(p); continue; }
+    if (i > 0){ contains.push(p); continue; }
+    /* former names (Orissa, Uttaranchal, Gurgaon, ...) still find the place */
+    if (p.a && p.a.some(a => a.toLowerCase().indexOf(q) === 0)){ starts.push(p); continue; }
+    if (p.s && p.s.toLowerCase().indexOf(q) === 0) contains.push(p);
+  }
+  /* states first: a state is the more likely intent when a name is
+     ambiguous, and several districts share their state's name */
+  const rank = a => (a.k === 'state' ? 0 : 1);
+  starts.sort((a,b) => rank(a) - rank(b) || a.n.localeCompare(b.n));
+  contains.sort((a,b) => rank(a) - rank(b) || a.n.localeCompare(b.n));
+  return starts.concat(contains).slice(0, 40);
+}
+
+function renderResults(list){
+  if (!list.length){
+    $results.innerHTML = $search.value.trim().length < 2
+      ? '' : '<li class="none">No state or district matches that.</li>';
+    $results.hidden = !$search.value.trim().length >= 2 ? true : !$results.innerHTML;
+    $search.setAttribute('aria-expanded', String(!$results.hidden));
+    return;
+  }
+  $results.innerHTML = list.map(function(p, i){
+    return '<li role="option" data-i="'+i+'" aria-selected="'+(i===hi)+'">'+
+      '<span>'+p.n+'</span>'+
+      '<span class="sub">'+(p.k === 'state' ? (p.approx ? 'State · approx' : 'State')
+                                             : (p.s || 'District'))+'</span></li>';
+  }).join('');
+  $results.hidden = false;
+  $search.setAttribute('aria-expanded','true');
+  [...$results.children].forEach(function(li){
+    if (!li.dataset.i) return;
+    li.addEventListener('mousedown', function(e){ e.preventDefault(); choose(list[+li.dataset.i]); });
+  });
+}
+
+let currentList = [];
+$search.addEventListener('input', function(){
+  hi = -1;
+  currentList = searchPlaces($search.value);
+  renderResults(currentList);
+});
+$search.addEventListener('keydown', function(e){
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+    if (!currentList.length) return;
+    hi += (e.key === 'ArrowDown' ? 1 : -1);
+    if (hi < 0) hi = currentList.length - 1;
+    if (hi >= currentList.length) hi = 0;
+    renderResults(currentList);
+    const el = $results.children[hi];
+    if (el && el.scrollIntoView) el.scrollIntoView({block:'nearest'});
+    e.preventDefault();
+  } else if (e.key === 'Enter'){
+    if (currentList.length) choose(currentList[hi >= 0 ? hi : 0]);
+    e.preventDefault();
+  } else if (e.key === 'Escape'){
+    $results.hidden = true; $search.blur();
+  }
+});
+$search.addEventListener('blur', function(){ setTimeout(()=>{ $results.hidden = true; }, 120); });
+$search.addEventListener('focus', function(){ if (currentList.length) renderResults(currentList); });
+$clear.addEventListener('click', clearArea);
+
+/* --- point in polygon, for restricting the lists to a state ----------- */
+function inRings(x, y, rings){
+  let inside = false;
+  for (const ring of rings){
+    let c = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++){
+      const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+      if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c;
+    }
+    if (c) inside = !inside;
+  }
+  return inside;
+}
+
+/* indices of the cells the current area covers; null means all of India */
+function areaCells(){
+  if (!area) return null;
+  if (area.k === 'state' && area.r){
+    const idx = [];
+    DATA.cells.forEach(function(c, i){ if (inRings(c.lon, c.lat, area.r)) idx.push(i); });
+    if (idx.length) return idx;
+  }
+  /* a district, or a state too small to contain a cell centre: fall back to
+     the single nearest cell so the panels still say something true */
+  let best = 0, bd = Infinity;
+  DATA.cells.forEach(function(c, i){
+    const d = (c.lon - area.c[0]) ** 2 + (c.lat - area.c[1]) ** 2;
+    if (d < bd){ bd = d; best = i; }
+  });
+  return [best];
+}
+
+function drawAreaOutline(m){
+  if (!m || !m.getStyle || !m.getStyle().layers) return;
+  const data = (area && area.r)
+    ? {type:'FeatureCollection', features:[{type:'Feature', properties:{},
+        geometry:{type:'MultiLineString', coordinates: area.r}}]}
+    : {type:'FeatureCollection', features:[]};
+  if (m.getSource('area-line')) { m.getSource('area-line').setData(data); return; }
+  try {
+    m.addSource('area-line', {type:'geojson', data:data});
+    m.addLayer({id:'area-line', type:'line', source:'area-line',
+      paint:{'line-color':'#8fd0ff','line-width':2.2,'line-opacity':.95}});
+  } catch (e) { /* style not ready yet; the next call will catch it */ }
+}
+
+function choose(p){
+  if (!p) return;
+  area = p;
+  $search.value = p.n + (p.k === 'district' && p.s ? ', ' + p.s : '');
+  $results.hidden = true;
+  $clear.hidden = false;
+  $search.setAttribute('aria-expanded','false');
+
+  const pad = p.k === 'state' ? 40 : 10;
+  [map, wmap].forEach(function(m){
+    if (!m) return;
+    drawAreaOutline(m);
+    if (p.k === 'state' && p.b){
+      m.fitBounds([[p.b[0], p.b[1]], [p.b[2], p.b[3]]], {padding: pad, duration: 900});
+    } else {
+      m.easeTo({center: p.c, zoom: 7.2, duration: 900});
+    }
+  });
+  if (p.k !== 'state'){
+    const idx = areaCells();
+    if (idx && idx.length === 1) setTimeout(()=>openCell(idx[0], true), 950);
+  }
+  refreshArea();
+}
+
+function clearArea(){
+  area = null;
+  $search.value = '';
+  $clear.hidden = true;
+  currentList = [];
+  $results.hidden = true;
+  [map, wmap].forEach(function(m){
+    if (!m) return;
+    drawAreaOutline(m);
+    m.fitBounds([[LON_W - HALF, LAT_S - HALF],[LON_E + HALF, LAT_N + HALF]],
+                {padding:14, duration:800});
+  });
+  refreshArea();
+}
+
+function refreshArea(){
+  const chip = document.getElementById('areaChip');
+  if (chip) chip.remove();
+  if (area){
+    const el = document.createElement('span');
+    el.className = 'areachip'; el.id = 'areaChip';
+    const n = areaCells();
+    el.textContent = area.n + (n ? ' \\u00b7 ' + n.length + (n.length === 1 ? ' cell' : ' cells') : '');
+    const head = document.querySelector('.p-map .p-head h3');
+    if (head) head.after(el);
+  }
+  paintAlerts();
+  if (activePane === 'extremes') paintExtremes();
 }
 
 /* =====================================================================
