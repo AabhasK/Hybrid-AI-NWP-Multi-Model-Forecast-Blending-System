@@ -217,6 +217,8 @@ def main():
                 {"feature": k, "importance": round(float(v), 1)}
                 for k, v in imp.importance.head(10).items()
             ],
+            # lower edge of each band, and the observed breach frequency in it
+            "pext_curve": {"edges": edges[:-1], "p": curve},
         },
         "weights": {
             "by_regime_lead": wreg.round(3).to_dict(orient="records"),
