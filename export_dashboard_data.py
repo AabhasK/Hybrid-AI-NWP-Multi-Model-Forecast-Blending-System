@@ -43,6 +43,7 @@ SOURCE_META = [
 N_ISSUE_DATES = 12
 EXTREME_MM = 40.0
 HEAT_C = 34.0
+HIGH_WIND_KMH = 40.0
 CELL_DEG = 0.5
 
 
@@ -82,60 +83,110 @@ def pick_issue_dates(pred, n):
     return sorted(set(chosen))[:n]
 
 
+def build_live(wreg_df):
+    """
+    Today's live run over the national grid.
+
+    run_daily.py fetches every centre's current forecast for all India and
+    applies the learned weights. Per-CELL weights are not available for the
+    national grid until the national archive finishes training, so each cell
+    carries the (regime, lead) weights that were actually used to blend it -
+    which is honest: those are the weights this forecast was made with.
+    """
+    live = pd.read_parquet(DATA / "live_blend.parquet")
+    live["valid_date"] = pd.to_datetime(live["valid_date"])
+
+    cells = (live[["cell_id", "lat", "lon", "elevation_m"]]
+             .drop_duplicates("cell_id").sort_values(["lat", "lon"]).reset_index(drop=True))
+    order = list(cells.cell_id)
+
+    wlook = {}
+    for r in wreg_df.itertuples(index=False):
+        wlook[(str(r.regime), int(r.lead_time))] = r
+
+    issued = (live.valid_date.min() - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+    by_lead = {}
+    for lead in range(1, 6):
+        g = live[live.lead_time == lead].set_index("cell_id").reindex(order)
+        if g.blend_rain.isna().all():
+            continue
+        regime = str(g.regime.mode().iat[0])
+        w = wlook.get((regime, lead)) or wlook.get(("normal", lead))
+
+        slice_ = {
+            "valid": g.valid_date.iloc[0].strftime("%Y-%m-%d"),
+            "regime": regime,
+            "rain": r1(g.blend_rain), "t2m": r1(g.blend_t2m), "wind": r1(g.blend_wind),
+            "ct2m": r1(g.blend_t2m),          # no climatology on a live run
+            "conf": r1(g.confidence),
+            "pext": r3(g.prob_heavy),
+        }
+        for m in BLEND:
+            slice_["m" + m] = r1(g["model_%s_rain" % m])
+            slice_["t" + m] = r1(g["model_%s_t2m" % m])
+            slice_["w" + m] = r3([float(getattr(w, "w_%s" % m)) if w else 1.0 / len(BLEND)] * len(order))
+        # persistence is not produced on a live run
+        slice_["mf"] = r1(g.blend_rain)
+        slice_["tf"] = r1(g.blend_t2m)
+        by_lead[str(lead)] = slice_
+
+    return cells, order, {issued: by_lead}, issued
+
+
 def main():
+    wreg_df = pd.read_csv(DATA / "weights_by_regime.csv")
+    # per-cell weight map from the TRAINED grid. Used for the dominant-share
+    # statistic, which describes the verification domain regardless of which
+    # grid the live forecast is on.
+    wmap = pd.read_csv(DATA / "weight_map.csv")
+    live_file = DATA / "live_blend.parquet"
+    USE_LIVE = live_file.exists()
+
     pred = pd.read_parquet(DATA / "predictions.parquet")
     pred["date"] = pd.to_datetime(pred["date"])
 
-    cells = (pred[["cell_id", "lat", "lon", "elevation_m"]]
-             .drop_duplicates("cell_id")
-             .sort_values(["lat", "lon"])
-             .reset_index(drop=True))
-    order = list(cells.cell_id)
-    pos = {c: i for i, c in enumerate(order)}
+    if USE_LIVE:
+        cells, order, runs, default_run = build_live(wreg_df)
+        print("LIVE national run %s: %d cells x %d leads"
+              % (default_run, len(order), len(runs[default_run])))
+    else:
+        cells = (pred[["cell_id", "lat", "lon", "elevation_m"]]
+                 .drop_duplicates("cell_id").sort_values(["lat", "lon"]).reset_index(drop=True))
+        order = list(cells.cell_id)
+        wlook = {(r.cell_id, int(r.lead_time)): r for r in wmap.itertuples(index=False)}
+        runs, default_run = {}, None
 
-    wmap = pd.read_csv(DATA / "weight_map.csv")
-    wlook = {(r.cell_id, int(r.lead_time)): r for r in wmap.itertuples(index=False)}
-
-    issue_dates = pick_issue_dates(pred, N_ISSUE_DATES)
-    print("issue dates exported (%d):" % len(issue_dates))
-
-    runs = {}
-    for d0 in issue_dates:
-        key = d0.strftime("%Y-%m-%d")
-        by_lead = {}
-        for lead in range(1, 6):
-            valid_date = d0 + pd.Timedelta(days=lead)
-            g = pred[(pred.date == valid_date) & (pred.lead_time == lead)]
-            g = g.set_index("cell_id").reindex(order)
-            if g.blend_rain.isna().any():
-                continue
-
-            weights = {m: [] for m in BLEND}
-            for c in order:
-                w = wlook.get((c, lead))
+        for d0 in pick_issue_dates(pred, N_ISSUE_DATES):
+            key = d0.strftime("%Y-%m-%d")
+            by_lead = {}
+            for lead in range(1, 6):
+                valid_date = d0 + pd.Timedelta(days=lead)
+                g = pred[(pred.date == valid_date) & (pred.lead_time == lead)]
+                g = g.set_index("cell_id").reindex(order)
+                if g.blend_rain.isna().any():
+                    continue
+                weights = {m: [] for m in BLEND}
+                for c in order:
+                    w = wlook.get((c, lead))
+                    for m in BLEND:
+                        weights[m].append(getattr(w, "w_%s" % m))
+                slice_ = {
+                    "valid": valid_date.strftime("%Y-%m-%d"),
+                    "regime": str(g.regime.iloc[0]),
+                    "rain": r1(g.blend_rain), "t2m": r1(g.blend_t2m),
+                    "ct2m": r1(g.clim_t2m), "truth": r1(g.truth_rain),
+                    "conf": r1(g.confidence), "pext": r3(g.prob_extreme),
+                }
+                for m in SOURCES:
+                    slice_["m" + m] = r1(g["model_%s_rain" % m])
+                    slice_["t" + m] = r1(g["model_%s_t2m" % m])
                 for m in BLEND:
-                    weights[m].append(getattr(w, "w_%s" % m))
-
-            slice_ = {
-                "valid": valid_date.strftime("%Y-%m-%d"),
-                "regime": str(g.regime.iloc[0]),
-                "rain": r1(g.blend_rain),
-                "t2m": r1(g.blend_t2m),
-                "ct2m": r1(g.clim_t2m),   # local normal, for the heat anomaly
-                "truth": r1(g.truth_rain),
-                "conf": r1(g.confidence),
-                "pext": r3(g.prob_extreme),
-            }
-            for m in SOURCES:
-                slice_["m" + m] = r1(g["model_%s_rain" % m])
-                slice_["t" + m] = r1(g["model_%s_t2m" % m])
-            for m in BLEND:
-                slice_["w" + m] = r3(weights[m])
-            by_lead[str(lead)] = slice_
-        if len(by_lead) == 5:
-            runs[key] = by_lead
-            print("  %s  regime=%-7s  T+1 valid %s"
-                  % (key, by_lead["1"]["regime"], by_lead["1"]["valid"]))
+                    slice_["w" + m] = r3(weights[m])
+                by_lead[str(lead)] = slice_
+            if len(by_lead) == 5:
+                runs[key] = by_lead
+                default_run = default_run or key
+        print("archived runs exported: %d" % len(runs))
 
     # ---- skill panel ------------------------------------------------------
     by_lead_m = pd.read_csv(DATA / "metrics_by_lead.csv")
@@ -186,13 +237,36 @@ def main():
         geo["bbox"] = g["bbox"]
         geo["grid_deg"] = g["grid_deg"]
 
+    # per-cell dominant source. On the live national grid the trained per-cell
+    # weights do not exist yet (that needs the national archive), so each cell
+    # reports the regime weights the forecast was actually blended with.
+    cell_lead = {}
+    for lead in range(1, 6):
+        if USE_LIVE:
+            sl = runs[default_run].get(str(lead))
+            if not sl:
+                continue
+            per = [[sl["w" + m][i] for m in BLEND] for i in range(len(order))]
+            doms = [BLEND[int(np.argmax(w))].upper() for w in per]
+            domw = [round(float(max(w)), 3) for w in per]
+        else:
+            doms = [wlook[(c, lead)].dominant_model for c in order]
+            domw = [round(float(wlook[(c, lead)].dominant_weight), 3) for c in order]
+        cell_lead[str(lead)] = {"dom": doms, "domw": domw}
+
     payload = {
         "geo": geo,
         "meta": {
-            "region": "Maharashtra, India",
-            "bbox": [16.0, 73.0, 21.0, 78.0],
-            "cell_deg": CELL_DEG,
-            "season": "SW Monsoon (Jun-Aug) 2023",
+            "region": "India" if USE_LIVE else "Maharashtra, India",
+            # the map frames itself on this; it must follow the actual grid
+            "bbox": (geo.get("bbox") or [6.5, 68.0, 37.5, 97.5]) if USE_LIVE
+                    else [16.0, 73.0, 21.0, 78.0],
+            "cell_deg": (geo.get("grid_deg") or CELL_DEG) if USE_LIVE else CELL_DEG,
+            "live": USE_LIVE,
+            "issued": default_run,
+            "high_wind_kmh": HIGH_WIND_KMH,
+            "season": ("Live run " + str(default_run)) if USE_LIVE
+                      else "SW Monsoon (Jun-Aug) 2023",
             "truth_source": "ERA5 reanalysis",
             "n_cells": len(order),
             "n_days": int(pred.date.nunique()),
@@ -241,13 +315,7 @@ def main():
                 str(int(lead)): {m: float(share_pct.loc[lead, m]) for m in keys}
                 for lead in share_pct.index
             },
-            "cell_lead": {
-                str(lead): {
-                    "dom": [wlook[(c, lead)].dominant_model for c in order],
-                    "domw": [round(float(wlook[(c, lead)].dominant_weight), 3) for c in order],
-                }
-                for lead in range(1, 6)
-            },
+            "cell_lead": cell_lead,
         },
     }
 

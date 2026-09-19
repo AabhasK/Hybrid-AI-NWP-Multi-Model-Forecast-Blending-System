@@ -574,10 +574,10 @@ table.dt tr.hl td{color:#fff;font-weight:600}
 
   <footer class="foot">
     <p>
-      <b>Ground truth.</b> ERA5 reanalysis, <span id="fNcells">—</span> cells at 0.5°
-      over <span id="fRegion">—</span>, <span id="fSeason">—</span>.
-      Verification uses contiguous time-block cross-validation, so every score on this
-      page comes from days the model was not trained on.
+      <b>This forecast.</b> <span id="fSeason">—</span>, blending the live runs of
+      five operational centres over <span id="fNcells">—</span> grid cells across
+      <span id="fRegion">—</span>. Weights were learned offline from archived
+      forecasts verified against ERA5 reanalysis.
     </p>
     <p>
       <b>Forecast sources.</b> The four contributing model streams are synthetically
@@ -1086,7 +1086,13 @@ map.on('style.load', function(){
     }, firstLabel);
   }
 
-  /* Dim everything outside India. The mask is a world rectangle with the
+  map.addSource('iso', {type:'geojson', data:{type:'FeatureCollection',features:[]}});
+  map.addLayer({id:'iso', type:'line', source:'iso',
+    paint:{'line-color':'rgba(226,240,245,.55)','line-width':1.1}}, firstLabel);
+
+  /* Dim everything outside India. This sits ABOVE both the field and
+     the contours so neither spills into the sea or across a border.
+     Original note: The mask is a world rectangle with the
      national rings punched out as holes, so filling it clips the forecast
      to the country without touching the raster itself. Neighbours stay
      faintly visible rather than being blanked, which keeps the geography
@@ -1100,11 +1106,7 @@ map.on('style.load', function(){
       paint:{'line-color':'rgba(226,240,245,.45)','line-width':1.1}}, firstLabel);
   }
 
-  map.addSource('iso', {type:'geojson', data:{type:'FeatureCollection',features:[]}});
-  map.addLayer({id:'iso', type:'line', source:'iso',
-    paint:{'line-color':'rgba(226,240,245,.55)','line-width':1.1}}, firstLabel);
-
-  /* lift the state outline so Maharashtra reads as the region of interest */
+  /* lift the state outline so the region of interest reads */
   if (map.getLayer('boundary_state')){
     map.setPaintProperty('boundary_state','line-color','rgba(233,243,248,.55)');
     map.setPaintProperty('boundary_state','line-width',1.1);
