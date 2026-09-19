@@ -19,6 +19,7 @@ Output: data/dashboard_data.json
 """
 
 import json
+import re
 from pathlib import Path
 
 import numpy as np
@@ -305,7 +306,10 @@ def main():
             "overall": [
                 {"source": r.source, "rmse": round(r.rmse, 3),
                  "mae": round(r.mae, 3), "skill": round(r.skill, 3),
-                 "key": (r.source.strip()[0] if r.source.strip()[0] in "ABCDEF" else None)}
+                 # only the "A  ECMWF IFS" rows are models; a bare first
+                 # letter would tag "Equal-weight mean" as member E
+                 "key": (re.match(r"^([A-F])\s\s", r.source.strip()).group(1)
+                         if re.match(r"^([A-F])\s\s", r.source.strip()) else None)}
                 for r in overall.itertuples(index=False)
             ],
             "by_lead": by_lead_m.round(3).to_dict(orient="records"),

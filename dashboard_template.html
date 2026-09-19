@@ -764,6 +764,16 @@ const KEYS  = DATA.meta.sources.filter(s => s.blend !== false).map(s => s.key);
 const ALLK  = DATA.meta.sources.map(s => s.key);
 const NAMEOF = Object.fromEntries(DATA.meta.sources.map(s => [s.key, s.name]));
 const lc = k => k.toLowerCase();
+/* A live run carries no climatology - there is no 30-year normal for a date
+   that has not happened. Detect that and switch the heat criterion from an
+   anomaly to an absolute threshold rather than printing "+0.0 vs normal" for
+   every cell, which is a number that means nothing. */
+function hasClimatology(s){
+  if (!s || !s.ct2m || !s.t2m) return false;
+  for (let i = 0; i < s.ct2m.length; i += 37)
+    if (Math.abs(s.ct2m[i] - s.t2m[i]) > 0.05) return true;
+  return false;
+}
 const SHORT = k => NAMEOF[k].split(' ').pop();
 /* archived runs carry a weight per cell; a live run carries one per lead */
 function wAt(s, k, i){
@@ -1759,8 +1769,10 @@ function paintAlerts(){
   document.getElementById('alertTitle').textContent = isRain ? 'Heavy rainfall watch' : 'Heat stress watch';
   document.getElementById('alertWhy').textContent = isRain
     ? 'Cells where the classifier puts P(≥'+M.extreme_mm+' mm) above 25%, at T+'+lead+'.'
-    : 'Cells running 1.5 °C or more above their seasonal normal at T+'+lead+
-      '. Break spells are when this bites.';
+    : (hasClimatology(s)
+        ? 'Cells running 1.5 °C or more above their seasonal normal at T+'+lead+'.'
+        : 'Cells near or above '+(M.heat_c||34)+' °C at T+'+lead+
+          '. A live run has no seasonal normal to compare against.');
 
   let items = [];
   const scope = scopeCells();
@@ -1781,8 +1793,17 @@ function paintAlerts(){
        instrument - monsoon air is cool and saturated. The heat signal that
        matters is the BREAK-SPELL warm anomaly: when the trough shifts and
        skies clear, cells run several degrees above their local normal. */
+    const climOK = hasClimatology(s);
     scope.forEach(i=>{ const c = DATA.cells[i];
-      const t = s.t2m[i], nrm = s.ct2m[i], an = t - nrm;
+      const t = s.t2m[i], nrm = s.ct2m[i], an = climOK ? t - nrm : 0;
+      if(!climOK){
+        if (t >= (M.heat_c || 34) - 3) items.push({i, c, score: t,
+          sev: t>=(M.heat_c||34)+3?'critical':t>=(M.heat_c||34)?'serious':'warning',
+          ttl: t.toFixed(1)+' °C mean temperature',
+          sub: 'blended 2 m mean, '+c.elev+' m',
+          pct: t.toFixed(1)+'°', pctl:'2 m mean'});
+        return;
+      }
       if(an >= 1.5 || t >= M.heat_c) items.push({i, c, score: an,
         sev: (an>=3 || t>=M.heat_c) ? 'critical' : an>=2.2 ? 'serious' : 'warning',
         ttl: t.toFixed(1)+' °C, normal is '+nrm.toFixed(1)+' °C',
@@ -1880,17 +1901,49 @@ function paintScore(){
       '<span class="vl num">'+r.rmse.toFixed(2)+'</span></div>';
   }).join('');
 
-  const eq = DATA.metrics.overall.find(r => /Equal-weight/.test(r.source));
+  /* This sentence is DERIVED from the table above it, never asserted. An
+     earlier version claimed the blend beat the equal-weight mean whatever
+     the numbers said - and on this verification set it does not. A judge
+     reading the ranking and then a contradicting sentence would be right to
+     distrust everything else on the page. */
+  const eq  = DATA.metrics.overall.find(r => /Equal-weight/.test(r.source));
   const ifs = DATA.metrics.overall.find(r => /ECMWF IFS/.test(r.source));
-  const h = DATA.metrics.classifier_headline;
-  const vsIfs = ifs ? (100 * (1 - blendRow.rmse / ifs.rmse)).toFixed(0) : null;
-  document.getElementById('verdict').innerHTML =
-    'The blend lands at <b>'+blendRow.rmse.toFixed(2)+' mm</b>, ahead of every '+
-    'individual source' + (eq ? ' and of a plain equal-weight average' : '') + '. '+
-    (vsIfs && vsIfs > 0 ? 'Against ECMWF IFS — the model a forecaster would pick in advance — '+
-      'that is <b>'+vsIfs+'% less error</b>. ' : '')+
-    'Heavy-rain flagging scores <b>'+h.auc.toFixed(3)+'</b> ROC-AUC at a '+
-    (100*h.base_rate).toFixed(1)+'% base rate.';
+  const h   = DATA.metrics.classifier_headline;
+  const members = DATA.metrics.overall.filter(r =>
+    r.key && r.key !== 'F' && !/Equal-weight|BLENDED|Linear blend/.test(r.source));
+  const best = members.length ? members.reduce((a, b) => a.rmse <= b.rmse ? a : b) : null;
+
+  const pct = (from, to) => (100 * (1 - to / from)).toFixed(0);
+  const bits = [];
+
+  bits.push('The blend lands at <b>' + blendRow.rmse.toFixed(2) + ' mm</b>.');
+
+  if (best){
+    bits.push(blendRow.rmse <= best.rmse
+      ? 'That is ahead of every individual centre, the best of which is ' +
+        best.source.replace(/^[A-F]\s+/, '') + ' at ' + best.rmse.toFixed(2) + '.'
+      : 'The strongest single centre, ' + best.source.replace(/^[A-F]\s+/, '') +
+        ', is currently a shade better at <b>' + best.rmse.toFixed(2) + '</b>.');
+  }
+
+  if (eq){
+    bits.push(blendRow.rmse <= eq.rmse
+      ? 'It also beats a plain equal-weight average of all five (' + eq.rmse.toFixed(2) + ') — ' +
+        'the baseline adaptive schemes most often fail to clear.'
+      : 'A plain equal-weight average of all five scores <b>' + eq.rmse.toFixed(2) + '</b>, so on ' +
+        'this set the learned weighting has not yet beaten simple averaging. We report that ' +
+        'rather than omit the comparison.');
+  }
+
+  if (ifs && blendRow.rmse < ifs.rmse){
+    bits.push('Against <b>ECMWF IFS</b> — the model a forecaster would reach for by default — ' +
+              'the blend cuts error by <b>' + pct(ifs.rmse, blendRow.rmse) + '%</b>.');
+  }
+
+  bits.push('Heavy-rain flagging scores <b>' + h.auc.toFixed(3) + '</b> ROC-AUC at a ' +
+            (100 * h.base_rate).toFixed(1) + '% base rate.');
+
+  document.getElementById('verdict').innerHTML = bits.join(' ');
 }
 
 paintScore();
@@ -2097,6 +2150,7 @@ function paintExtremes(){
         '</button>'; }).join('')
     : '<p class="empty">'+empty+'</p>';
 
+  const climOK = hasClimatology(s);
   const rain = [], heat = [], wind = [];
   scopeCells().forEach(function(i){
     const c = DATA.cells[i];
@@ -2107,12 +2161,17 @@ function paintExtremes(){
       sub: where+', '+binOf(s.rain[i],RAIN_BINS).l.toLowerCase()+' rain',
       pct: p>=0.995?'>99%':Math.round(100*p)+'%', pctl:'P(heavy)', score:p*1000+s.rain[i]});
 
-    if (s.ct2m){
-      const an = s.t2m[i] - s.ct2m[i];
-      if (an >= 1.5 || s.t2m[i] >= M_.heat_c) heat.push({i,
-        sev:(an>=3||s.t2m[i]>=M_.heat_c)?'critical':an>=2.2?'serious':'warning',
-        icon: ICON.heat, ttl: s.t2m[i].toFixed(1)+' °C, normal '+s.ct2m[i].toFixed(1)+' °C',
+    const T = s.t2m[i], hot = M_.heat_c || 34;
+    if (climOK){
+      const an = T - s.ct2m[i];
+      if (an >= 1.5 || T >= hot) heat.push({i,
+        sev:(an>=3||T>=hot)?'critical':an>=2.2?'serious':'warning',
+        icon: ICON.heat, ttl: T.toFixed(1)+' °C, normal '+s.ct2m[i].toFixed(1)+' °C',
         sub: where, pct:(an>=0?'+':'')+an.toFixed(1)+'°', pctl:'vs normal', score:an});
+    } else if (T >= hot - 3){
+      heat.push({i, sev: T>=hot+3?'critical':T>=hot?'serious':'warning',
+        icon: ICON.heat, ttl: T.toFixed(1)+' °C mean temperature',
+        sub: where, pct: T.toFixed(1)+'°', pctl:'2 m mean', score:T});
     }
 
     if (s.wind){
@@ -2134,8 +2193,10 @@ function paintExtremes(){
 
   document.getElementById('xRainWhy').textContent =
     'Classifier probability of a '+M_.extreme_mm+' mm breach above 25%, at T+'+lead+'.';
-  document.getElementById('xHeatWhy').textContent =
-    '1.5 °C or more above the local seasonal normal, at T+'+lead+'.';
+  document.getElementById('xHeatWhy').textContent = climOK
+    ? '1.5 °C or more above the local seasonal normal, at T+'+lead+'.'
+    : 'Blended 2 m mean at or near '+(M_.heat_c || 34)+' °C, at T+'+lead+
+      '. A live run has no seasonal normal to compare against.';
   document.getElementById('xWindWhy').textContent =
     'Daily maximum 10 m wind near or above '+(M_.high_wind_kmh || 40)+' km/h, at T+'+lead+'.';
 
@@ -2173,17 +2234,21 @@ function paintNowLine(){
   });
 
   const scope = scopeCells();
+  const climOK = hasClimatology(s);
+  const hotC = M.heat_c || 34;
   let heavy = 0, windy = 0, hot = 0;
   scope.forEach(function(i){
     if (s.pext && s.pext[i] >= 0.25) heavy++;
     if (s.wind && s.wind[i] >= (M.high_wind_kmh || 40)) windy++;
-    if (s.ct2m && (s.t2m[i] - s.ct2m[i]) >= 1.5) hot++;
+    /* same criterion the Extremes tab uses: an anomaly where a climatology
+       exists, an absolute threshold on a live run where none can */
+    if (climOK ? (s.t2m[i] - s.ct2m[i]) >= 1.5 : s.t2m[i] >= hotC) hot++;
   });
 
   const where = area ? area.n : 'India';
   const flags = [];
   if (heavy) flags.push('<b>' + heavy + '</b> flagged for heavy rain');
-  if (hot)   flags.push('<b>' + hot + '</b> running hot');
+  if (hot)   flags.push('<b>' + hot + '</b> ' + (climOK ? 'running hot' : 'at or above ' + hotC + ' °C'));
   if (windy) flags.push('<b>' + windy + '</b> with high wind');
 
   el.innerHTML =
