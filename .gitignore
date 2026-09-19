@@ -1,3 +1,6 @@
 __pycache__/
 *.pyc
 .playwright-mcp/
+
+# credentials - never commit
+.env

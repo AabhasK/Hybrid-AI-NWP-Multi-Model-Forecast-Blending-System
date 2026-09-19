@@ -44,6 +44,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+import config
+
 ROOT = Path(__file__).parent
 DATA = ROOT / "data"
 DATA.mkdir(exist_ok=True)
@@ -64,8 +66,12 @@ LEADS = [1, 2, 3, 4, 5]
 EXTREME_MM = 40.0
 ACTIVE_Z, BREAK_Z = 0.50, -0.50
 
-PREV_API = "https://previous-runs-api.open-meteo.com/v1/forecast"
-ERA5_API = "https://archive-api.open-meteo.com/v1/era5"
+# Hosts and key come from config.py, which reads .env. With no key these are
+# the free public endpoints; with OPENMETEO_API_KEY set they become the
+# customer endpoints and the hourly rate limit stops being the bottleneck.
+PREV_API = config.OPENMETEO_PREV_HOST + "/v1/forecast"
+ERA5_API = config.OPENMETEO_ARCHIVE_HOST + "/v1/era5"
+KEY_SUFFIX = config.openmeteo_suffix()
 
 # model id -> the role it plays in the blend
 # NOTE on the AI model id: `ecmwf_aifs025` serves live forecasts but returns
@@ -147,7 +153,8 @@ def fetch_model_block(model, cells, var, leads, batch_id):
     lat = ",".join("%.2f" % c[0] for c in cells)
     lon = ",".join("%.2f" % c[1] for c in cells)
     url = ("%s?latitude=%s&longitude=%s&hourly=%s&past_days=%d&forecast_days=1"
-           "&timezone=UTC&models=%s" % (PREV_API, lat, lon, ",".join(names), PAST_DAYS, model))
+           "&timezone=UTC&models=%s%s"
+           % (PREV_API, lat, lon, ",".join(names), PAST_DAYS, model, KEY_SUFFIX))
     key = CACHE / ("%s_%s_%dd_b%03d.json" % (model, var, PAST_DAYS, batch_id))
     if key.exists():
         return json.loads(key.read_text())
@@ -220,8 +227,8 @@ def fetch_truth(cells, start, end):
             payload = json.loads(key.read_text())
         else:
             payload = fetch("%s?latitude=%s&longitude=%s&start_date=%s&end_date=%s"
-                            "&daily=precipitation_sum,temperature_2m_mean&timezone=UTC"
-                            % (ERA5_API, lat, lon, start, end))
+                            "&daily=precipitation_sum,temperature_2m_mean&timezone=UTC%s"
+                            % (ERA5_API, lat, lon, start, end, KEY_SUFFIX))
             if not isinstance(payload, list):
                 payload = [payload]
             key.write_text(json.dumps(payload))
@@ -251,6 +258,8 @@ PHASE = {12: "winter", 1: "winter", 2: "winter",
 def main():
     cells = build_grid()
     print("grid: %d cells  |  archive window: last %d days" % (len(cells), PAST_DAYS))
+    print("open-meteo: %s" % ("keyed endpoint (raised limits)"
+          if config.is_set("OPENMETEO_API_KEY") else "free endpoint (hourly quota applies)"))
 
     print("\nfetching archived operational forecasts...")
     fc = collect_forecasts(cells)
