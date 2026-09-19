@@ -2038,7 +2038,7 @@ function refreshArea(){
     const el = document.createElement('span');
     el.className = 'areachip'; el.id = 'areaChip';
     const n = areaCells();
-    el.textContent = area.n + (n ? ' \\u00b7 ' + n.length + (n.length === 1 ? ' cell' : ' cells') : '');
+    el.textContent = area.n + (n ? ', ' + n.length + (n.length === 1 ? ' cell' : ' cells') : '');
     const head = document.querySelector('.p-map .p-head h3');
     if (head) head.after(el);
   }
