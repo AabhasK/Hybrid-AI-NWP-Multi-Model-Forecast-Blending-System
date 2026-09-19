@@ -24,7 +24,7 @@ fallback, and `config.py` tells you what that fallback is.
 |---|---|---|---|
 | `MAPBOX_TOKEN` | Mapbox GL basemap + terrain DEM | **Do this one** | MapLibre + OpenFreeMap tiles, keyless, ~90% as good |
 | `OPENMETEO_API_KEY` | Removes the archive rate limit, lets us train on a full year instead of six months | High — best value for the model | Free tier; the fetcher waits out the hourly quota and resumes |
-| `IMD_API_KEY` | Verify against IMD gauge-based gridded rainfall instead of ERA5 | High — scientific | Verification stays on ERA5 (see caveat below) |
+| `IMD_API_KEY` | Adds IMD's own 5-day district forecast as a **sixth blend member**, and gauge observations as independent truth | High — scientific **and** presentational | Verification stays on ERA5 (see caveat below); no Indian source in the blend |
 | `CDS_API_KEY` | ERA5 direct from Copernicus | Low | We already use the same ECMWF ERA5 product via a keyless mirror |
 
 **Mapbox:** get a **public** token (starts `pk.`) at
@@ -37,8 +37,18 @@ Mapbox dashboard (add `localhost`) before sharing the file.
 most improve the numbers, because the blend weights are currently estimated on
 six months of data and more history is the main thing they're short of.
 
-**IMD:** worth asking a mentor or your college. This is the only key that fixes
-a real methodological weakness rather than a convenience one — see §4.
+**IMD:** worth asking a mentor or your college. One key normally covers all
+endpoints; the four that matter, in order, are **State District Rainfall
+Forecast (5 Days)** (becomes a sixth blend member at exactly our lead times),
+**AWS/ARG Data** (gauge truth), **District-wise Rainfall** (easier-to-join
+fallback for gauge truth) and **District-wise Warnings** (lets us score our
+extreme flagger against what IMD actually issued). Full reasoning is in
+`.env.example`.
+
+Having IMD's own forecast in the blend, weighted against ECMWF, NOAA, DWD and
+Environment Canada, is the strongest single addition available to this project
+for an MoES/NCMRWF panel — it is also the only key that fixes a real
+methodological weakness rather than a convenience one. See §4.
 
 ---
 
