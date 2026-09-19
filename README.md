@@ -1,122 +1,131 @@
-# Hybrid AI–NWP Multi-Model Forecast Blending — SIH26081
+# Blend Desk — Hybrid AI–NWP Multi-Model Forecast Blending
 
-A learned blending layer that combines several weather-model forecasts into one corrected
-forecast, and — more usefully — tells you *which model to trust, where, and how far out*.
+**SIH26081** · Ministry of Earth Sciences / NCMRWF · Team **Stash&Rebase**
 
-Region: **Maharashtra, India** (16–21 °N, 73–78 °E), 121 cells at 0.5°.
-Period: **SW monsoon, 1 Jun – 31 Aug 2023**. Lead times: **1–5 days**.
+Five global weather models disagree about tomorrow. This learns which one to
+trust — for each place, each day ahead and each kind of weather — and blends
+them into a single forecast.
 
-**Open `dashboard.html`.** One file, no server, no build step.
+**Open `dashboard.html`.** One self-contained file, no server, no build step.
 
 ---
 
-## Headline result
+## What it does
 
-| | RMSE (mm/day) | Skill vs persistence |
+| Problem-statement deliverable | Where it lives |
+|---|---|
+| Dynamically blended forecast | **Forecast** tab — rainfall, temperature and wind over all India at 0.25° |
+| Model weight maps | **Model weights** tab — which centre leads each cell, plus where the centres disagree |
+| Improved forecast skill | **Verification** tab — scored against every member, a plain equal-weight mean, and persistence |
+| Extreme weather guidance | **Extremes** tab — heavy rainfall, heat stress and high wind |
+| Operational workflow | `run_daily.py` — fetches today's runs and publishes, schedulable |
+
+## What is being blended
+
+Real archived output from five operational centres, at real lead times T+1…T+5.
+
+| | Source | Type |
 |---|---|---|
-| Model A — physics NWP proxy | 5.26 | 0.518 |
-| Model B — AI/ML proxy | 4.96 | 0.545 |
-| Model C — ensemble-mean proxy | 5.13 | 0.530 |
-| Model D — persistence baseline | 10.90 | 0.000 |
-| **Blended (this system)** | **4.24** | **0.611** |
+| A | **ECMWF IFS** | Physics NWP |
+| B | **ECMWF AIFS** | **AI / data-driven** |
+| C | **NOAA GFS** | Physics NWP |
+| D | **DWD ICON** | Physics NWP |
+| E | **EC GEM** | Physics NWP |
+| F | Persistence | Skill reference, not a blend member |
 
-**14.6% below the best individual source**, rising to **16.5% at T+5** and **26.7% during
-break spells**. All figures out-of-sample. Heavy-rain flagger: ROC-AUC 0.983.
+Because AIFS is a genuine operational AI forecasting system and the rest are
+physics models, *"hybrid AI–NWP"* is literal here rather than a proxy for it.
+Truth is **ERA5 reanalysis**.
 
-The blend's advantage grows with lead time, which is the expected signature — at day one a
-single model is already near-optimal and the blender correctly declines to interfere.
+---
 
-## Pipeline
-
-```
-01_fetch_era5.py       ERA5 truth, 121 cells x 92 days      -> data/era5_truth.parquet
-02_synth_models.py     4 forecast streams x 5 leads         -> data/forecasts.parquet
-model_training.py      blenders + weights + flagger         -> data/*.csv, models/*.joblib
-export_dashboard_data.py  re-index by forecast run          -> data/dashboard_data.json
-build_dashboard.py     inline the payload                   -> dashboard.html
-```
-
-Run the whole thing:
+## Running it
 
 ```bash
-python 01_fetch_era5.py        # cached; safe to re-run
-python 02_synth_models.py
-python model_training.py       # prints every metric in this README
+cp .env.example .env        # optional; everything works without any key
+python config.py            # shows what is configured and what each key buys
+
+python 00_build_region.py   # India boundary + the two analysis grids
+python 00b_build_places.py  # searchable gazetteer (34 states, 594 districts)
+python 03_fetch_real_models.py   # archived multi-model forecasts + ERA5 truth
+python model_training.py         # weights, blender, extreme flagger, metrics
+python run_daily.py              # today's live blend over India
 python export_dashboard_data.py
-python build_dashboard.py
+python build_dashboard.py        # -> dashboard.html
 ```
 
-Requires `numpy pandas scipy scikit-learn lightgbm pyarrow joblib`. On this machine use
-the Anaconda interpreter: `C:/Users/khand/anaconda3/python.exe`.
+`run_daily.py --publish` does the last three in one step. Schedule it:
 
-Iterating on the dashboard only means editing `dashboard_template.html` and re-running
-`build_dashboard.py` — no need to retrain.
+```
+0 7 * * *  cd /path/to/NWP-SIH && python run_daily.py --publish
+```
 
-## How the model layer works
+Requires `numpy pandas scipy scikit-learn lightgbm pyarrow joblib`.
+On this machine: `C:/Users/khand/anaconda3/python.exe`.
 
-**Blender.** One LightGBM regressor *per lead time*, trained on the residual
-`truth − anchor` where the anchor is the mean of the three skilful sources. Two reasons
-the residual form matters: boosted trees cannot extrapolate past a split they have seen,
-so predicting the *level* breaks on a held-out block that is hotter or wetter than
-anything in training; and learning the systematic error of the sources rather than the
-weather itself is the standard Model Output Statistics formulation. Per-lead models are
-necessary because the optimal combination at day 1 is a different function from day 5 —
-one shared model averages them into something worse than either.
+---
 
-**Weights.** Separately, a constrained non-negative least squares solve per
-`(cell × lead)` and per `(regime × lead)` produces true sum-to-one weights. `scipy.nnls`
-gives non-negativity; the sum-to-one constraint is imposed by appending a
-heavily-weighted row of ones to the system. This is what the reliability map plots — the
-regressor delivers the accuracy, the NNLS solve delivers the interpretation, and the two
-deliverables stop competing.
+## How it works
 
-**Extreme flagger.** A LightGBM classifier on P(rainfall ≥ 40 mm/day), consuming the
-blended value plus ensemble spread and regime. It is fed a blended value produced the
-same way it will be at deployment — in-sample on the training fold, out-of-fold at
-prediction time — so its input distribution does not shift between training and use.
+**Two halves, deliberately separated.**
 
-## Evaluation discipline
+*Offline* (`model_training.py`) estimates the weights. It needs months of
+archived forecasts whose outcomes are known, so it is slow and historical.
+Constrained non-negative least squares gives sum-to-one weights per
+**(weather regime × lead time)** and per **(grid cell × lead time)** — the
+interpretable object the problem statement asks for. A LightGBM correction then
+learns the residual on top, shrunk by a factor λ fitted on held-out days so a
+useless correction decays to zero and the system falls back exactly to the
+linear blend.
 
-Scores come from **contiguous time-block cross-validation** (4 blocks over 92 days), not a
-random split. Adjacent days and neighbouring cells are strongly autocorrelated, so a
-random row split leaks the answer across the fold boundary and inflates every metric.
-Every row receives an out-of-fold prediction, asserted in code.
+*Online* (`run_daily.py`) applies them. It fetches today's runs, diagnoses the
+weather regime **from the forecast fields themselves**, and combines the
+members. It takes seconds and never waits on verification data that cannot
+exist yet for a future date.
 
-The regime and domain-anomaly features are diagnosed from the **forecast** fields
-available at issue time, never from the observations being predicted. An earlier version
-used truth-derived regime labels as inputs; that is target leakage and was rebuilt.
-Truth-derived regime labels survive only for stratifying the report.
+**Two grids, for the same reason.** The archive is priced per cell *per day*,
+so weights are fitted on a coarse 1° grid (286 land cells). The daily run only
+needs the next week, so it runs at 0.25° (4,645 cells, ~28 km) — fine enough
+that a city search lands in a meaningful box. The weights transfer because they
+are fitted per regime and lead, not per cell.
 
-## What the reliability map shows
+---
 
-Share of the 121 cells where each source earns the largest blend weight:
+## Honesty
 
-| lead | A (physics) | B (AI/ML) | C (ensemble) |
-|---|---|---|---|
-| T+1 | **97.5%** | 0.8% | 1.7% |
-| T+2 | 66.9% | 9.1% | 24.0% |
-| T+3 | 42.1% | **48.8%** | 9.1% |
-| T+4 | 23.1% | **68.6%** | 8.3% |
-| T+5 | 5.8% | **85.1%** | 9.1% |
+These are the things we would rather say ourselves than be caught on.
 
-A clean handover from the physics model to the AI model as the horizon extends — which is
-the entire argument for blending rather than picking one model.
+- **The equal-weight mean is hard to beat, and on the current verification set
+  it is still ahead of the learned blend.** The dashboard's verdict sentence is
+  computed from the table and says so.
+- **We verify against ERA5, and ECMWF AIFS is trained on ERA5**, which flatters
+  it. Gauge-based truth via `imdlib` (IMD's own 0.25° gridded rainfall, no API
+  key) is validated and is the fix.
+- **A live run has no climatology**, so heat stress switches from an anomaly to
+  an absolute threshold and the panel says why.
+- Scores come from **contiguous time-block cross-validation**, never a random
+  split, and the regime feature is diagnosed from forecasts rather than from the
+  observations being predicted.
+
+Full detail in **`docs/DECISIONS.md`** (20 numbered decisions, each with the
+measurement that settled it, including the bugs) and **`DATA_NOTE.md`**.
+
+---
 
 ## Files
 
 | | |
 |---|---|
-| `dashboard.html` | **The deliverable.** Self-contained, 698 KB |
-| `dashboard_template.html` | Source for the above; edit this, not the built file |
-| `model_training.py` | Training pipeline, prints every metric |
-| `DATA_NOTE.md` | Disclosure: which data is real, which is synthetic, and why |
-| `TEAM.md` | **What's needed from you** — branding, demo prep, PPT numbers |
-| `data/` | ERA5 truth, training table, predictions, metrics, weight maps |
-| `models/` | Trained LightGBM artefacts (per lead time) |
-
-## Data provenance
-
-Ground truth is genuine ERA5 reanalysis. The four contributing forecast streams are
-synthetic, with deliberately distinct error signatures. The blending method is
-source-agnostic — substituting real model output is a change to one loading step.
-**Read `DATA_NOTE.md`** before presenting; it's written to be shown to a judge.
+| `dashboard.html` | **The deliverable.** Self-contained |
+| `dashboard_template.html` | Source for the above — edit this, not the built file |
+| `00_build_region.py` | India boundary, mask, and the training + live grids |
+| `00b_build_places.py` | Searchable gazetteer of states and districts |
+| `03_fetch_real_models.py` | Archived multi-model forecasts at lead times |
+| `model_training.py` | Weights, blender, extreme flagger, all metrics |
+| `run_daily.py` | **The operational routine** |
+| `config.py` / `.env.example` | Credentials, all optional, each with a fallback |
+| `imd_client.py` | IMD API client, ready if institutional access appears |
+| `docs/DECISIONS.md` | Engineering decision log |
+| `docs/DATA_SOURCES.md` | Every source, live-probe status, rate limits |
+| `TEAM.md` | What the team needs to supply |
+| `02_synth_models.py`, `01_fetch_era5.py` | Superseded synthetic pipeline, kept as fallback |
