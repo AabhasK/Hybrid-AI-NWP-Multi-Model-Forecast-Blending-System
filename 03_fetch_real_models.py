@@ -35,6 +35,7 @@ Output: data/forecasts_real.parquet, in exactly the schema model_training.py
 already consumes, so nothing downstream changes.
 """
 
+import hashlib
 import json
 import time
 import urllib.error
@@ -57,13 +58,18 @@ LAT_MIN, LAT_MAX = 16.0, 21.0
 LON_MIN, LON_MAX = 73.0, 78.0
 STEP = 0.5
 
-# Open-Meteo prices a request by locations x variables x days, so a full year
-# across five models exhausts the hourly quota. 180 days still doubles the
-# independent sample versus the original 88, which is what the blend weights
-# were short of. Cached longer windows are reused rather than refetched.
-PAST_DAYS = 180
+# Open-Meteo prices a request by locations x variables x days. The national
+# grid is 286 cells x 3 variables x 5 models, so the window has to come down
+# to stay inside the free hourly quota; 120 days back from now still spans the
+# whole 2026 southwest monsoon, which is the season the problem statement
+# cares about. Set OPENMETEO_API_KEY in .env to lift this.
+# Cached longer windows are reused rather than refetched.
+PAST_DAYS = 120
 LEADS = [1, 2, 3, 4, 5]
-EXTREME_MM = 40.0
+EXTREME_MM = 40.0        # IMD "rather heavy" territory
+# IMD issues a high-wind warning around 40-50 km/h sustained; the daily
+# maximum 10 m wind clearing 40 km/h is the operational trigger here.
+HIGH_WIND_KMH = 40.0
 ACTIVE_Z, BREAK_Z = 0.50, -0.50
 
 # Hosts and key come from config.py, which reads .env. With no key these are
@@ -98,6 +104,18 @@ ROW_BATCH = 4
 
 # ---------------------------------------------------------------------------
 def build_grid():
+    """
+    Land cells inside India, from 00_build_region.py.
+
+    Falls back to the original Maharashtra rectangle if that step has not been
+    run, so the pipeline still works from a clean checkout. A rectangle spills
+    into the Arabian Sea and four neighbouring countries; the national grid
+    only contains cells that are actually on Indian territory.
+    """
+    gf = DATA / "grid_cells.json"
+    if gf.exists():
+        g = json.loads(gf.read_text())
+        return [(float(c["lat"]), float(c["lon"])) for c in g["cells"]]
     lats = np.round(np.arange(LAT_MIN, LAT_MAX + 1e-9, STEP), 2)
     lons = np.round(np.arange(LON_MIN, LON_MAX + 1e-9, STEP), 2)
     return [(float(a), float(o)) for a in lats for o in lons]
@@ -138,7 +156,23 @@ def hourly_to_daily(times, values, how):
     """Collapse an hourly series to UTC calendar days."""
     s = pd.Series(values, index=pd.to_datetime(times), dtype="float64")
     g = s.groupby(s.index.normalize())
-    return (g.sum(min_count=18) if how == "sum" else g.mean()).rename(None)
+    if how == "sum":
+        return g.sum(min_count=18).rename(None)
+    if how == "max":
+        return g.max().rename(None)
+    return g.mean().rename(None)
+
+
+# variable -> (API name, daily aggregation). Wind uses the daily MAXIMUM
+# because the operational question is "will it blow hard today", and because
+# ERA5 publishes wind_speed_10m_max as the verifying quantity.
+# `wind_gusts_10m` is deliberately absent: the previous-runs archive returns
+# it as all-null for every model, so gusts cannot be verified at lead time.
+VARS = {
+    "rain": ("precipitation", "sum"),
+    "t2m": ("temperature_2m", "mean"),
+    "wind": ("wind_speed_10m", "max"),
+}
 
 
 def fetch_model_block(model, cells, var, leads, batch_id):
@@ -155,11 +189,16 @@ def fetch_model_block(model, cells, var, leads, batch_id):
     url = ("%s?latitude=%s&longitude=%s&hourly=%s&past_days=%d&forecast_days=1"
            "&timezone=UTC&models=%s%s"
            % (PREV_API, lat, lon, ",".join(names), PAST_DAYS, model, KEY_SUFFIX))
-    key = CACHE / ("%s_%s_%dd_b%03d.json" % (model, var, PAST_DAYS, batch_id))
+    # The cache key fingerprints the ACTUAL COORDINATES, not the batch index.
+    # Keying on position was a silent-corruption trap: change the grid and
+    # "batch 0" means four different places, so a cached file would be served
+    # for cells it never covered and nothing would error.
+    tag = hashlib.md5(("%s|%s" % (lat, lon)).encode()).hexdigest()[:10]
+    key = CACHE / ("%s_%s_%dd_%s.json" % (model, var, PAST_DAYS, tag))
     if key.exists():
         return json.loads(key.read_text())
-    # a previously cached LONGER window already contains this one
-    for other in sorted(CACHE.glob("%s_%s_*d_b%03d.json" % (model, var, batch_id))):
+    # a previously cached LONGER window over the SAME cells contains this one
+    for other in sorted(CACHE.glob("%s_%s_*d_%s.json" % (model, var, tag))):
         try:
             days = int(other.name.split("_")[-2].rstrip("d"))
         except ValueError:
@@ -183,30 +222,32 @@ def collect_forecasts(cells):
         ok = True
         for bi, batch in enumerate(batches):
             try:
-                pr = fetch_model_block(model, batch, "precipitation", LEADS, bi)
-                tp = fetch_model_block(model, batch, "temperature_2m", LEADS, bi)
+                blocks = {name: fetch_model_block(model, batch, api, LEADS, bi)
+                          for name, (api, _) in VARS.items()}
             except Exception as exc:
                 print("  FAILED (%s) - dropping this model" % type(exc).__name__)
                 ok = False
                 break
 
-            for loc_i, (locp, loct) in enumerate(zip(pr, tp)):
+            for loc_i in range(len(batch)):
                 lat, lon = batch[loc_i]
                 cid = "C%03d" % cells.index((lat, lon))
-                hp, ht = locp["hourly"], loct["hourly"]
                 for L in LEADS:
-                    pk = "precipitation_previous_day%d" % L
-                    tk = "temperature_2m_previous_day%d" % L
-                    # the model selector is echoed back in the key only when
-                    # several models are requested at once; handle both shapes
-                    pk = pk if pk in hp else "%s_%s" % (pk, model)
-                    tk = tk if tk in ht else "%s_%s" % (tk, model)
-                    rain = hourly_to_daily(hp["time"], hp[pk], "sum")
-                    temp = hourly_to_daily(ht["time"], ht[tk], "mean")
+                    series = {}
+                    for name, (api, how) in VARS.items():
+                        h = blocks[name][loc_i]["hourly"]
+                        key = "%s_previous_day%d" % (api, L)
+                        # the model selector is echoed back in the key only
+                        # when several models are requested at once
+                        key = key if key in h else "%s_%s" % (key, model)
+                        series[name] = hourly_to_daily(h["time"], h[key], how)
+                    idx = series["rain"].index
                     rows.append(pd.DataFrame({
                         "cell_id": cid, "lat": lat, "lon": lon,
-                        "date": rain.index, "lead_time": L, "model_id": model,
-                        "rain": rain.values, "t2m": temp.reindex(rain.index).values,
+                        "date": idx, "lead_time": L, "model_id": model,
+                        "rain": series["rain"].values,
+                        "t2m": series["t2m"].reindex(idx).values,
+                        "wind": series["wind"].reindex(idx).values,
                     }))
             if bi % 5 == 0: print(".", end="", flush=True)
             time.sleep(0.3)
@@ -222,12 +263,13 @@ def fetch_truth(cells, start, end):
     for batch in batches:
         lat = ",".join("%.2f" % c[0] for c in batch)
         lon = ",".join("%.2f" % c[1] for c in batch)
-        key = CACHE / ("era5_%.2f_%.2f_%s.json" % (batch[0][0], batch[0][1], start))
+        tag = hashlib.md5(("%s|%s" % (lat, lon)).encode()).hexdigest()[:10]
+        key = CACHE / ("era5w_%s_%s_%s.json" % (tag, start, end))
         if key.exists():
             payload = json.loads(key.read_text())
         else:
             payload = fetch("%s?latitude=%s&longitude=%s&start_date=%s&end_date=%s"
-                            "&daily=precipitation_sum,temperature_2m_mean&timezone=UTC%s"
+                            "&daily=precipitation_sum,temperature_2m_mean,wind_speed_10m_max&timezone=UTC%s"
                             % (ERA5_API, lat, lon, start, end, KEY_SUFFIX))
             if not isinstance(payload, list):
                 payload = [payload]
@@ -242,6 +284,7 @@ def fetch_truth(cells, start, end):
                 "date": pd.to_datetime(d["time"]),
                 "truth_rain": pd.to_numeric(d["precipitation_sum"], errors="coerce"),
                 "truth_t2m": pd.to_numeric(d["temperature_2m_mean"], errors="coerce"),
+                "truth_wind": pd.to_numeric(d["wind_speed_10m_max"], errors="coerce"),
             }))
         print(".", end="", flush=True)
         time.sleep(0.4)
@@ -271,7 +314,7 @@ def main():
     start = fc.date.min()
     print("\nfetching verifying analysis...")
     truth = fetch_truth(cells, start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"))
-    truth = truth.dropna(subset=["truth_rain", "truth_t2m"])
+    truth = truth.dropna(subset=["truth_rain", "truth_t2m", "truth_wind"])
     truth["truth_rain"] = truth.truth_rain.clip(lower=0)
 
     # ---- fold the raw models into the four blend sources -------------------
@@ -287,23 +330,25 @@ def main():
 
     fc["role"] = fc.model_id.map(MODELS)
     fc = fc[fc.role.notna()]
-    src = (fc.groupby(["cell_id", "date", "lead_time", "role"])[["rain", "t2m"]]
+    src = (fc.groupby(["cell_id", "date", "lead_time", "role"])[["rain", "t2m", "wind"]]
              .mean().reset_index())          # role C averages GFS + ICON + GEM
     wide = src.pivot_table(index=["cell_id", "date", "lead_time"],
-                           columns="role", values=["rain", "t2m"])
+                           columns="role", values=["rain", "t2m", "wind"])
     wide.columns = ["model_%s_%s" % (r.lower(), v.replace("rain", "rain").replace("t2m", "t2m"))
                     for v, r in wide.columns]
     wide = wide.reset_index()
 
     df = truth.merge(wide, on=["cell_id", "date"], how="inner")
-    df = df.dropna(subset=["model_%s_rain" % m for m in "abcde"])
+    df = df.dropna(subset=(["model_%s_rain" % m for m in "abcde"] +
+                           ["model_%s_wind" % m for m in "abcde"]))
     df["rain_mm"] = df.truth_rain
 
     # ---- climatology, regime, persistence ---------------------------------
     piv = df.drop_duplicates(["cell_id", "date"]).pivot(
-        index="date", columns="cell_id", values=["truth_rain", "truth_t2m"])
+        index="date", columns="cell_id", values=["truth_rain", "truth_t2m", "truth_wind"])
     rain_c = piv["truth_rain"].sort_index()
     temp_c = piv["truth_t2m"].sort_index()
+    wind_c = piv["truth_wind"].sort_index()
 
     # Anomaly against the SEASONAL CYCLE, not the annual mean. Over a full
     # year an absolute threshold would label every dry-season day a "break";
@@ -326,6 +371,11 @@ def main():
     clim_t2m = pd.DataFrame(temp_c.mean(axis=0).values[None, :] + shift.values[:, None],
                             index=temp_c.index, columns=temp_c.columns)
 
+    dom_w = wind_c.mean(axis=1)
+    wshift = dom_w.rolling(15, center=True, min_periods=1).mean() - dom_w.mean()
+    clim_wind = pd.DataFrame(wind_c.mean(axis=0).values[None, :] + wshift.values[:, None],
+                             index=wind_c.index, columns=wind_c.columns)
+
     df["regime"] = df.date.map(regime)
     df["domain_rain_z"] = df.date.map(z)
     prev = regime.shift(1).bfill()
@@ -334,23 +384,30 @@ def main():
     df["season"] = df.date.dt.month.map(lambda m: PHASE.get(m, "other"))
     df["clim_rain"] = [clim_rain.at[d, c] for d, c in zip(df.date, df.cell_id)]
     df["clim_t2m"] = [clim_t2m.at[d, c] for d, c in zip(df.date, df.cell_id)]
+    df["clim_wind"] = [clim_wind.at[d, c] for d, c in zip(df.date, df.cell_id)]
 
     # F = persistence: the analysis available `lead` days before the valid date
     tr_lookup = {(c, d): v for c, d, v in zip(df.cell_id, df.date, df.truth_rain)}
     tt_lookup = {(c, d): v for c, d, v in zip(df.cell_id, df.date, df.truth_t2m)}
-    dr, dt = [], []
+    tw_lookup = {(c, d): v for c, d, v in zip(df.cell_id, df.date, df.truth_wind)}
+    dr, dt, dw = [], [], []
     for c, d, L in zip(df.cell_id, df.date, df.lead_time):
         src_d = d - pd.Timedelta(days=int(L))
         dr.append(tr_lookup.get((c, src_d), np.nan))
         dt.append(tt_lookup.get((c, src_d), np.nan))
+        dw.append(tw_lookup.get((c, src_d), np.nan))
     df["model_f_rain"] = dr
     df["model_f_t2m"] = dt
+    df["model_f_wind"] = dw
     df["model_f_rain"] = df.model_f_rain.fillna(df.clim_rain)
     df["model_f_t2m"] = df.model_f_t2m.fillna(df.clim_t2m)
+    df["model_f_wind"] = df.model_f_wind.fillna(df.clim_wind)
 
-    for c in ["model_%s_rain" % m for m in "abcdef"]:
+    for c in (["model_%s_rain" % m for m in "abcdef"] +
+              ["model_%s_wind" % m for m in "abcdef"]):
         df[c] = df[c].clip(lower=0)
     df["is_extreme"] = (df.truth_rain >= EXTREME_MM).astype(int)
+    df["is_highwind"] = (df.truth_wind >= HIGH_WIND_KMH).astype(int)
     df["doy"] = df.date.dt.dayofyear
     df = df.sort_values(["date", "lead_time", "cell_id"]).reset_index(drop=True)
 
