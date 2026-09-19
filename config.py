@@ -48,17 +48,19 @@ def get(key, default=""):
     return (_ENV.get(key) or os.environ.get(key) or default).strip()
 
 
+# Settings whose value is legitimately a URL. Everything else that looks like
+# one is a paste error: an endpoint is not a credential, and sending one as
+# the other breaks every request silently rather than failing loudly.
+URL_SETTINGS = {"CDS_API_URL", "IMD_API_BASE"}
+
+
 def is_set(key):
-    """
-    A placeholder left in .env.example must not count as configured, and
-    neither must a URL pasted where a key belongs - Open-Meteo's endpoint is
-    not its API key, and sending one as the other silently breaks every
-    request instead of failing loudly.
-    """
+    """True only for a value that is present and plausibly a credential."""
     v = get(key)
     if not v or v.lower().startswith(("your_", "paste_", "xxx", "<")):
         return False
-    if v.lower().startswith(("http://", "https://")) or "/" in v:
+    if key not in URL_SETTINGS and (
+            v.lower().startswith(("http://", "https://")) or "/" in v):
         print("  ! %s looks like a URL, not a key - ignoring it. "
               "See .env.example." % key)
         return False
@@ -106,6 +108,8 @@ KEYS = [
 MAPBOX_TOKEN = get("MAPBOX_TOKEN")
 OPENMETEO_API_KEY = get("OPENMETEO_API_KEY")
 CDS_API_KEY = get("CDS_API_KEY")
+CDS_API_URL = get("CDS_API_URL", "https://cds.climate.copernicus.eu/api")
+IMD_API_BASE = get("IMD_API_BASE", "https://mausam.imd.gov.in/api")
 IMD_API_KEY = get("IMD_API_KEY")
 
 # Open-Meteo routes paid keys through a different host
