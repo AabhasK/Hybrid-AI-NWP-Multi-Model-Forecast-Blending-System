@@ -66,6 +66,10 @@ function run(w, ev, ready){
   try { w.showInspector(60); say('inspector          : ' + ev('document.getElementById("inspector").classList.contains("on")')); }
   catch(e){ say('inspector          : THREW ' + e.message); }
 
+  say('scorecard rows     : ' + ev('document.querySelectorAll(".scorerow").length'));
+  say('scorecard colours  : ' + ev('[...document.querySelectorAll(".scorerow")].map(r=>r.querySelector(".nm").textContent.slice(0,16)+"="+r.querySelector("i").style.background).join(" | ")'));
+  say('verdict            : ' + ev('document.getElementById("verdict").textContent.trim().slice(0,150)'));
+  say('middle dots in DOM : ' + ev('(document.body.innerText.match(/ · /g)||[]).length'));
   say('JS ERRORS          : ' + (errors.length ? errors.join(' ; ') : 'none'));
   say('DONE');
 }

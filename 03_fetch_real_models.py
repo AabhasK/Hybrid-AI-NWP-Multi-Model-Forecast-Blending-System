@@ -83,7 +83,10 @@ MODELS = {
 # REFERENCE, not a blend member: including it in the weight solve measurably
 # degraded out-of-sample blend RMSE (10.54 -> 10.77) because it adds no
 # independent information and destabilises the fitted weights.
-ROW_BATCH = 11          # one latitude row per request; ~3 s each
+# At a 365-day window the server times out streaming more than ~6 locations
+# per request ("Unexpected error while streaming data: timeout"); 4 returns in
+# under 3 s. Measured, not guessed.
+ROW_BATCH = 4
 
 
 # ---------------------------------------------------------------------------
@@ -113,7 +116,7 @@ def hourly_to_daily(times, values, how):
     return (g.sum(min_count=18) if how == "sum" else g.mean()).rename(None)
 
 
-def fetch_model_block(model, cells, var, leads):
+def fetch_model_block(model, cells, var, leads, batch_id):
     """
     One request: all cells in `cells`, one model, one variable, every lead.
 
@@ -126,7 +129,7 @@ def fetch_model_block(model, cells, var, leads):
     lon = ",".join("%.2f" % c[1] for c in cells)
     url = ("%s?latitude=%s&longitude=%s&hourly=%s&past_days=%d&forecast_days=1"
            "&timezone=UTC&models=%s" % (PREV_API, lat, lon, ",".join(names), PAST_DAYS, model))
-    key = CACHE / ("%s_%s_%dd_%.2f.json" % (model, var, PAST_DAYS, cells[0][0]))
+    key = CACHE / ("%s_%s_%dd_b%03d.json" % (model, var, PAST_DAYS, batch_id))
     if key.exists():
         return json.loads(key.read_text())
     payload = fetch(url)
@@ -146,8 +149,8 @@ def collect_forecasts(cells):
         ok = True
         for bi, batch in enumerate(batches):
             try:
-                pr = fetch_model_block(model, batch, "precipitation", LEADS)
-                tp = fetch_model_block(model, batch, "temperature_2m", LEADS)
+                pr = fetch_model_block(model, batch, "precipitation", LEADS, bi)
+                tp = fetch_model_block(model, batch, "temperature_2m", LEADS, bi)
             except Exception as exc:
                 print("  FAILED (%s) - dropping this model" % type(exc).__name__)
                 ok = False
@@ -171,8 +174,8 @@ def collect_forecasts(cells):
                         "date": rain.index, "lead_time": L, "model_id": model,
                         "rain": rain.values, "t2m": temp.reindex(rain.index).values,
                     }))
-            print(".", end="", flush=True)
-            time.sleep(0.4)
+            if bi % 5 == 0: print(".", end="", flush=True)
+            time.sleep(0.3)
         if ok:
             print(" ok")
     return pd.concat(rows, ignore_index=True)
