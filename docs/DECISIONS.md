@@ -288,6 +288,93 @@ honest answer if a judge asks why the verification tab shows past dates.
 
 ---
 
+## D16 — The map is the product, so it gets the page
+
+**Decision.** The map occupies the full stage width and whatever screen height
+is left under the header. The weight chart, cell readout and watch list float
+over it as glass cards in a collapsible right-hand rail.
+
+**Rejected.** The map as one column of a CSS grid beside equal-weight panels,
+which is what the first three versions did. It made the central artefact look
+like a thumbnail next to a bar chart.
+
+**Detail that mattered.** `fitBounds` only guarantees the country fits inside
+the container, and the container includes the 344 px the dock covers, so India
+was being centred *underneath* the panels and rendered small. The fit is now
+padded by the dock width, and zoom is nudged halfway toward filling the free
+width, so the country is the subject without being cropped.
+
+---
+
+## D17 — The reliability map needed something per-cell to say
+
+**Problem.** A live run uses one weight vector per (regime, lead time), shared
+by every cell, so the "model reliability map" rendered as a single flat colour
+over the whole country. Honest, and useless to look at.
+
+**Decision.** A second view on the same map: **where the centres disagree**,
+measured as the standard deviation of the five members' rainfall in each cell.
+That is genuinely per-cell, available live, and it argues the product's case
+better than the weight map does — where the models agree any of them will do;
+where they diverge, the choice of model *is* the forecast.
+
+Per-cell dominant source returns as soon as the national archive finishes
+training. The disagreement view stays regardless; it answers a different and
+equally operational question.
+
+---
+
+## D18 — The verdict sentence is derived, not asserted
+
+**What we caught.** The verification tab's summary sentence read "ahead of
+every individual source **and of a plain equal-weight average**" as fixed copy,
+while the ranked table directly above it showed the equal-weight mean at 10.59
+against the blend's 10.67. The page contradicted itself.
+
+**Decision.** The sentence is computed from the same numbers the table renders,
+and it states a loss when there is one:
+
+> "A plain equal-weight average of all five scores **10.59**, so on this set the
+> learned weighting has not yet beaten simple averaging. We report that rather
+> than omit the comparison."
+
+This is the single most attackable number in the submission, and the page now
+says it out loud.
+
+---
+
+## D19 — No climatology means no anomaly
+
+**What we caught.** The heat-stress list showed `+0.0° vs normal` for every
+cell. A live run has no 30-year normal for a date that has not happened, so the
+exporter had set climatology equal to the blended value and every anomaly was
+identically zero.
+
+**Decision.** The dashboard detects whether a slice carries a real climatology.
+Where it does, heat stress is an anomaly against the local seasonal normal.
+Where it cannot, the criterion switches to an absolute threshold and the panel
+says why. Sanity check: the absolute view correctly ranks western Rajasthan
+(26.9 °N, 69.6 °E — the Thar) as the hottest cells for 23 September.
+
+---
+
+## D20 — Typography and palette chosen against the defaults
+
+**Decision.** **Archivo** and **Archivo Narrow** on a warm ink-and-charcoal
+base (`#100f0d` page, `#171613` panels).
+
+**Rejected.** IBM Plex Sans on cool blue-slate, which the first version used.
+Both are the reflex choice for a technical dashboard, and together they read as
+generated rather than designed.
+
+The base is deliberately desaturated and warm so that the only saturated things
+on screen are the weather layers — teal rainfall, amber heat, violet wind and
+the five series hues. The series palette was re-run through the CVD validator
+against the new surface rather than assumed to still pass: worst adjacent pair
+ΔE 9.4 under deuteranopia, all five clearing 3:1 contrast.
+
+---
+
 ## Open items
 
 - National archive fetch for retraining weights on the 1° India grid is
