@@ -113,13 +113,13 @@ body{
 
 /* ====================== horizon rail (the hero control) ================= */
 .rail{
-  padding:16px 0 4px;
+  padding:13px 0 2px;
 }
-.rail-head{display:flex;align-items:baseline;gap:14px;margin-bottom:16px;flex-wrap:wrap}
+.rail-head{display:flex;align-items:center;gap:14px;margin-bottom:11px;flex-wrap:wrap}
 .rail-head h2{font-family:"Archivo Narrow",sans-serif;font-size:16px;font-weight:600;margin:0}
 .rail-head span{color:var(--ink-3);font-size:12.5px}
 .track{
-  position:relative;height:62px;cursor:pointer;
+  position:relative;height:56px;cursor:pointer;
   touch-action:none;user-select:none;
 }
 .track::before{
@@ -140,8 +140,8 @@ body{
   border:1px solid var(--rule);margin-top:6px;
   transition:transform .22s,background-color .22s,border-color .22s;
 }
-.stn .lead{font-size:16px;font-weight:600;margin-top:9px;letter-spacing:.01em}
-.stn .vd{font-size:11.5px;margin-top:1px}
+.stn .lead{font-size:14.5px;font-weight:600;margin-top:8px;letter-spacing:.01em}
+.stn .vd{font-size:11px;margin-top:0}
 .stn[aria-checked="true"]{color:var(--ink)}
 .stn[aria-checked="true"] .knob{transform:scale(1.55);background:var(--m-a);border-color:var(--m-a)}
 .stn:hover .knob{border-color:var(--ink-3)}
@@ -178,7 +178,7 @@ body{
 .stagebody{
   position:relative;
   height:620px;   /* replaced at runtime by sizeStage() */
-  min-height:420px;
+  min-height:380px;
   border:1px solid var(--rule);border-radius:3px;overflow:hidden;
   background:#12110f;
 }
@@ -188,6 +188,7 @@ body{
 .dock{
   position:absolute;right:12px;top:12px;bottom:12px;width:344px;z-index:6;
   display:flex;flex-direction:column;gap:10px;pointer-events:none;
+  overflow-y:auto;scrollbar-width:thin;
   transition:transform .28s cubic-bezier(.4,0,.2,1),opacity .28s;
 }
 .dock > *{pointer-events:auto}
@@ -197,8 +198,12 @@ body{
   border:1px solid rgba(255,255,255,.09);border-radius:4px;
   box-shadow:0 10px 32px rgba(0,0,0,.45);
   display:flex;flex-direction:column;min-height:0;overflow:hidden;
+  /* fixed-content cards must not be squeezed when the stage is short; the
+     watch list is the one that gives, and the rail scrolls if even that is
+     not enough */
+  flex:none;
 }
-.dockcard.grow{flex:1;min-height:140px}
+.dockcard.grow{flex:1 1 auto;min-height:150px}
 .dockhead{
   padding:9px 13px 8px;border-bottom:1px solid rgba(255,255,255,.07);
   display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
@@ -226,7 +231,7 @@ body{
 }
 .dock .inspector:empty{display:none}
 .dock .alerts{max-height:none;flex:1;overflow-y:auto}
-.chartbox.short{height:212px;padding:8px 10px 4px}
+.chartbox.short{height:224px;padding:8px 10px 6px}
 #inspectorCard,#winspectorCard{flex:none}
 
 /* legend runs under the stage, full width */
@@ -394,10 +399,10 @@ body{
 .pop .foot{margin-top:11px;padding-top:9px;border-top:1px solid var(--rule);display:flex;justify-content:space-between;font-size:12px;color:var(--ink-2)}
 
 /* legend */
-.legend{display:flex;align-items:center;gap:0;padding:11px 16px;border-top:1px solid var(--rule-soft);flex-wrap:wrap}
+.legend{display:flex;align-items:center;gap:0;padding:9px 16px;border-top:1px solid var(--rule-soft);flex-wrap:wrap}
 .legend .lg{display:flex;flex-direction:column;gap:4px;flex:1;min-width:56px}
 .legend .sw{height:9px}
-.legend .lb{font-size:10.5px;color:var(--ink-3);font-family:"Archivo Narrow",sans-serif;line-height:1.2}
+.legend .lb{font-size:10px;color:var(--ink-3);font-family:"Archivo Narrow",sans-serif;line-height:1.2}
 .legend .unit{font-size:11px;color:var(--ink-3);margin-right:12px;white-space:nowrap}
 
 /* ====================== alerts ========================================= */
@@ -553,7 +558,6 @@ table.dt tr.hl td{color:#fff;font-weight:600}
     <button role="tab" id="tab-verify"   aria-selected="false" data-pane="verify">Verification</button>
     <button role="tab" id="tab-extremes" aria-selected="false" data-pane="extremes">Extremes</button>
   </nav>
-  <p class="tabhint" id="tabHint"></p>
 
   <!-- ============================= panels ============================== -->
   <div class="pane" id="pane-forecast" role="tabpanel" aria-labelledby="tab-forecast">
@@ -1597,14 +1601,14 @@ function paintWeights(){
     layout:{padding:{right:4}},
     scales:{
       x:{stacked:true, max:100, grid:{color:GRID, drawTicks:false},
-         border:{display:false}, ticks:{callback:v=>v+'%', color:INK3}},
+         border:{display:false}, ticks:{callback:v=>v+'%', color:INK3, font:{size:10.5}}},
       y:{stacked:true, grid:{display:false}, border:{color:GRID},
          ticks:{color:(c)=> (c.index+1)===lead ? '#eef4f8' : INK3,
                 font:{weight:(c)=>(c.index+1)===lead?'700':'500', size:13}}}
     },
     plugins:{
-      legend:{position:'bottom', labels:{boxWidth:9, boxHeight:9, padding:11,
-              usePointStyle:true, pointStyle:'rect', color:INK2, font:{size:11.5}}},
+      legend:{position:'bottom', labels:{boxWidth:8, boxHeight:8, padding:7,
+              usePointStyle:true, pointStyle:'rect', color:INK2, font:{size:10.5}}},
       tooltip:{
         backgroundColor:'#17222b', borderColor:GRID, borderWidth:1,
         titleColor:'#eef4f8', bodyColor:INK2, padding:10, displayColors:true,
@@ -2003,14 +2007,14 @@ function paintShare(){
     indexAxis:'y', responsive:true, maintainAspectRatio:false, animation:{duration:300},
     scales:{
       x:{stacked:true, max:100, grid:{color:GRID, drawTicks:false}, border:{display:false},
-         ticks:{callback:v=>v+'%', color:INK3}},
+         ticks:{callback:v=>v+'%', color:INK3, font:{size:10.5}}},
       y:{stacked:true, grid:{display:false}, border:{color:GRID},
-         ticks:{color:(c)=>(c.index+1)===lead?'#eef4f8':INK3,
-                font:{weight:(c)=>(c.index+1)===lead?'700':'500', size:13}}}
+         ticks:{color:(c)=>(c.index+1)===lead?'#f2efe8':INK3,
+                font:{weight:(c)=>(c.index+1)===lead?'700':'500', size:12}}}
     },
     plugins:{
-      legend:{position:'bottom', labels:{boxWidth:9, boxHeight:9, padding:10,
-              usePointStyle:true, pointStyle:'rect', color:INK2, font:{size:11}}},
+      legend:{position:'bottom', labels:{boxWidth:8, boxHeight:8, padding:7,
+              usePointStyle:true, pointStyle:'rect', color:INK2, font:{size:10.5}}},
       tooltip:{backgroundColor:'#17222b', borderColor:GRID, borderWidth:1,
                titleColor:'#eef4f8', bodyColor:INK2, padding:10,
                callbacks:{label:c=>' '+c.dataset.label+': '+c.parsed.x.toFixed(0)+'% of cells'}}
@@ -2139,8 +2143,12 @@ function paintNowLine(){
 }
 
 function paintTabHint(){
-  const el = document.getElementById('tabHint');
-  if (el) el.textContent = TAB_HINTS[activePane] || '';
+  /* one explanatory line per tab, shown in that pane's own header rather
+     than on a separate row - same information, ~30px less chrome */
+  const pane = document.getElementById('pane-' + activePane);
+  if (!pane) return;
+  const why = pane.querySelector('.stagehead .why, .p-head .why');
+  if (why && TAB_HINTS[activePane]) why.textContent = TAB_HINTS[activePane];
 }
 
 /* --- collapse the side rail to hand the whole stage to the map -------- */
