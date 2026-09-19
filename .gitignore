@@ -4,3 +4,9 @@ __pycache__/
 
 # credentials - never commit
 .env
+
+# large raw downloads - regenerate with 00_build_region.py / 00b_build_places.py
+data/_india_raw.geojson
+data/_india_states.geojson
+data/_india_districts.geojson
+data/_real_raw/
