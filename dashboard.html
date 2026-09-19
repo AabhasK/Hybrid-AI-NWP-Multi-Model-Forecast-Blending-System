@@ -8,8 +8,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.9.0/mapbox-gl.css" rel="stylesheet" />
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.9.0/mapbox-gl.js"></script>
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
 :root{
@@ -179,21 +181,49 @@ body{
 /* ====================== map ============================================ */
 /* the map panel is the tall one; let the canvas absorb whatever height the
    right-hand column forces on the row instead of leaving a dead band */
-.p-map .p-body{display:flex}
-#map{flex:1;min-height:520px;width:100%;background:#0e161d}
-.leaflet-container{background:#0e161d;font-family:"IBM Plex Sans",sans-serif}
-.leaflet-interactive{transition:fill .34s cubic-bezier(.4,0,.2,1)}
-.leaflet-popup-content-wrapper{
+.p-map .p-body{display:flex;position:relative}
+#map{flex:1;min-height:560px;width:100%;background:#0e161d}
+.mapboxgl-map,.maplibregl-map{font-family:"IBM Plex Sans",sans-serif}
+.mapboxgl-popup-content,.maplibregl-popup-content{
   background:var(--raised);color:var(--ink);border:1px solid var(--rule);
-  border-radius:3px;box-shadow:0 10px 34px rgba(0,0,0,.55)
+  border-radius:3px;padding:13px 15px;box-shadow:0 12px 38px rgba(0,0,0,.6)
 }
-.leaflet-popup-tip{background:var(--raised);border:1px solid var(--rule)}
-.leaflet-popup-content{margin:13px 15px;width:266px!important}
-.leaflet-popup-close-button{color:var(--ink-3)!important}
-.leaflet-control-attribution{background:rgba(11,16,21,.82)!important;color:var(--ink-3)!important}
-.leaflet-control-attribution a{color:var(--ink-2)!important}
-.leaflet-bar a{background:var(--raised);color:var(--ink);border-color:var(--rule)}
-.leaflet-bar a:hover{background:var(--rule)}
+.mapboxgl-popup-tip,.maplibregl-popup-tip{border-top-color:var(--raised)!important;
+  border-bottom-color:var(--raised)!important}
+.mapboxgl-popup-close-button,.maplibregl-popup-close-button{color:var(--ink-3);font-size:17px;padding:2px 7px}
+.mapboxgl-ctrl-attrib,.maplibregl-ctrl-attrib{background:rgba(11,16,21,.82)!important}
+.mapboxgl-ctrl-attrib a,.maplibregl-ctrl-attrib a{color:var(--ink-3)!important}
+.mapboxgl-ctrl-group,.maplibregl-ctrl-group{background:var(--raised)!important;
+  border:1px solid var(--rule)!important;box-shadow:none!important}
+.mapboxgl-ctrl-group button,.maplibregl-ctrl-group button{width:29px;height:29px}
+.mapboxgl-ctrl-group button + button,.maplibregl-ctrl-group button + button{border-top:1px solid var(--rule)}
+.mapboxgl-ctrl-icon,.maplibregl-ctrl-icon{filter:invert(.85)}
+
+/* floating map controls */
+.mapctl{
+  position:absolute;left:14px;top:14px;z-index:5;display:flex;flex-direction:column;gap:7px;
+}
+.mapctl .seg{margin-left:0;background:rgba(11,16,21,.86);backdrop-filter:blur(7px)}
+.mapctl .seg button{padding:5px 11px}
+
+/* hover inspector - reads the field without needing a click */
+.inspector{
+  position:absolute;right:14px;top:14px;z-index:5;width:212px;pointer-events:none;
+  background:rgba(11,16,21,.9);backdrop-filter:blur(9px);
+  border:1px solid var(--rule);border-radius:3px;padding:11px 13px;
+  opacity:0;transition:opacity .18s;
+}
+.inspector.on{opacity:1}
+.inspector .ih{font-size:11px;color:var(--ink-3);display:flex;justify-content:space-between}
+.inspector .iv{font-family:"IBM Plex Sans Condensed",sans-serif;font-size:27px;font-weight:600;line-height:1.1;margin:3px 0 1px}
+.inspector .ic{font-size:11.5px;color:var(--ink-2);margin-bottom:9px}
+.inspector .ir{display:grid;grid-template-columns:11px 1fr auto;gap:6px;align-items:center;font-size:11.5px;margin:3px 0}
+.inspector .ir i{height:7px;border-radius:2px;display:block}
+.inspector .sw{width:8px;height:8px;border-radius:2px}
+.mapnote{
+  position:absolute;left:14px;bottom:30px;z-index:5;font-size:11px;color:var(--ink-3);
+  background:rgba(11,16,21,.8);padding:4px 9px;border-radius:2px;pointer-events:none;
+}
 
 .pop h4{margin:0;font-family:"IBM Plex Sans Condensed",sans-serif;font-size:14px;font-weight:600}
 .pop .coords{color:var(--ink-3);font-size:11.5px;margin:1px 0 10px}
@@ -371,13 +401,27 @@ table.dt tr.hl td{color:#fff;font-weight:600}
     <section class="panel p-map">
       <div class="p-head">
         <h3>Blended field</h3>
-        <p class="why">Grid cells at 0.5°, coloured by the blended forecast. Click a cell for its model mix.</p>
+        <p class="why">Interpolated from the 0.5° blend. Hover to read a cell, click to pin it.</p>
         <div class="seg" role="group" aria-label="Variable">
           <button id="vRain" aria-pressed="true">Rainfall</button>
           <button id="vTemp" aria-pressed="false">Temperature</button>
         </div>
       </div>
-      <div class="p-body flush"><div id="map"></div></div>
+      <div class="p-body flush">
+        <div id="map"></div>
+        <div class="mapctl">
+          <div class="seg" role="group" aria-label="Field rendering">
+            <button id="mSmooth" aria-pressed="true">Field</button>
+            <button id="mGrid" aria-pressed="false">Grid</button>
+          </div>
+          <div class="seg" role="group" aria-label="Overlays">
+            <button id="mIso" aria-pressed="true">Isohyets</button>
+            <button id="m3d" aria-pressed="false">Terrain</button>
+          </div>
+        </div>
+        <div class="inspector" id="inspector" aria-live="polite"></div>
+        <div class="mapnote" id="mapnote"></div>
+      </div>
       <div class="legend" id="legend"></div>
     </section>
 
@@ -613,65 +657,364 @@ function paintRunMeta(){
 /* ===================================================================== */
 /* map                                                                    */
 /* ===================================================================== */
-const map = L.map('map', {zoomControl:true, attributionControl:true, scrollWheelZoom:false});
-/* Esri's Dark Gray Canvas: keyless, and its low-chroma grey lets the rainfall
-   ramp carry all the colour on the page. */
-const ESRI = 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/';
-L.tileLayer(ESRI+'World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',{
-  attribution:'Truth: ERA5 · Basemap &copy; Esri', maxZoom:12
-}).addTo(map);
-L.tileLayer(ESRI+'World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',{
-  maxZoom:12, opacity:.85
-}).addTo(map);
-map.fitBounds([[M.bbox[0],M.bbox[1]],[M.bbox[2],M.bbox[3]]], {padding:[6,6]});
+/* ---------------------------------------------------------------------
+   Paste a Mapbox PUBLIC token (pk.…) below to render on Mapbox GL.
+   Leave it empty and the page falls back to MapLibre GL + OpenFreeMap
+   vector tiles, which need no key. MapLibre is the open fork of Mapbox
+   GL JS: same API, same style spec, so every layer below is written
+   once and runs unchanged on either engine.
+--------------------------------------------------------------------- */
+const MAPBOX_TOKEN = '';
 
-const half = M.cell_deg/2;
-const rects = DATA.cells.map((c,i)=>{
-  const r = L.rectangle([[c.lat-half,c.lon-half],[c.lat+half,c.lon+half]],{
-    weight:.5, color:'#0b1015', opacity:.55, fillOpacity:.82, className:'cellrect'
-  }).addTo(map);
-  r.on('click', ()=> r.bindPopup(popupHtml(i),{maxWidth:300}).openPopup());
-  r.on('mouseover',()=> r.setStyle({weight:1.6, color:'#eef4f8'}));
-  r.on('mouseout', ()=> r.setStyle({weight:.5, color:'#0b1015'}));
-  return r;
+const USE_MAPBOX = /^pk\./.test(MAPBOX_TOKEN) && typeof mapboxgl !== 'undefined';
+const GL = USE_MAPBOX ? mapboxgl : maplibregl;
+if (USE_MAPBOX) mapboxgl.accessToken = MAPBOX_TOKEN;
+
+const BASE_STYLE = USE_MAPBOX
+  ? 'mapbox://styles/mapbox/dark-v11'
+  : 'https://tiles.openfreemap.org/styles/dark';
+
+const BLANK_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+const LAT_S = M.bbox[0], LON_W = M.bbox[1], LAT_N = M.bbox[2], LON_E = M.bbox[3];
+const HALF = M.cell_deg / 2;
+/* the field covers half a cell beyond the outermost cell CENTRES */
+const IMG_COORDS = [
+  [LON_W - HALF, LAT_N + HALF], [LON_E + HALF, LAT_N + HALF],
+  [LON_E + HALF, LAT_S - HALF], [LON_W - HALF, LAT_S - HALF]
+];
+
+const map = new GL.Map({
+  container: 'map',
+  style: BASE_STYLE,
+  bounds: [[LON_W - HALF, LAT_S - HALF], [LON_E + HALF, LAT_N + HALF]],
+  fitBoundsOptions: {padding: 14},
+  scrollZoom: false,
+  attributionControl: false
+});
+map.addControl(new GL.NavigationControl({visualizePitch: true}), 'bottom-right');
+map.addControl(new GL.AttributionControl({
+  compact: true,
+  customAttribution: 'Truth: ERA5 · Forecasts: ECMWF / NOAA / DWD'
+}), 'bottom-left');
+
+document.getElementById('mapnote').textContent = USE_MAPBOX
+  ? 'Mapbox GL' : 'MapLibre GL · OpenFreeMap (no token set)';
+
+/* =====================================================================
+   Turning 121 point values into a field.
+
+   Drawing one flat rectangle per cell reads as a spreadsheet, not
+   weather. Real rainfall products are continuous surfaces, so the grid
+   is resampled with a Catmull-Rom bicubic kernel onto a fine raster and
+   then classified into the IMD bands. Interpolating the VALUES and
+   classifying afterwards keeps the class edges crisp - which is exactly
+   what makes an isohyet map readable - while removing the blockiness.
+===================================================================== */
+const LATS = [...new Set(DATA.cells.map(c => c.lat))].sort((a, b) => a - b);
+const LONS = [...new Set(DATA.cells.map(c => c.lon))].sort((a, b) => a - b);
+const NR = LATS.length, NC = LONS.length;
+const IDX = new Int32Array(NR * NC).fill(-1);
+DATA.cells.forEach((c, i) => { IDX[LATS.indexOf(c.lat) * NC + LONS.indexOf(c.lon)] = i; });
+
+const FW = 300, FH = 300;     // render raster
+const CW = 150, CH = 150;     // coarser raster for contour tracing
+
+function gridOf(arr){
+  const g = new Float32Array(NR * NC);
+  for (let k = 0; k < NR * NC; k++) g[k] = arr[IDX[k]] || 0;
+  return g;
+}
+const clampi = (v, n) => v < 0 ? 0 : (v > n - 1 ? n - 1 : v);
+const at = (g, r, c) => g[clampi(r, NR) * NC + clampi(c, NC)];
+function cr(p0, p1, p2, p3, t){
+  return 0.5 * (2*p1 + (-p0+p2)*t + (2*p0 - 5*p1 + 4*p2 - p3)*t*t + (-p0 + 3*p1 - 3*p2 + p3)*t*t*t);
+}
+function sample(g, gr, gc){
+  const r = Math.floor(gr), c = Math.floor(gc), tr = gr - r, tc = gc - c;
+  const a = [];
+  for (let i = -1; i <= 2; i++)
+    a.push(cr(at(g,r+i,c-1), at(g,r+i,c), at(g,r+i,c+1), at(g,r+i,c+2), tc));
+  return cr(a[0], a[1], a[2], a[3], tr);
+}
+function resample(g, w, h){
+  const out = new Float32Array(w * h);
+  const latTop = LAT_N + HALF, latSpan = (LAT_N + HALF) - (LAT_S - HALF);
+  const lonL = LON_W - HALF, lonSpan = (LON_E + HALF) - (LON_W - HALF);
+  for (let y = 0; y < h; y++){
+    const gr = ((latTop - (y / (h - 1)) * latSpan) - LAT_S) / M.cell_deg;
+    for (let x = 0; x < w; x++){
+      const gc = ((lonL + (x / (w - 1)) * lonSpan) - LON_W) / M.cell_deg;
+      out[y * w + x] = sample(g, gr, gc);
+    }
+  }
+  return out;
+}
+
+const fieldCanvas = document.createElement('canvas');
+fieldCanvas.width = FW; fieldCanvas.height = FH;
+function fieldURL(field, bins){
+  const ctx = fieldCanvas.getContext('2d');
+  const img = ctx.createImageData(FW, FH);
+  const rgb = bins.map(b => [parseInt(b.c.slice(1,3),16), parseInt(b.c.slice(3,5),16), parseInt(b.c.slice(5,7),16)]);
+  for (let k = 0; k < FW * FH; k++){
+    const v = field[k];
+    let bi = 0; while (bi < bins.length - 1 && v >= bins[bi].max) bi++;
+    const col = rgb[bi];
+    const o = 4 * k;
+    img.data[o] = col[0]; img.data[o+1] = col[1]; img.data[o+2] = col[2];
+    /* let terrain and coastline read through where nothing is happening */
+    img.data[o+3] = bi === 0 ? 55 : (bi === 1 ? 165 : 234);
+  }
+  ctx.putImageData(img, 0, 0);
+  return fieldCanvas.toDataURL();
+}
+
+/* --- isohyets via marching squares ---------------------------------- */
+const MS_CASES = {
+  1:[['L','B']], 2:[['B','R']], 3:[['L','R']], 4:[['T','R']],
+  5:[['T','L'],['B','R']], 6:[['T','B']], 7:[['T','L']], 8:[['T','L']],
+  9:[['T','B']], 10:[['T','R'],['L','B']], 11:[['T','R']], 12:[['L','R']],
+  13:[['B','R']], 14:[['L','B']]
+};
+const RAIN_ISO = [7.6, 35.6, 64.5, 124.5];
+const TEMP_ISO = [25, 27, 29, 31, 33];
+
+function contourFeatures(field, levels){
+  const feats = [];
+  const latTop = LAT_N + HALF, latSpan = (LAT_N + HALF) - (LAT_S - HALF);
+  const lonL = LON_W - HALF, lonSpan = (LON_E + HALF) - (LON_W - HALF);
+  const PX = (x, y) => [lonL + (x / (CW - 1)) * lonSpan, latTop - (y / (CH - 1)) * latSpan];
+  const V = (x, y) => field[y * CW + x];
+
+  for (const level of levels){
+    const segs = [];
+    for (let y = 0; y < CH - 1; y++) for (let x = 0; x < CW - 1; x++){
+      const tl = V(x,y), tr = V(x+1,y), br = V(x+1,y+1), bl = V(x,y+1);
+      let id = 0;
+      if (tl > level) id |= 8;
+      if (tr > level) id |= 4;
+      if (br > level) id |= 2;
+      if (bl > level) id |= 1;
+      if (id === 0 || id === 15) continue;
+      const f = (a, b) => (level - a) / (b - a);
+      const pts = {
+        T: PX(x + f(tl,tr), y), R: PX(x + 1, y + f(tr,br)),
+        B: PX(x + f(bl,br), y + 1), L: PX(x, y + f(tl,bl))
+      };
+      for (const pair of MS_CASES[id]) segs.push([pts[pair[0]], pts[pair[1]]]);
+    }
+    if (segs.length)
+      feats.push({type:'Feature', properties:{level:level},
+                  geometry:{type:'MultiLineString', coordinates:segs}});
+  }
+  return {type:'FeatureCollection', features:feats};
+}
+
+/* --- cell polygons: hit targets, and the optional grid view ---------- */
+function cellPolys(colors){
+  return {type:'FeatureCollection', features: DATA.cells.map(function(c, i){
+    return {
+      type:'Feature',
+      properties:{idx:i, col: colors ? colors[i] : '#000000'},
+      geometry:{type:'Polygon', coordinates:[[
+        [c.lon-HALF, c.lat-HALF],[c.lon+HALF, c.lat-HALF],
+        [c.lon+HALF, c.lat+HALF],[c.lon-HALF, c.lat+HALF],[c.lon-HALF, c.lat-HALF]
+      ]]}
+    };
+  })};
+}
+
+/* ===================================================================== */
+let mapReady = false, showGrid = false, showIso = true, show3d = false;
+let pinned = null, popup = null;
+
+/* If the vector style cannot be reached, fall back to an inline style with
+   Esri raster tiles. GL JS only fires `load` once the remote style resolves,
+   so without this a slow venue connection would leave the whole panel black -
+   our own field layers included. The basemap failing should degrade the map,
+   never delete it. */
+const FALLBACK_STYLE = {
+  version: 8,
+  glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
+  sources: {
+    esri: {type:'raster', tileSize:256, attribution:'Basemap &copy; Esri',
+      tiles:['https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}']},
+    esrilab: {type:'raster', tileSize:256,
+      tiles:['https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}']}
+  },
+  layers: [
+    {id:'bg', type:'background', paint:{'background-color':'#0e161d'}},
+    {id:'esri', type:'raster', source:'esri'},
+    {id:'esrilab', type:'raster', source:'esrilab', paint:{'raster-opacity':0.85}}
+  ]
+};
+let styleFellBack = false;
+const styleWatchdog = setTimeout(function(){
+  if (!mapReady && !styleFellBack){
+    styleFellBack = true;
+    document.getElementById('mapnote').textContent = 'Raster basemap (vector style unreachable)';
+    map.setStyle(FALLBACK_STYLE);
+  }
+}, 7000);
+map.on('error', function(e){
+  const msg = (e && e.error && e.error.message) || '';
+  if (!mapReady && !styleFellBack && /style|sprite|glyph|tiles/i.test(msg)){
+    styleFellBack = true;
+    clearTimeout(styleWatchdog);
+    document.getElementById('mapnote').textContent = 'Raster basemap (vector style unreachable)';
+    map.setStyle(FALLBACK_STYLE);
+  }
+});
+
+/* style.load fires for EVERY style, including the fallback swap, so the data
+   layers are reinstalled rather than lost when the basemap changes. */
+map.on('style.load', function(){
+  if (map.getSource('field')) return;
+  clearTimeout(styleWatchdog);
+  /* terrain DEM: Mapbox's own where a token exists, otherwise the free
+     AWS terrarium tiles. Hillshade is what makes the Western Ghats
+     visible under the rainfall - the orographic story becomes literal. */
+  if (USE_MAPBOX){
+    map.addSource('dem', {type:'raster-dem', url:'mapbox://mapbox.mapbox-terrain-dem-v1',
+                          tileSize:512, maxzoom:14});
+  } else {
+    map.addSource('dem', {type:'raster-dem', encoding:'terrarium', tileSize:256, maxzoom:13,
+      tiles:['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png']});
+  }
+  map.addLayer({id:'hills', type:'hillshade', source:'dem',
+    paint:{'hillshade-exaggeration':0.55,
+           'hillshade-shadow-color':'#05080b','hillshade-highlight-color':'#4a6272'}});
+
+  /* keep basemap place labels above our overlays */
+  let firstLabel;
+  const layers = map.getStyle().layers || [];
+  for (const l of layers) if (l.type === 'symbol'){ firstLabel = l.id; break; }
+
+  map.addSource('field', {type:'image', url:BLANK_PNG, coordinates:IMG_COORDS});
+  map.addLayer({id:'field', type:'raster', source:'field',
+    paint:{'raster-opacity':0.88,'raster-fade-duration':260,'raster-resampling':'linear'}}, firstLabel);
+
+  map.addSource('iso', {type:'geojson', data:{type:'FeatureCollection',features:[]}});
+  map.addLayer({id:'iso', type:'line', source:'iso',
+    paint:{'line-color':'rgba(238,244,248,.40)','line-width':1}}, firstLabel);
+
+  map.addSource('cells', {type:'geojson', data:cellPolys(null)});
+  map.addLayer({id:'cells-fill', type:'fill', source:'cells',
+    paint:{'fill-color':['get','col'],'fill-opacity':0}}, firstLabel);
+  map.addLayer({id:'cells-line', type:'line', source:'cells',
+    paint:{'line-color':'rgba(238,244,248,.16)','line-width':0.5,'line-opacity':0}}, firstLabel);
+  map.addLayer({id:'cell-hover', type:'line', source:'cells',
+    filter:['==',['get','idx'],-1],
+    paint:{'line-color':'#eef4f8','line-width':1.8}}, firstLabel);
+
+  map.on('mousemove','cells-fill', function(e){
+    const i = e.features[0].properties.idx;
+    map.setFilter('cell-hover',['==',['get','idx'], i]);
+    map.getCanvas().style.cursor = 'pointer';
+    showInspector(i);
+  });
+  map.on('mouseleave','cells-fill', function(){
+    map.setFilter('cell-hover',['==',['get','idx'],-1]);
+    map.getCanvas().style.cursor = '';
+    document.getElementById('inspector').classList.remove('on');
+  });
+  map.on('click','cells-fill', function(e){ openCell(e.features[0].properties.idx, true); });
+
+  mapReady = true;
+  paintMap();
 });
 
 function paintMap(){
+  if (!mapReady) return;
   const s = slice();
-  const arr  = variable==='rain' ? s.rain : s.t2m;
-  const bins = variable==='rain' ? RAIN_BINS : TEMP_BINS;
-  rects.forEach((r,i)=> r.setStyle({fillColor: binOf(arr[i],bins).c}));
+  const isRain = variable === 'rain';
+  const arr  = isRain ? s.rain : s.t2m;
+  const bins = isRain ? RAIN_BINS : TEMP_BINS;
+
+  const g = gridOf(arr);
+  map.getSource('field').updateImage({url: fieldURL(resample(g, FW, FH), bins),
+                                      coordinates: IMG_COORDS});
+  map.getSource('iso').setData(
+    showIso ? contourFeatures(resample(g, CW, CH), isRain ? RAIN_ISO : TEMP_ISO)
+            : {type:'FeatureCollection', features:[]});
+  map.getSource('cells').setData(cellPolys(arr.map(function(v){ return binOf(v, bins).c; })));
+
+  map.setPaintProperty('cells-fill','fill-opacity', showGrid ? 0.92 : 0);
+  map.setPaintProperty('cells-line','line-opacity', showGrid ? 1 : 0);
+  map.setPaintProperty('field','raster-opacity', showGrid ? 0 : 0.88);
   paintLegend();
+  if (pinned !== null && popup) popup.setHTML(popupHtml(pinned));
 }
 
 function paintLegend(){
-  const bins = variable==='rain' ? RAIN_BINS : TEMP_BINS;
-  const unit = variable==='rain' ? 'mm / day' : '°C';
-  const el = document.getElementById('legend');
-  el.innerHTML = '<span class="unit cond">'+unit+'</span>' + bins.map(b=>
-    '<span class="lg"><span class="sw" style="background:'+b.c+'"></span>'+
-    '<span class="lb">'+b.l+(b.r?'<br>'+b.r:'')+'</span></span>').join('');
+  const bins = variable === 'rain' ? RAIN_BINS : TEMP_BINS;
+  const unit = variable === 'rain' ? 'mm / day' : '°C';
+  document.getElementById('legend').innerHTML =
+    '<span class="unit cond">'+unit+'</span>' + bins.map(function(b){
+      return '<span class="lg"><span class="sw" style="background:'+b.c+'"></span>'+
+        '<span class="lb">'+b.l+(b.r?'<br>'+b.r:'')+'</span></span>'; }).join('');
+}
+
+/* --- hover inspector -------------------------------------------------- */
+function showInspector(i){
+  const s = slice(), c = DATA.cells[i], isRain = variable === 'rain';
+  const val = isRain ? s.rain[i] : s.t2m[i];
+  const w = [s.wa[i],s.wb[i],s.wc[i],s.wd[i]];
+  const keys = ['A','B','C','D'];
+  const cat = binOf(val, isRain ? RAIN_BINS : TEMP_BINS);
+  const el = document.getElementById('inspector');
+  el.innerHTML =
+    '<div class="ih"><span>Cell '+c.id+'</span><span class="num">'+c.elev+' m</span></div>'+
+    '<div class="iv num">'+val.toFixed(1)+
+      '<span style="font-size:13px;font-weight:500;color:var(--ink-2)"> '+(isRain?'mm':'°C')+'</span></div>'+
+    '<div class="ic"><span class="sw" style="display:inline-block;background:'+cat.c+
+      ';margin-right:5px"></span>'+cat.l+'</div>'+
+    keys.map(function(k,j){
+      return '<div class="ir"><span class="sw" style="background:'+SERIES[k]+'"></span>'+
+      '<span style="background:var(--rule-soft);border-radius:3px;overflow:hidden">'+
+      '<i style="width:'+Math.round(100*w[j])+'%;background:'+SERIES[k]+'"></i></span>'+
+      '<span class="num" style="color:var(--ink-2)">'+Math.round(100*w[j])+'%</span></div>';
+    }).join('')+
+    '<div class="ih" style="margin-top:9px;padding-top:8px;border-top:1px solid var(--rule)">'+
+      '<span>Confidence '+s.conf[i].toFixed(0)+'%</span>'+
+      '<span>'+(isRain ? 'P(heavy) '+(100*s.pext[i]).toFixed(0)+'%' : '')+'</span></div>';
+  el.classList.add('on');
+}
+
+/* --- pinned popup ----------------------------------------------------- */
+function openCell(i, keepView){
+  const c = DATA.cells[i];
+  pinned = i;
+  if (popup) popup.remove();
+  popup = new GL.Popup({closeButton:true, maxWidth:'300px', offset:10})
+    .setLngLat([c.lon, c.lat]).setHTML(popupHtml(i)).addTo(map);
+  popup.on('close', function(){ pinned = null; });
+  if (!keepView) map.easeTo({center:[c.lon, c.lat], duration:520});
+}
+function focusCell(i){
+  const c = DATA.cells[i];
+  map.easeTo({center:[c.lon, c.lat], zoom: Math.max(map.getZoom(), 7.6), duration:700});
+  openCell(i, true);
 }
 
 function popupHtml(i){
   const s = slice(), c = DATA.cells[i];
-  const isRain = variable==='rain';
+  const isRain = variable === 'rain';
   const val  = isRain ? s.rain[i] : s.t2m[i];
   const srcs = isRain ? [s.ma[i],s.mb[i],s.mc[i],s.md[i]] : [s.ta[i],s.tb[i],s.tc[i],s.td[i]];
   const w    = [s.wa[i],s.wb[i],s.wc[i],s.wd[i]];
   const keys = ['A','B','C','D'];
-  const maxS = Math.max(...srcs, 0.001);
-  const cat  = isRain ? binOf(val,RAIN_BINS) : binOf(val,TEMP_BINS);
+  const maxS = Math.max(Math.max.apply(null, srcs), 0.001);
+  const cat  = binOf(val, isRain ? RAIN_BINS : TEMP_BINS);
 
-  const rows = keys.map((k,j)=>{
-    const meta = M.sources[j];
+  const rows = keys.map(function(k,j){
     return '<div class="srcrow">'+
       '<span class="swatch" style="background:'+SERIES[k]+'"></span>'+
       '<span class="bar"><i style="width:'+(100*srcs[j]/maxS).toFixed(1)+'%;background:'+SERIES[k]+'"></i></span>'+
       '<span class="num" style="text-align:right">'+srcs[j].toFixed(1)+'</span>'+
       '<span class="num" style="text-align:right;color:var(--ink-3)">'+Math.round(100*w[j])+'%</span>'+
-      '</div>';
-  }).join('');
+    '</div>'; }).join('');
 
   return '<div class="pop">'+
     '<h4>Cell '+c.id+' · '+(isRain?'Rainfall':'2 m temperature')+'</h4>'+
@@ -686,16 +1029,41 @@ function popupHtml(i){
     '</div>';
 }
 
-document.getElementById('vRain').addEventListener('click',()=>setVar('rain'));
-document.getElementById('vTemp').addEventListener('click',()=>setVar('temp'));
+/* --- controls --------------------------------------------------------- */
+document.getElementById('vRain').addEventListener('click',function(){ setVar('rain'); });
+document.getElementById('vTemp').addEventListener('click',function(){ setVar('temp'); });
 function setVar(v){
-  if(v===variable) return;
-  variable=v;
+  if (v === variable) return;
+  variable = v;
   document.getElementById('vRain').setAttribute('aria-pressed', String(v==='rain'));
   document.getElementById('vTemp').setAttribute('aria-pressed', String(v==='temp'));
-  map.closePopup();
+  if (popup){ popup.remove(); popup = null; pinned = null; }
   paintMap(); paintAlerts();
 }
+
+document.getElementById('mSmooth').addEventListener('click',function(){
+  showGrid = false;
+  document.getElementById('mSmooth').setAttribute('aria-pressed','true');
+  document.getElementById('mGrid').setAttribute('aria-pressed','false');
+  paintMap();
+});
+document.getElementById('mGrid').addEventListener('click',function(){
+  showGrid = true;
+  document.getElementById('mSmooth').setAttribute('aria-pressed','false');
+  document.getElementById('mGrid').setAttribute('aria-pressed','true');
+  paintMap();
+});
+document.getElementById('mIso').addEventListener('click',function(e){
+  showIso = !showIso;
+  e.currentTarget.setAttribute('aria-pressed', String(showIso));
+  paintMap();
+});
+document.getElementById('m3d').addEventListener('click',function(e){
+  show3d = !show3d;
+  e.currentTarget.setAttribute('aria-pressed', String(show3d));
+  map.setTerrain(show3d ? {source:'dem', exaggeration: USE_MAPBOX ? 1.8 : 1.5} : null);
+  map.easeTo({pitch: show3d ? 58 : 0, bearing: show3d ? -17 : 0, duration:900});
+});
 
 /* ===================================================================== */
 /* weights — 100% stacked bars, one per lead                              */
@@ -933,9 +1301,7 @@ function paintAlerts(){
 
   box.querySelectorAll('.alert').forEach(b=>{
     b.addEventListener('click',()=>{
-      const i = +b.dataset.i, c = DATA.cells[i];
-      map.setView([c.lat,c.lon], Math.max(map.getZoom(),8));
-      rects[i].bindPopup(popupHtml(i),{maxWidth:300}).openPopup();
+      focusCell(+b.dataset.i);
     });
   });
 }
@@ -984,8 +1350,7 @@ function hexA(hex,a){
 })();
 
 buildRail(); paintRunMeta(); paintMap(); paintWeights(); paintAlerts(); paintSkill(); paintMatrix();
-setTimeout(()=>map.invalidateSize(), 60);
-window.addEventListener('resize', ()=>map.invalidateSize());
+window.addEventListener('resize', ()=>map.resize());
 </script>
 </body>
 </html>
