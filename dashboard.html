@@ -625,6 +625,10 @@ table.dt tr.hl td{color:#fff;font-weight:600}
         <h3>Model reliability map</h3>
         <p class="why">The source earning the largest blend weight in each cell, at the
           selected lead time. This is the deliverable a forecaster would pin to the wall.</p>
+        <div class="seg" role="group" aria-label="Weight map view">
+          <button id="wLead" aria-pressed="true">Leading source</button>
+          <button id="wSpread" aria-pressed="false">Where models disagree</button>
+        </div>
         <span class="mapnote" id="wmapnote"></span>
       </div>
 
@@ -1943,6 +1947,7 @@ function ensureWeightMap(){
         '<div class="ih"><span>Cell '+c.id+'</span><span class="num">T+'+lead+'</span></div>'+
         '<div class="iv num" style="color:'+SERIES[p.dom]+'">'+NAMEOF[p.dom]+'</div>'+
         '<div class="ic">leads with '+Math.round(p.domw*100)+'% of the weight</div>'+
+        '<div class="ic">centres disagree by <b style="color:#f0b429">'+p.spread+' mm</b></div>'+
         '<div class="ih"><span class="num">'+c.lat.toFixed(1)+'°N '+c.lon.toFixed(1)+'°E</span>'+
         '<span class="num">'+c.elev+' m</span></div>';
       el.classList.add('on');
@@ -1962,14 +1967,44 @@ function ensureWeightMap(){
   });
 }
 
+/* How far apart the centres are for this cell, in mm. This is the map that
+   argues for the product: where the models agree, any of them will do; where
+   they diverge, the choice of model is the whole forecast. */
+const SPREAD_BINS = [
+  {max:2,   c:'#2a2620', l:'< 2',    r:'they agree'},
+  {max:5,   c:'#4d4128', l:'2–5',  r:''},
+  {max:10,  c:'#77602c', l:'5–10', r:''},
+  {max:20,  c:'#a8842c', l:'10–20',r:''},
+  {max:40,  c:'#d6a72f', l:'20–40',r:''},
+  {max:1e9, c:'#f5cf62', l:'≥ 40', r:'they diverge'}
+];
+let wmapMode = 'lead';   // 'lead' | 'spread'
+
+function cellSpread(s, i){
+  const v = KEYS.map(k => (s['m' + lc(k)] || [])[i]).filter(x => typeof x === 'number');
+  if (v.length < 2) return 0;
+  const m = v.reduce((a, b) => a + b, 0) / v.length;
+  return Math.sqrt(v.reduce((a, b) => a + (b - m) * (b - m), 0) / v.length);
+}
+
 function weightPolys(){
   const cl = DATA.weights.cell_lead[String(lead)];
+  const s  = slice();
   return {type:'FeatureCollection', features: DATA.cells.map(function(c, i){
     const dom = cl ? cl.dom[i] : 'A';
     const w   = cl ? cl.domw[i] : 0.25;
-    /* 0.25 is a five-way tie; 0.70+ is a decisive win */
-    const op  = Math.max(0.18, Math.min(0.92, (w - 0.18) * 1.45));
-    return {type:'Feature', properties:{idx:i, dom:dom, domw:w, col:SERIES[dom] || '#5b7186', op:op},
+    let col, op, sp = 0;
+    if (wmapMode === 'spread'){
+      sp  = cellSpread(s, i);
+      col = binOf(sp, SPREAD_BINS).c;
+      op  = 0.92;
+    } else {
+      col = SERIES[dom] || '#5b7186';
+      /* 0.20 is a five-way tie; 0.70+ is a decisive win */
+      op  = Math.max(0.18, Math.min(0.92, (w - 0.18) * 1.45));
+    }
+    return {type:'Feature',
+      properties:{idx:i, dom:dom, domw:w, spread:Math.round(sp * 10) / 10, col:col, op:op},
       geometry:{type:'Polygon', coordinates:[[
         [c.lon-HALF, c.lat-HALF],[c.lon+HALF, c.lat-HALF],
         [c.lon+HALF, c.lat+HALF],[c.lon-HALF, c.lat+HALF],[c.lon-HALF, c.lat-HALF]]]}};
@@ -1979,12 +2014,33 @@ function weightPolys(){
 function paintWeightMap(){
   if (!wmapReady) return;
   wmap.getSource('wcells').setData(weightPolys());
-  document.getElementById('wlegend').innerHTML =
-    '<span class="unit cond">dominant source</span>' +
-    KEYS.map(function(k){
-      return '<span class="lg"><span class="sw" style="background:'+SERIES[k]+'"></span>'+
-             '<span class="lb">'+NAMEOF[k]+'</span></span>'; }).join('');
+  const el = document.getElementById('wlegend');
+  if (wmapMode === 'spread'){
+    el.innerHTML = '<span class="unit cond">spread between centres, mm</span>' +
+      SPREAD_BINS.map(function(b){
+        return '<span class="lg"><span class="sw" style="background:'+b.c+'"></span>'+
+               '<span class="lb">'+b.l+(b.r ? '<br>'+b.r : '')+'</span></span>'; }).join('');
+  } else {
+    el.innerHTML = '<span class="unit cond">leading source</span>' +
+      KEYS.map(function(k){
+        return '<span class="lg"><span class="sw" style="background:'+SERIES[k]+'"></span>'+
+               '<span class="lb">'+NAMEOF[k]+'</span></span>'; }).join('');
+  }
 }
+
+function setWmapMode(m){
+  if (m === wmapMode) return;
+  wmapMode = m;
+  document.getElementById('wLead').setAttribute('aria-pressed', String(m === 'lead'));
+  document.getElementById('wSpread').setAttribute('aria-pressed', String(m === 'spread'));
+  const why = document.querySelector('#pane-weights .stagehead .why');
+  if (why) why.textContent = m === 'spread'
+    ? 'How far apart the five centres are in each cell. Where they agree the choice of model barely matters; where they diverge, it is the whole forecast.'
+    : TAB_HINTS.weights;
+  paintWeightMap();
+}
+document.getElementById('wLead').addEventListener('click', function(){ setWmapMode('lead'); });
+document.getElementById('wSpread').addEventListener('click', function(){ setWmapMode('spread'); });
 
 /* share of cells each source dominates, by lead time */
 function paintShare(){
