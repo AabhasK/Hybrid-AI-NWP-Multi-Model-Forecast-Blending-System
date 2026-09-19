@@ -27,6 +27,7 @@ import json
 import subprocess
 import sys
 import time
+import urllib.error
 import urllib.request
 from datetime import date, timedelta
 from pathlib import Path
@@ -60,11 +61,18 @@ EXTREME_MM, HIGH_WIND_KMH = 40.0, 40.0
 
 
 def load_grid():
-    gf = DATA / "grid_cells.json"
-    if not gf.exists():
-        raise SystemExit("run 00_build_region.py first - no grid_cells.json")
-    g = json.loads(gf.read_text())
-    return g["cells"], g["grid_deg"]
+    """
+    The FINE grid. Weights are fitted on the coarse training grid because the
+    archive is priced per cell per day, but the daily run only asks for the
+    next week, so cells are nearly free here - and a 28 km cell is what makes
+    a city search legible instead of swallowing a whole state in one box.
+    """
+    for name in ("grid_cells_live.json", "grid_cells.json"):
+        gf = DATA / name
+        if gf.exists():
+            g = json.loads(gf.read_text())
+            return g["cells"], g["grid_deg"]
+    raise SystemExit("run 00_build_region.py first - no grid file")
 
 
 def load_weights():
@@ -89,13 +97,26 @@ def fetch_live(cells):
         url = ("%s/v1/forecast?latitude=%s&longitude=%s&daily=%s"
                "&forecast_days=7&timezone=UTC&models=%s%s"
                % (host, lat, lon, ",".join(VARS.values()), models, suffix))
-        for attempt in range(4):
+        for attempt in range(6):
             try:
                 with urllib.request.urlopen(url, timeout=120) as r:
                     payload = json.load(r)
                 break
+            except urllib.error.HTTPError as exc:
+                if exc.code == 429:
+                    # Open-Meteo's quota resets on the hour. Waiting keeps every
+                    # request already paid for; failing throws the run away.
+                    now = time.gmtime()
+                    wait = (60 - now.tm_min) * 60 - now.tm_sec + 90
+                    print("  [hourly quota reached; waiting %d min for reset]"
+                          % (wait // 60), flush=True)
+                    time.sleep(wait)
+                    continue
+                if attempt == 5:
+                    raise
+                time.sleep(4 * (attempt + 1))
             except Exception as exc:
-                if attempt == 3:
+                if attempt == 5:
                     raise
                 print("   retry %d (%s)" % (attempt + 1, type(exc).__name__))
                 time.sleep(4 * (attempt + 1))

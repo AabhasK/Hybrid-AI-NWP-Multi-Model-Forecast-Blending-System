@@ -126,10 +126,11 @@ def build_live(wreg_df):
         for m in BLEND:
             slice_["m" + m] = r1(g["model_%s_rain" % m])
             slice_["t" + m] = r1(g["model_%s_t2m" % m])
-            slice_["w" + m] = r3([float(getattr(w, "w_%s" % m)) if w else 1.0 / len(BLEND)] * len(order))
-        # persistence is not produced on a live run
-        slice_["mf"] = r1(g.blend_rain)
-        slice_["tf"] = r1(g.blend_t2m)
+        # A live run uses one weight vector per (regime, lead), so it is the
+        # same for every cell. Storing 4,645 identical copies per source would
+        # be most of the payload for no information.
+        slice_["w"] = {m: round(float(getattr(w, "w_%s" % m)) if w else 1.0 / len(BLEND), 3)
+                       for m in BLEND}
         by_lead[str(lead)] = slice_
 
     return cells, order, {issued: by_lead}, issued

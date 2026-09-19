@@ -645,6 +645,12 @@ const ALLK  = DATA.meta.sources.map(s => s.key);
 const NAMEOF = Object.fromEntries(DATA.meta.sources.map(s => [s.key, s.name]));
 const lc = k => k.toLowerCase();
 const SHORT = k => NAMEOF[k].split(' ').pop();
+/* archived runs carry a weight per cell; a live run carries one per lead */
+function wAt(s, k, i){
+  const a = s['w' + lc(k)];
+  if (a) return a[i];
+  return (s.w && s.w[lc(k)] !== undefined) ? s.w[lc(k)] : null;
+}
 const VARNAME = {rain:'Rainfall', temp:'2 m temperature', wind:'Peak 10 m wind'};
 const VARUNIT = {rain:'mm', temp:'°C', wind:'km/h'};
 const INK2   = '#9fb2c0', INK3 = '#6e8494';
@@ -1224,7 +1230,7 @@ function showInspector(i){
   const s = slice(), c = DATA.cells[i], isRain = variable === 'rain';
   const val = fieldOf(s, variable)[i];
   const keys = KEYS;
-  const w = keys.map(k => s['w'+lc(k)][i]);
+  const w = keys.map(k => wAt(s, k, i));
   const cat = binOf(val, binsFor(variable));
   const el = document.getElementById('inspector');
   el.innerHTML =
@@ -1269,7 +1275,7 @@ function popupHtml(i){
   const pre = variable === 'rain' ? 'm' : (variable === 'temp' ? 't' : 'w');
   const srcs = keys.map(k => (s[pre+lc(k)] || s['m'+lc(k)])[i]);
   /* persistence has no weight - it is the reference, not a member */
-  const w    = keys.map(k => s['w'+lc(k)] ? s['w'+lc(k)][i] : null);
+  const w    = keys.map(k => wAt(s, k, i));
   const maxS = Math.max(Math.max.apply(null, srcs), 0.001);
   const cat  = binOf(val, binsFor(variable));
 

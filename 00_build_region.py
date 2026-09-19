@@ -34,10 +34,22 @@ RAW = DATA / "_india_raw.geojson"
 SOURCE = ("https://raw.githubusercontent.com/datameet/maps/master/"
           "Country/india-composite.geojson")
 
-# Grid resolution in degrees. India spans roughly 30 deg of latitude, so this
-# trades cell count against the API budget: every cell multiplies the number
-# of weighted forecast-archive calls.
-GRID_DEG = 1.0
+# TWO grids, because the two halves of the system have opposite cost shapes.
+#
+#   TRAIN_DEG  weights are fitted from months of archived forecasts, and the
+#              archive is priced per cell PER DAY, so history is what is
+#              expensive. A coarse grid keeps 120 days affordable.
+#   LIVE_DEG   the daily run only needs the next 7 days, so cells are nearly
+#              free. A fine grid is what makes a city search legible - at one
+#              degree a cell is 111 km across and every city in a state lands
+#              in the same box.
+#
+# The weights transfer between them because they are fitted per (regime, lead
+# time), not per cell, so a weight learned on a coarse grid applies at any
+# resolution.
+TRAIN_DEG = 1.0
+LIVE_DEG = 0.25
+GRID_DEG = TRAIN_DEG
 SIMPLIFY_TOL = 0.02        # degrees; ~2 km, plenty at national zoom
 MIN_RING_AREA = 0.02       # drop specks smaller than this (sq deg)
 
@@ -183,22 +195,27 @@ def main():
                      "coordinates": [world] + [[list(p) for p in h] for h in holes]}}]}
     (DATA / "india_mask.json").write_text(json.dumps(mask, separators=(",", ":")))
 
-    # ---- the analysis grid: land cells only ------------------------------
-    cells = []
-    lat = math.floor(s / GRID_DEG) * GRID_DEG
-    while lat <= n:
-        lon = math.floor(w / GRID_DEG) * GRID_DEG
-        while lon <= e:
-            cx, cy = round(lon + GRID_DEG / 2, 4), round(lat + GRID_DEG / 2, 4)
-            if point_in_polygons(cx, cy, polys):
-                cells.append({"lat": cy, "lon": cx})
-            lon += GRID_DEG
-        lat += GRID_DEG
-    for i, c in enumerate(cells):
-        c["id"] = "C%03d" % i
-    (DATA / "grid_cells.json").write_text(json.dumps(
-        {"grid_deg": GRID_DEG, "bbox": [round(s, 2), round(w, 2), round(n, 2), round(e, 2)],
-         "cells": cells}, separators=(",", ":")))
+    # ---- the analysis grids: land cells only -----------------------------
+    def build(deg, fname):
+        cells = []
+        lat = math.floor(s / deg) * deg
+        while lat <= n:
+            lon = math.floor(w / deg) * deg
+            while lon <= e:
+                cx, cy = round(lon + deg / 2, 4), round(lat + deg / 2, 4)
+                if point_in_polygons(cx, cy, polys):
+                    cells.append({"lat": cy, "lon": cx})
+                lon += deg
+            lat += deg
+        for i, c in enumerate(cells):
+            c["id"] = "C%04d" % i
+        (DATA / fname).write_text(json.dumps(
+            {"grid_deg": deg, "bbox": [round(s, 2), round(w, 2), round(n, 2), round(e, 2)],
+             "cells": cells}, separators=(",", ":")))
+        return cells
+
+    cells = build(TRAIN_DEG, "grid_cells.json")
+    live_cells = build(LIVE_DEG, "grid_cells_live.json")
 
     kb = lambda p: (DATA / p).stat().st_size / 1024
     print("\n  grid: %d land cells at %.2f deg" % (len(cells), GRID_DEG))
