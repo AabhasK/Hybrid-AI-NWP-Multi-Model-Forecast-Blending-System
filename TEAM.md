@@ -1,134 +1,202 @@
 # What I need from you
 
-Everything in this repo runs end to end right now with no input from you — you can open
-`dashboard.html` today and demo it. The list below is what would make it *yours* and
-close the gaps a judge might poke at.
-
-Ordered by how much it matters. Items 1–3 take about twenty minutes and I'd do them
-before anything else.
+The project runs end to end right now with **zero credentials**. Nothing below
+blocks a demo — each item either makes it yours, or upgrades one specific part.
 
 ---
 
-## 1. Branding — REQUIRED before submission
+## 1. API keys — placeholders are already wired
 
-The dashboard currently says **"Blend Desk"** and **"SIH26081"** with no team identity.
-Send me these and I'll wire them in (or edit `dashboard_template.html` and re-run
-`python build_dashboard.py`):
+`.env.example` is in the repo with every key documented. Copy it and fill in
+whatever you have, whenever you have it:
 
-| Field | Where it lands | Currently |
-|---|---|---|
-| Team name | Header, beside the title | *(missing)* |
-| Team leader + members | Footer credit line | *(missing)* |
-| Institute / college | Header subtitle | *(missing)* |
-| Exact PS title | Header subtitle | "Hybrid AI–NWP multi-model forecast blending" |
-| PS number confirmation | Header | SIH26081 |
-| Category (Software / Hardware) | Footer | *(missing)* |
-| Theme name | Footer | *(missing)* |
+```bash
+cp .env.example .env
+python config.py          # prints what is active and what each missing key buys
+python build_dashboard.py # picks the token up automatically
+```
 
-Also useful: a **team or college logo** as PNG/SVG. There's a generated circular mark in
-the header (`.sigil`) that I'd swap for it.
+`.env` is gitignored. The code reads it through `config.py`, which needs no
+pip install. **Nothing breaks if a key is absent** — every one has a working
+fallback, and `config.py` tells you what that fallback is.
 
-> **Tell me if you'd rather I keep the product name "Blend Desk"** or rename it to
-> something your team picked. It appears in the title, the browser tab and the footer.
+| Key | What it unlocks | Priority | Without it |
+|---|---|---|---|
+| `MAPBOX_TOKEN` | Mapbox GL basemap + terrain DEM | **Do this one** | MapLibre + OpenFreeMap tiles, keyless, ~90% as good |
+| `OPENMETEO_API_KEY` | Removes the archive rate limit, lets us train on a full year instead of six months | High — best value for the model | Free tier; the fetcher waits out the hourly quota and resumes |
+| `IMD_API_KEY` | Verify against IMD gauge-based gridded rainfall instead of ERA5 | High — scientific | Verification stays on ERA5 (see caveat below) |
+| `CDS_API_KEY` | ERA5 direct from Copernicus | Low | We already use the same ECMWF ERA5 product via a keyless mirror |
 
-## 2. Confirm the demo run — 2 minutes
+**Mapbox:** get a **public** token (starts `pk.`) at
+<https://account.mapbox.com/access-tokens/>. Free tier is 50,000 map loads a
+month. It gets embedded in `dashboard.html`, so restrict it by URL in the
+Mapbox dashboard (add `localhost`) before sharing the file.
 
-During the live demo, the dashboard opens on a **specific forecast run**. Right now it
-opens on `2023-07-16`, an active-spell run with heavy rainfall alerts firing. Two runs
-are worth rehearsing:
+**Open-Meteo:** <https://open-meteo.com/en/pricing>. Non-commercial use is free
+*without* a key — a key only raises the rate limit. This is the one that would
+most improve the numbers, because the blend weights are currently estimated on
+six months of data and more history is the main thing they're short of.
 
-- **`2023-07-16` (active spell)** — the rainfall story. Alerts fire, Model B dominates at
-  long lead. This is the better opener.
-- **`2023-06-19` (break spell)** — the heat story. Switch the map to *Temperature* and the
-  heat-stress panel fills up while rainfall alerts go quiet.
+**IMD:** worth asking a mentor or your college. This is the only key that fixes
+a real methodological weakness rather than a convenience one — see §4.
 
-**The single strongest 20 seconds of the demo** is dragging the horizon rail from T+1 to
-T+5 and letting the judges watch the weight bars flip from blue (physics NWP) to orange
-(AI model). Rehearse that. If you'd like a different default run, tell me the date.
+---
 
-## 3. Numbers for the PPT — copy these exactly
+## 2. Branding — required before submission
 
-These are the load-bearing figures. All are out-of-sample.
+The dashboard says "Blend Desk" with no team identity. Send me these and I'll
+wire them in:
 
-| Metric | Value |
+| Field | Currently |
 |---|---|
-| Blended rainfall RMSE | **4.24 mm/day** |
-| Best individual model RMSE | 4.96 mm/day (AI/ML proxy) |
-| **Error reduction vs best single model** | **14.6%** |
-| Skill score vs persistence baseline | **0.611** |
-| Blended 2 m temperature RMSE | 0.83 °C (best single: 0.85 °C) |
-| Heavy-rain flagger ROC-AUC | **0.983** |
-| Heavy-rain flagger PR-AUC | 0.786 (26× the 2.97% base rate) |
-| Precision / recall at p ≥ 0.40 | 81% / 73% |
-| Largest regime gain | **26.7%** RMSE cut during break spells |
-| Largest lead-time gain | **16.5%** at T+5 |
-| Training set | 55,660 rows · 121 cells · 92 days · 5 lead times |
+| Team name | *(missing)* |
+| Team leader + members | *(missing)* |
+| Institute / college | *(missing)* |
+| Exact PS title | "Hybrid AI–NWP multi-model forecast blending" |
+| Category (Software / Hardware) | assumed Software |
+| Theme name | *(missing)* |
+| Team logo (PNG/SVG) | *(none)* |
 
-The one-line claim: *"A learned blend cuts rainfall forecast error 14.6% below the best
-individual model, and the improvement grows with lead time — 16.5% at day five."*
-
-**If a judge asks why the blend only gains 1.8% at T+1:** because at day one the physics
-model is genuinely near-optimal and the blender correctly declines to interfere. That is
-the system behaving properly, not underperforming. Say it that way — it's a strong answer.
+Tell me if you want to keep the product name **Blend Desk** or use something
+your team picked.
 
 ---
 
-## 4. Optional — real ERA5 via Copernicus instead of the mirror
+## 3. How this is different from what other teams will build
 
-Not needed. `01_fetch_era5.py` pulls genuine ERA5 from the Open-Meteo archive with no
-API key, and the data is already cached in `data/`. If you want the Copernicus CDS route
-for the writeup:
+This is the section to internalise before you present. The problem statement
+asks for *hybrid AI–NWP multi-model blending*. Most submissions will read that
+as "train an ML model on weather data." Five things separate ours.
 
-1. Register at <https://cds.climate.copernicus.eu>
-2. Put your key in `%USERPROFILE%\.cdsapirc`
-3. Send me the key location and I'll add a `cdsapi` path to `01_fetch_era5.py`
+**1 — The "AI" is a real AI weather model, not our own regressor.**
+Most teams will put their own LightGBM/LSTM in the "AI" slot. We include
+**ECMWF AIFS**, an actual operational data-driven forecasting system, as one of
+the *sources being blended*, alongside physics models IFS, GFS, ICON and GEM.
+The ML decides *when to trust the AI model versus the physics models*. That is
+the literal reading of "hybrid AI–NWP", and it is a much harder thing to
+assemble than another regressor.
 
-Be aware CDS requests queue for anywhere from 20 minutes to several hours. **Don't do
-this in the last 48 hours before the deadline.**
+**2 — Real multi-model forecasts at real lead times.**
+Five operational centres, leads T+1 to T+5, verified against ERA5 reanalysis.
+`precipitation_previous_day3_ecmwf_ifs025` is what ECMWF actually predicted
+three days ahead of that date. Nothing is simulated. Teams that cannot obtain
+multi-model archives will perturb a single source and call the copies
+"models" — and a judge who knows the field will ask.
 
-## 5. Optional — real multi-model forecast data
+**3 — The weights are the product, not a by-product.**
+The PS asks for per-model weights that sum to one. We solve constrained
+non-negative least squares per **(grid cell × lead time)** and per
+**(weather regime × lead time)**. The "model reliability map" is a genuine
+deliverable you can read off the screen: *which centre to trust, where, and how
+far out*. A SHAP plot over a black box is not the same thing and does not
+answer the question the PS asks.
 
-This is the one thing that would materially strengthen the project, and the one thing
-I couldn't get. If you or a mentor has access to any of these, tell me and I'll write the
-loader:
+**4 — Regime-aware, and diagnosed honestly.**
+Weights change between active-spell, break-spell and normal monsoon. Critically,
+the regime fed to the model is diagnosed from the **forecast fields available at
+issue time**, never from the observations being predicted. An earlier version of
+this code used truth-derived regime labels; that is target leakage, and we
+rebuilt it. Expect most teams' numbers to be inflated by exactly this mistake.
 
-- IMD or NCMRWF gridded forecast archives (NCUM / NEPS output)
-- ECMWF IFS open data (<https://data.ecmwf.int/forecasts>) — genuinely public, 0.25°,
-  though only ~4 days of rolling archive unless you start collecting now
-- GFS archive via NOAA NOMADS
-- Any AI-model output: GraphCast, Pangu-Weather, FourCastNet, Aurora
+**5 — The ML layer cannot make the forecast worse.**
+The boosted correction is applied as `blend = weights·models + λ·correction`,
+with λ fitted on held-out days. If the correction is noise, λ goes to zero and
+the system falls back exactly to the linear weighted blend. We added this after
+measuring that an unshrunk model made the blend substantially *worse* than the
+weights alone. A system that degrades gracefully is an engineering argument you
+can make out loud.
 
-**If you can start a daily cron collecting ECMWF open data today**, by demo day you'd have
-a couple of weeks of real multi-model output and could replace at least one synthetic
-stream with the real thing. That single change upgrades the whole claim. Say the word and
-I'll write the collector.
+### The honest value proposition
 
-## 6. Check before you present
+Do not claim "our blend beats every model by a huge margin." Claim this:
 
-- [ ] Open `dashboard.html` on **the actual laptop** you'll present from
-- [ ] Confirm the venue has **internet** — map tiles, Chart.js, Leaflet and the webfont
-      load from CDN. Everything that carries meaning is embedded and renders offline, but
-      the basemap goes blank without a connection. **Tell me if the venue is offline and
-      I'll vendor the libraries into the file.**
-- [ ] Try it at the presentation resolution — tested at 1512×950; it reflows to phone width
-- [ ] Click a grid cell so you've seen the popup before a judge asks you to
+> **You cannot know in advance which model will be best.** ECMWF AIFS wins
+> overall on our domain, but the ensemble takes over at longer leads and in
+> active spells, and the ranking changes by region and regime. A forecaster
+> picking one model in advance picks wrong much of the time. The blend tracks
+> the best available source automatically, and the reliability map shows you
+> which one it is.
+
+Against **ECMWF IFS** — the model a forecaster would reach for by default —
+the blend cuts error substantially. Against the *best* model chosen with
+hindsight, the margin is modest. Say both. The second number is what makes the
+first one believable.
 
 ---
 
-## Things you do NOT need to provide
+## 4. The one weakness to disclose before a judge finds it
 
-- Python packages — everything installed into your Anaconda (`lightgbm` was the only gap)
-- ERA5 data — fetched and cached in `data/`
-- Any API key, account or credential
-- A server — `dashboard.html` is one self-contained file, no build step
+We verify against **ERA5**, and **ECMWF AIFS is trained on ERA5**. Part of
+AIFS's advantage over IFS in our results is it being rewarded for having
+learned the exact analysis we score against. AIFS genuinely is better here, and
+published results agree it beats IFS on many headline scores — but the
+evaluation flatters it.
 
-## Questions I couldn't answer without you
+Say this yourself, in one sentence, and say the fix: verify against IMD
+gauge-based gridded rainfall instead. That is what `IMD_API_KEY` is for. A team
+that names its own methodological weakness and the remedy reads as rigorous.
+A team that gets caught does not.
 
-1. Do you want the dashboard to carry a **disclosure line about synthetic sources on the
-   face of the UI**, or keep it in `DATA_NOTE.md` only? Right now the footer says the
-   sources are synthetic. Some judges reward the candour; some teams prefer it not be the
-   first thing read. **My recommendation: leave it.** If a judge finds it themselves you
-   look careless; volunteering it makes you look rigorous.
-2. Is this **Software** category? I've assumed so.
-3. Do you need a **separate architecture diagram** slide? I can generate one from the
-   pipeline if useful.
+Full list of caveats is in `DATA_NOTE.md` — it is written to be handed to a
+judge.
+
+---
+
+## 5. Numbers for the PPT
+
+Run this and copy from its output — it prints every figure the deck needs:
+
+```bash
+python model_training.py
+```
+
+The metrics are being regenerated against the expanded real-data window. I'll
+fill the final table here once that run lands rather than paste figures that
+are about to change. The ones that will not change:
+
+- **Sources**: ECMWF IFS, ECMWF AIFS, NOAA GFS, DWD ICON, EC GEM, plus
+  persistence as the skill reference
+- **Grid**: 121 cells at 0.5° over Maharashtra (16–21 °N, 73–78 °E)
+- **Lead times**: T+1 to T+5
+- **Truth**: ERA5 reanalysis
+- **Validation**: 4-fold contiguous time-block cross-validation, every score
+  out-of-sample
+
+---
+
+## 6. Demo rehearsal
+
+**The strongest 20 seconds:** drag the horizon rail from T+1 to T+5 and let the
+weight bars flip as the dominant source changes. Rehearse that.
+
+Then:
+1. Hover a grid cell — the inspector reads that cell live
+2. Click to pin it — the popup shows every source's forecast and its weight
+3. Hit **Terrain** — the Western Ghats rise under the rainfall field
+4. Switch to **Temperature**, pick the **break-spell run** — heat alerts fill
+   while rainfall alerts go quiet, because the regime changed
+
+**Before you present:**
+- [ ] Open it on the actual laptop you'll present from
+- [ ] Confirm the venue has internet — map tiles, Chart.js and the webfont come
+      from CDN. Every number and grid cell is embedded and renders offline, but
+      the basemap goes blank without a connection. **Tell me if the venue is
+      offline and I'll vendor the libraries into the file.**
+- [ ] Click a cell so you've seen the popup before a judge asks you to
+
+---
+
+## 7. Things you do NOT need to provide
+
+- Python packages — everything is in your Anaconda (`lightgbm` was the only gap)
+- Weather data — fetched and cached in `data/`
+- Any credential, to run or demo this
+- A server — `dashboard.html` is one self-contained file
+
+## 8. Open questions for you
+
+1. **Region** — locked to Maharashtra. Say the word if the PS or your mentor
+   wants Odisha or a wider India domain; it is a constant at the top of the
+   fetch script.
+2. **Category** — I've assumed Software.
+3. **Architecture diagram** — want one generated from the pipeline for a slide?
