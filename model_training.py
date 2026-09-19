@@ -53,12 +53,19 @@ DATA = ROOT / "data"
 MODELS_DIR = ROOT / "models"
 MODELS_DIR.mkdir(exist_ok=True)
 
-SOURCES = ["a", "b", "c", "d"]
+SOURCES = ["a", "b", "c", "d", "e", "f"]
+# Persistence (f) is the skill REFERENCE, not a blend member. Including it in
+# the weight solve degraded out-of-sample blend RMSE 10.54 -> 10.77: it carries
+# no information the models lack and destabilises the fitted weights.
+BLEND = ["a", "b", "c", "d", "e"]
+REF = "f"
 SOURCE_LABEL = {
-    "a": "Model A - Physics NWP",
-    "b": "Model B - AI/ML",
-    "c": "Model C - Ensemble Mean",
-    "d": "Model D - Persistence",
+    "a": "A  ECMWF IFS (physics)",
+    "b": "B  ECMWF AIFS (AI)",
+    "c": "C  NOAA GFS",
+    "d": "D  DWD ICON",
+    "e": "E  EC GEM",
+    "f": "F  Persistence (ref)",
 }
 N_FOLDS = 4
 EXTREME_MM = 40.0
@@ -101,7 +108,7 @@ def diagnose_regime_from_forecasts(df):
     three skilful sources (A, B, C) for that (date, lead) pair, which a
     forecaster genuinely has in hand, and threshold that instead.
     """
-    src = ["model_a_rain", "model_b_rain", "model_c_rain"]
+    src = ["model_%s_rain" % m for m in BLEND]
     dom = df.groupby(["date", "lead_time"])[src].transform("mean").mean(axis=1)
     z = (dom - dom.mean()) / dom.std()
     reg = pd.Series(
@@ -128,8 +135,7 @@ def build_features(df):
         X["rain_%s" % m] = df["model_%s_rain" % m]
         X["t2m_%s" % m] = df["model_%s_t2m" % m]
 
-    rain_cols = [df["model_%s_rain" % m] for m in SOURCES]
-    stack = np.vstack([c.values for c in rain_cols])
+    stack = np.vstack([df["model_%s_rain" % m].values for m in BLEND])
 
     # Ensemble spread is the single most informative uncertainty predictor:
     # when the four sources disagree, none of them should be trusted much.
@@ -137,14 +143,12 @@ def build_features(df):
     X["rain_spread"] = stack.std(axis=0)
     X["rain_range"] = stack.max(axis=0) - stack.min(axis=0)
     X["rain_median"] = np.median(stack, axis=0)
-    # anchor = plain mean of the three skilful sources; persistence excluded.
-    # This is the baseline the model learns a CORRECTION to (see ANCHOR note).
-    X["rain_anchor"] = stack[:3].mean(axis=0)
+    X["rain_anchor"] = stack.mean(axis=0)
 
-    tstack = np.vstack([df["model_%s_t2m" % m].values for m in SOURCES])
+    tstack = np.vstack([df["model_%s_t2m" % m].values for m in BLEND])
     X["t2m_mean"] = tstack.mean(axis=0)
     X["t2m_spread"] = tstack.std(axis=0)
-    X["t2m_anchor"] = tstack[:3].mean(axis=0)
+    X["t2m_anchor"] = tstack.mean(axis=0)
 
     X["lead_time"] = df["lead_time"]
     X["lat"] = df["lat"]
@@ -177,14 +181,18 @@ def time_blocks(dates, n_folds):
 # ==========================================================================
 REG_PARAMS = dict(
     objective="regression",
-    n_estimators=600,
-    learning_rate=0.045,
-    num_leaves=48,
-    min_child_samples=40,
-    subsample=0.85,
+    # Deliberately small. The correction being learned is a thin residual on
+    # top of the linear blend, measured on ~8k rows per lead per fold of
+    # heavy-tailed rainfall. A large forest memorises that residual's noise
+    # and makes the blend WORSE than the weights alone - measured, not feared.
+    n_estimators=1500,          # upper bound; early stopping picks the count
+    learning_rate=0.025,
+    num_leaves=16,
+    min_child_samples=120,
+    subsample=0.7,
     subsample_freq=1,
-    colsample_bytree=0.85,
-    reg_lambda=1.0,
+    colsample_bytree=0.7,
+    reg_lambda=5.0,
     random_state=SEED,
     n_jobs=-1,
     verbose=-1,
@@ -206,6 +214,31 @@ CLF_PARAMS = dict(
 )
 
 
+def fit_anchor(F, y, reg, min_rows=250):
+    """
+    Learn the sum-to-one, non-negative weights that define the linear blend,
+    stratified by weather regime. Fit on TRAINING rows only.
+    """
+    W = {"_all": solve_weights(F, y)}
+    for r in np.unique(reg):
+        m = reg == r
+        if m.sum() >= min_rows:
+            W[r] = solve_weights(F[m], y[m])
+    return W
+
+
+def apply_anchor(W, F, reg):
+    out = np.empty(len(F))
+    for r in np.unique(reg):
+        m = reg == r
+        out[m] = F[m] @ W.get(r, W["_all"])
+    return out
+
+
+def source_matrix(df, kind):
+    return np.column_stack([df["model_%s_%s" % (m, kind)].values for m in BLEND])
+
+
 def run_blocked_cv(df, X, blocks):
     """
     Out-of-fold predictions for every row: rainfall, temperature, P(extreme).
@@ -213,8 +246,18 @@ def run_blocked_cv(df, X, blocks):
     ANCHOR / RESIDUAL TARGET
     -----------------------
     The regressors are trained on  (truth - anchor)  rather than on truth
-    itself, where the anchor is the mean of the three skilful sources. Two
-    reasons, both of which bite hard with time-blocked validation:
+    itself, where the anchor is the NNLS-weighted linear blend of the sources
+    (the same weights the reliability map plots), fit per regime on the
+    training folds only.
+
+    Anchoring on a PLAIN MEAN fails as soon as the sources differ in quality:
+    with real output ECMWF IFS scores 15.7 mm against AIFS's 10.7, so their
+    mean is worse than AIFS alone and the booster spends all its capacity
+    climbing back to a source it already had. Least squares assigns the weak
+    source a small weight automatically, so the linear blend starts ahead of
+    every member and the trees are free to learn a genuine correction.
+
+    Two further reasons the residual form matters under time-blocked CV:
 
       * Boosted trees cannot extrapolate. Predicting the LEVEL means a held-out
         June block (hotter than anything in the July-August training data) is
@@ -234,6 +277,12 @@ def run_blocked_cv(df, X, blocks):
     oof_rain = np.full(len(df), np.nan)
     oof_t2m = np.full(len(df), np.nan)
     oof_prob = np.full(len(df), np.nan)
+    oof_lin = np.full(len(df), np.nan)      # the linear blend on its own
+    lambdas = []
+
+    Fr = source_matrix(df, "rain")
+    Ft = source_matrix(df, "t2m")
+    regs = df.regime.values
 
     leads = sorted(df.lead_time.unique())
     for lead in leads:
@@ -243,51 +292,103 @@ def run_blocked_cv(df, X, blocks):
             te = lead_mask & in_block
             tr = lead_mask & ~in_block
 
-            Xtr, Xte = X[tr], X[te]
-            anchor_tr, anchor_te = X.rain_anchor[tr], X.rain_anchor[te]
-            tanch_tr, tanch_te = X.t2m_anchor[tr], X.t2m_anchor[te]
+            # Inner split for early stopping and shrinkage: the LAST 20% of
+            # the training days, so the held-out slice sits after what the
+            # model saw, exactly like the outer protocol.
+            tr_idx = np.where(tr)[0]
+            d = df.date.values[tr_idx]
+            uniq = np.unique(d)
+            cut = uniq[max(1, int(0.8 * len(uniq)))]
+            vsel = d >= cut
+            fit_i, val_i = tr_idx[~vsel], tr_idx[vsel]
 
-            r = lgb.LGBMRegressor(**REG_PARAMS)
-            r.fit(Xtr, df.truth_rain[tr] - anchor_tr, categorical_feature=CAT_FEATURES)
-            oof_rain[te] = anchor_te + r.predict(Xte)
+            # NNLS fit on the fit slice only, so lambda below is measured
+            # against an anchor that has not seen the validation days
+            Wr = fit_anchor(Fr[fit_i], df.truth_rain.values[fit_i], regs[fit_i])
+            Wt = fit_anchor(Ft[fit_i], df.truth_t2m.values[fit_i], regs[fit_i])
 
-            t = lgb.LGBMRegressor(**REG_PARAMS)
-            t.fit(Xtr, df.truth_t2m[tr] - tanch_tr, categorical_feature=CAT_FEATURES)
-            oof_t2m[te] = tanch_te + t.predict(Xte)
+            def anch(W, F, idx): return apply_anchor(W, F[idx], regs[idx])
+            a_fit, a_val, a_te = anch(Wr, Fr, fit_i), anch(Wr, Fr, val_i), anch(Wr, Fr, np.where(te)[0])
+            t_fit, t_val, t_te = anch(Wt, Ft, fit_i), anch(Wt, Ft, val_i), anch(Wt, Ft, np.where(te)[0])
+            oof_lin[te] = a_te
+
+            def frame(idx, a, ta):
+                f = X.iloc[idx].copy(); f["anchor"] = a; f["t_anchor"] = ta; return f
+            Xfit, Xval, Xte = frame(fit_i, a_fit, t_fit), frame(val_i, a_val, t_val), \
+                              frame(np.where(te)[0], a_te, t_te)
+
+            def train_corrected(y, a_f, a_v, a_t):
+                """Boosted correction on the anchor, early-stopped and shrunk."""
+                m = lgb.LGBMRegressor(**REG_PARAMS)
+                m.fit(Xfit, y[fit_i] - a_f,
+                      eval_X=Xval, eval_y=y[val_i] - a_v, eval_metric="l2",
+                      categorical_feature=CAT_FEATURES,
+                      callbacks=[lgb.early_stopping(60, verbose=False)])
+                cv = m.predict(Xval)
+                resid = y[val_i] - a_v
+                denom = float(cv @ cv)
+                # optimal least-squares shrinkage on held-out data. A useless
+                # correction gets lambda 0 and the system falls back exactly
+                # to the linear blend rather than degrading below it.
+                lam = float(np.clip((resid @ cv) / denom, 0.0, 1.0)) if denom > 1e-9 else 0.0
+                return m, lam, a_t + lam * m.predict(Xte)
+
+            yr = df.truth_rain.values
+            yt = df.truth_t2m.values
+            r, lam_r, oof_rain[te] = train_corrected(yr, a_fit, a_val, a_te)
+            t, lam_t, oof_t2m[te] = train_corrected(yt, t_fit, t_val, t_te)
+            lambdas.append((lead, lam_r, lam_t))
 
             # The flagger consumes the blended value, so it must be fed one
             # produced the same way it will be in deployment.
+            a_tr = np.empty(len(tr_idx)); a_tr[~vsel] = a_fit; a_tr[vsel] = a_val
+            tt_tr = np.empty(len(tr_idx)); tt_tr[~vsel] = t_fit; tt_tr[vsel] = t_val
+            Xtr = frame(tr_idx, a_tr, tt_tr)
+
             Xc_tr = Xtr.copy()
-            Xc_tr["blend_rain"] = anchor_tr + r.predict(Xtr)
+            Xc_tr["blend_rain"] = a_tr + lam_r * r.predict(Xtr)
             Xc_te = Xte.copy()
             Xc_te["blend_rain"] = oof_rain[te]
 
             c = lgb.LGBMClassifier(**CLF_PARAMS)
-            c.fit(Xc_tr, df.is_extreme[tr], categorical_feature=CAT_FEATURES)
+            c.fit(Xc_tr, df.is_extreme.values[tr_idx], categorical_feature=CAT_FEATURES)
             oof_prob[te] = c.predict_proba(Xc_te)[:, 1]
-        print("  lead %dd: %d folds fitted (%d rows scored out-of-sample)"
-              % (lead, len(blocks), lead_mask.sum()))
+        lam = [x for x in lambdas if x[0] == lead]
+        print("  lead %dd: %d folds | correction weight lambda rain %.2f  t2m %.2f"
+              % (lead, len(blocks), np.mean([l[1] for l in lam]), np.mean([l[2] for l in lam])))
 
     assert not np.isnan(oof_rain).any(), "every row must receive an out-of-fold prediction"
-    return np.clip(oof_rain, 0.0, None), oof_t2m, oof_prob
+    return np.clip(oof_rain, 0.0, None), oof_t2m, oof_prob, np.clip(oof_lin, 0.0, None)
 
 
 def fit_final_models(df, X):
     """Full-data per-lead models for export / deployment."""
-    rain_models, t2m_models, clf_models = {}, {}, {}
+    rain_models, t2m_models, clf_models, weight_sets = {}, {}, {}, {}
+    Fr = source_matrix(df, "rain")
+    Ft = source_matrix(df, "t2m")
+    regs = df.regime.values
+
     for lead in sorted(df.lead_time.unique()):
         m = (df.lead_time == lead).values
-        Xl = X[m]
+        Wr = fit_anchor(Fr[m], df.truth_rain.values[m], regs[m])
+        Wt = fit_anchor(Ft[m], df.truth_t2m.values[m], regs[m])
+        anchor = apply_anchor(Wr, Fr[m], regs[m])
+        tanchor = apply_anchor(Wt, Ft[m], regs[m])
+
+        Xl = X[m].copy(); Xl["anchor"] = anchor; Xl["t_anchor"] = tanchor
         r = lgb.LGBMRegressor(**REG_PARAMS)
-        r.fit(Xl, df.truth_rain[m] - X.rain_anchor[m], categorical_feature=CAT_FEATURES)
+        r.fit(Xl, df.truth_rain[m] - anchor, categorical_feature=CAT_FEATURES)
         t = lgb.LGBMRegressor(**REG_PARAMS)
-        t.fit(Xl, df.truth_t2m[m] - X.t2m_anchor[m], categorical_feature=CAT_FEATURES)
+        t.fit(Xl, df.truth_t2m[m] - tanchor, categorical_feature=CAT_FEATURES)
         Xc = Xl.copy()
-        Xc["blend_rain"] = X.rain_anchor[m] + r.predict(Xl)
+        Xc["blend_rain"] = anchor + r.predict(Xl)
         c = lgb.LGBMClassifier(**CLF_PARAMS)
         c.fit(Xc, df.is_extreme[m], categorical_feature=CAT_FEATURES)
+
         rain_models[int(lead)], t2m_models[int(lead)], clf_models[int(lead)] = r, t, c
-    return rain_models, t2m_models, clf_models
+        weight_sets[int(lead)] = {"rain": {k: v.tolist() for k, v in Wr.items()},
+                                  "t2m": {k: v.tolist() for k, v in Wt.items()}}
+    return rain_models, t2m_models, clf_models, weight_sets
 
 
 # ==========================================================================
@@ -317,12 +418,12 @@ def solve_weights(F, y, penalty=25.0):
 def weights_by(df, keys):
     rows = []
     for key, g in df.groupby(keys, observed=True):
-        F = np.column_stack([g["model_%s_rain" % m].values for m in SOURCES])
+        F = np.column_stack([g["model_%s_rain" % m].values for m in BLEND])
         w = solve_weights(F, g.truth_rain.values)
         rec = dict(zip(keys, key if isinstance(key, tuple) else (key,)))
-        for m, wi in zip(SOURCES, w):
+        for m, wi in zip(BLEND, w):
             rec["w_%s" % m] = round(float(wi), 4)
-        rec["dominant_model"] = SOURCES[int(np.argmax(w))].upper()
+        rec["dominant_model"] = BLEND[int(np.argmax(w))].upper()
         rec["dominant_weight"] = round(float(w.max()), 4)
         rec["n_samples"] = int(len(g))
         rows.append(rec)
@@ -333,12 +434,22 @@ def weights_by(df, keys):
 # reporting
 # ==========================================================================
 def score_table(g, blend_col="blend_rain"):
-    ref = g["model_d_rain"]
+    ref = g["model_%s_rain" % REF]
     out = {}
     for m in SOURCES:
         p = g["model_%s_rain" % m]
         out[SOURCE_LABEL[m]] = dict(rmse=rmse(g.truth_rain, p), mae=mae(g.truth_rain, p),
                                     skill=skill(g.truth_rain, p, ref))
+    # The naive alternative: average every model equally. This is what a
+    # centre does without any learned weighting, so it - not the best single
+    # model in hindsight - is the baseline the blend has to beat.
+    eq = np.mean([g["model_%s_rain" % m].values for m in BLEND], axis=0)
+    out["Equal-weight mean (naive)"] = dict(rmse=rmse(g.truth_rain, eq), mae=mae(g.truth_rain, eq),
+                                            skill=skill(g.truth_rain, eq, ref))
+    if "linear_blend" in g:
+        p = g["linear_blend"]
+        out["Linear blend (weights)"] = dict(rmse=rmse(g.truth_rain, p), mae=mae(g.truth_rain, p),
+                                             skill=skill(g.truth_rain, p, ref))
     p = g[blend_col]
     out["BLENDED (ours)"] = dict(rmse=rmse(g.truth_rain, p), mae=mae(g.truth_rain, p),
                                  skill=skill(g.truth_rain, p, ref))
@@ -361,19 +472,26 @@ def main():
     print(" Region: Maharashtra (16-21N, 73-78E) | SW monsoon Jun-Aug 2023")
     print("=" * 66)
 
-    df = pd.read_parquet(DATA / "forecasts.parquet")
-    print("\ntraining table: %d rows, %d cells, %d days, leads %s"
+    # Real archived multi-model output wins if it has been fetched; the
+    # synthetic generator stays as a fallback so the pipeline always runs.
+    real, synth = DATA / "forecasts_real.parquet", DATA / "forecasts.parquet"
+    src_file = real if real.exists() else synth
+    print("\nsource: %s  (%s)" % (src_file.name,
+          "REAL archived forecasts" if src_file is real else "synthetic streams"))
+    df = pd.read_parquet(src_file)
+    print("training table: %d rows, %d cells, %d days, leads %s"
           % (len(df), df.cell_id.nunique(), df.date.nunique(), sorted(df.lead_time.unique())))
     print("regime mix: %s" % df.drop_duplicates("date").regime.value_counts().to_dict())
 
     X = build_features(df)
     blocks = time_blocks(df.date, N_FOLDS)
     print("\n--- blocked time-series CV (%d contiguous folds) ---" % N_FOLDS)
-    oof_rain, oof_t2m, oof_prob = run_blocked_cv(df, X, blocks)
+    oof_rain, oof_t2m, oof_prob, oof_lin = run_blocked_cv(df, X, blocks)
 
     df["blend_rain"] = oof_rain
     df["blend_t2m"] = oof_t2m
     df["prob_extreme"] = oof_prob
+    df["linear_blend"] = oof_lin
 
     # Forecast confidence shown in the dashboard popup. Derived from relative
     # ensemble spread: when the four sources agree the blend is trustworthy,
@@ -385,45 +503,48 @@ def main():
     # ---------------- headline metrics --------------------------------
     print_scores("=== OVERALL (all leads, all regimes, out-of-sample) ===", score_table(df))
 
-    best_single = min(rmse(df.truth_rain, df["model_%s_rain" % m]) for m in SOURCES[:3])
+    best_single = min(rmse(df.truth_rain, df["model_%s_rain" % m]) for m in BLEND)
     blend_rmse = rmse(df.truth_rain, df.blend_rain)
     print("\n  >> blend RMSE %.3f mm vs best single model %.3f mm  =  %.1f%% reduction"
           % (blend_rmse, best_single, 100 * (1 - blend_rmse / best_single)))
     print("  >> skill score vs persistence baseline: %.3f"
-          % skill(df.truth_rain, df.blend_rain, df.model_d_rain))
+          % skill(df.truth_rain, df.blend_rain, df["model_%s_rain" % REF]))
 
     # ---------------- by lead time ------------------------------------
     print("\n=== RMSE by LEAD TIME (mm) ===")
-    print("%-6s%9s%9s%9s%9s%11s%9s" % ("lead", "A", "B", "C", "D", "BLEND", "gain%"))
-    print("-" * 62)
+    print("%-6s%8s%8s%8s%8s%8s%8s%10s%8s"
+          % ("lead", "A", "B", "C", "D", "E", "F", "LINEAR", "BLEND"))
+    print("-" * 74)
     rows_lead = []
     for lead, g in df.groupby("lead_time"):
         vals = [rmse(g.truth_rain, g["model_%s_rain" % m]) for m in SOURCES]
         b = rmse(g.truth_rain, g.blend_rain)
-        gain = 100 * (1 - b / min(vals[:3]))
-        print("%-6d%9.3f%9.3f%9.3f%9.3f%11.3f%9.1f" % (lead, *vals, b, gain))
+        gain = 100 * (1 - b / min(vals[:len(BLEND)]))
+        lin = rmse(g.truth_rain, g.linear_blend)
+        print("%-6d%8.2f%8.2f%8.2f%8.2f%8.2f%8.2f%10.3f%8.3f" % (lead, *vals, lin, b))
         rows_lead.append(dict(lead_time=lead,
                               **{"model_%s" % m: round(v, 4) for m, v in zip(SOURCES, vals)},
                               blend=round(b, 4),
                               mae_blend=round(mae(g.truth_rain, g.blend_rain), 4),
-                              skill_blend=round(skill(g.truth_rain, g.blend_rain, g.model_d_rain), 4),
+                              skill_blend=round(skill(g.truth_rain, g.blend_rain, g["model_%s_rain" % REF]), 4),
                               gain_pct=round(gain, 2)))
     by_lead = pd.DataFrame(rows_lead)
 
     # ---------------- by regime ---------------------------------------
     print("\n=== RMSE by WEATHER REGIME (mm) ===")
-    print("%-10s%9s%9s%9s%9s%11s%9s" % ("regime", "A", "B", "C", "D", "BLEND", "gain%"))
-    print("-" * 66)
+    print("%-10s%8s%8s%8s%8s%8s%8s%10s%8s"
+          % ("regime", "A", "B", "C", "D", "E", "F", "BLEND", "gain%"))
+    print("-" * 78)
     rows_reg = []
     for reg, g in df.groupby("regime"):
         vals = [rmse(g.truth_rain, g["model_%s_rain" % m]) for m in SOURCES]
         b = rmse(g.truth_rain, g.blend_rain)
-        gain = 100 * (1 - b / min(vals[:3]))
-        print("%-10s%9.3f%9.3f%9.3f%9.3f%11.3f%9.1f" % (reg, *vals, b, gain))
+        gain = 100 * (1 - b / min(vals[:len(BLEND)]))
+        print("%-10s%8.2f%8.2f%8.2f%8.2f%8.2f%8.2f%10.3f%8.1f" % (reg, *vals, b, gain))
         rows_reg.append(dict(regime=reg,
                              **{"model_%s" % m: round(v, 4) for m, v in zip(SOURCES, vals)},
                              blend=round(b, 4),
-                             skill_blend=round(skill(g.truth_rain, g.blend_rain, g.model_d_rain), 4),
+                             skill_blend=round(skill(g.truth_rain, g.blend_rain, g["model_%s_rain" % REF]), 4),
                              gain_pct=round(gain, 2), n=len(g)))
     by_regime = pd.DataFrame(rows_reg)
 
@@ -478,7 +599,7 @@ def main():
 
     # ---------------- feature importance ------------------------------
     print("\n--- retraining full-data per-lead models for export ---")
-    final_rain, final_t2m, final_clf = fit_final_models(df, X)
+    final_rain, final_t2m, final_clf, weight_sets = fit_final_models(df, X)
 
     imp = (pd.DataFrame({l: m.feature_importances_ for l, m in final_rain.items()},
                         index=X.columns).mean(axis=1)
@@ -495,9 +616,10 @@ def main():
     keep = ["cell_id", "lat", "lon", "elevation_m", "date", "lead_time", "season",
             "regime", "regime_transition", "truth_rain", "truth_t2m",
             "clim_rain", "clim_t2m",
-            "model_a_rain", "model_b_rain", "model_c_rain", "model_d_rain",
-            "model_a_t2m", "model_b_t2m", "model_c_t2m", "model_d_t2m",
-            "blend_rain", "blend_t2m", "prob_extreme", "confidence", "is_extreme"]
+            *["model_%s_rain" % m for m in SOURCES],
+            *["model_%s_t2m" % m for m in SOURCES],
+            "blend_rain", "blend_t2m", "prob_extreme", "confidence", "is_extreme",
+            "linear_blend"]
     df[keep].to_parquet(DATA / "predictions.parquet", index=False)
 
     overall = pd.DataFrame(score_table(df)).T.reset_index().rename(columns={"index": "source"})
@@ -509,6 +631,8 @@ def main():
     wreg.to_csv(DATA / "weights_by_regime.csv", index=False)
     wlead.to_csv(DATA / "weights_by_lead.csv", index=False)
     imp.to_csv(DATA / "feature_importance.csv", header=["importance"])
+    import json as _json
+    (DATA / "blend_weight_sets.json").write_text(_json.dumps(weight_sets, indent=1))
 
     print("\n" + "=" * 66)
     print(" artefacts written to data/ and models/")

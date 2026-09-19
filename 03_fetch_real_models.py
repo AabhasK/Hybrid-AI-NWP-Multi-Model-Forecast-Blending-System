@@ -18,10 +18,16 @@ THE FOUR SOURCES
 ----------------
   A  ECMWF IFS       physics-based NWP, the operational gold standard
   B  ECMWF AIFS      ECMWF's data-driven AI forecasting system
-  C  multi-centre    mean of NOAA GFS, DWD ICON and Environment Canada GEM -
-                     a real poor-man's ensemble mean, a standard operational
-                     product in its own right
-  D  persistence     last verifying analysis available at issue time (ERA5)
+  C  NOAA GFS        physics-based NWP
+  D  DWD ICON        physics-based NWP
+  E  EC GEM          physics-based NWP
+  F  persistence     last verifying analysis available at issue time (ERA5);
+                     the skill reference, not a blend member
+
+Each centre enters the blend SEPARATELY. An earlier version averaged GFS, ICON
+and GEM into one "ensemble mean" member, which threw away two independent
+skilful forecasts and cost the blend real accuracy (RMSE 10.67 averaged vs
+10.54 separate).
 
 Truth remains ERA5 reanalysis, fetched for the same window and grid.
 
@@ -49,7 +55,10 @@ LAT_MIN, LAT_MAX = 16.0, 21.0
 LON_MIN, LON_MAX = 73.0, 78.0
 STEP = 0.5
 
-PAST_DAYS = 92          # how far the Previous Runs archive is queried
+# A full year is available and 4x the data matters more than anything else
+# here: with only 88 days the fitted blend weights were no better than a plain
+# equal-weight average, because there was not enough signal to estimate them.
+PAST_DAYS = 365
 LEADS = [1, 2, 3, 4, 5]
 EXTREME_MM = 40.0
 ACTIVE_Z, BREAK_Z = 0.50, -0.50
@@ -64,12 +73,16 @@ ERA5_API = "https://archive-api.open-meteo.com/v1/era5"
 # run) does carry the archive. `gfs_graphcast025` resolves but is likewise
 # empty on this endpoint. Verified 2026-09-19.
 MODELS = {
-    "ecmwf_ifs025": "A",
-    "ecmwf_aifs025_single": "B",
-    "gfs_seamless": "C",
-    "icon_seamless": "C",
-    "gem_seamless": "C",
+    "ecmwf_ifs025": "A",          # ECMWF IFS      - physics NWP, operational standard
+    "ecmwf_aifs025_single": "B",  # ECMWF AIFS     - data-driven AI forecast system
+    "gfs_seamless": "C",          # NOAA GFS       - physics NWP
+    "icon_seamless": "D",         # DWD ICON       - physics NWP
+    "gem_seamless": "E",          # EC GEM         - physics NWP
 }
+# F is persistence, computed from the verifying analysis below. It is the SKILL
+# REFERENCE, not a blend member: including it in the weight solve measurably
+# degraded out-of-sample blend RMSE (10.54 -> 10.77) because it adds no
+# independent information and destabilises the fitted weights.
 ROW_BATCH = 11          # one latitude row per request; ~3 s each
 
 
@@ -113,7 +126,7 @@ def fetch_model_block(model, cells, var, leads):
     lon = ",".join("%.2f" % c[1] for c in cells)
     url = ("%s?latitude=%s&longitude=%s&hourly=%s&past_days=%d&forecast_days=1"
            "&timezone=UTC&models=%s" % (PREV_API, lat, lon, ",".join(names), PAST_DAYS, model))
-    key = CACHE / ("%s_%s_%.2f.json" % (model, var, cells[0][0]))
+    key = CACHE / ("%s_%s_%dd_%.2f.json" % (model, var, PAST_DAYS, cells[0][0]))
     if key.exists():
         return json.loads(key.read_text())
     payload = fetch(url)
@@ -199,8 +212,10 @@ def fetch_truth(cells, start, end):
     return pd.concat(out, ignore_index=True)
 
 
-PHASE = {5: "pre_monsoon", 6: "early_monsoon", 7: "peak_monsoon",
-         8: "late_monsoon", 9: "withdrawal", 10: "post_monsoon"}
+PHASE = {12: "winter", 1: "winter", 2: "winter",
+         3: "pre_monsoon", 4: "pre_monsoon", 5: "pre_monsoon",
+         6: "monsoon_onset", 7: "monsoon_peak", 8: "monsoon_peak",
+         9: "monsoon_withdrawal", 10: "post_monsoon", 11: "post_monsoon"}
 
 
 def main():
@@ -242,7 +257,7 @@ def main():
     wide = wide.reset_index()
 
     df = truth.merge(wide, on=["cell_id", "date"], how="inner")
-    df = df.dropna(subset=["model_a_rain", "model_b_rain", "model_c_rain"])
+    df = df.dropna(subset=["model_%s_rain" % m for m in "abcde"])
     df["rain_mm"] = df.truth_rain
 
     # ---- climatology, regime, persistence ---------------------------------
@@ -251,15 +266,21 @@ def main():
     rain_c = piv["truth_rain"].sort_index()
     temp_c = piv["truth_t2m"].sort_index()
 
+    # Anomaly against the SEASONAL CYCLE, not the annual mean. Over a full
+    # year an absolute threshold would label every dry-season day a "break";
+    # active and break spells are departures from what is normal for the time
+    # of year, which is what a forecaster means by the terms.
     dom = rain_c.mean(axis=1)
-    z = (dom - dom.mean()) / dom.std()
+    seasonal = dom.rolling(31, center=True, min_periods=7).mean()
+    anom = dom - seasonal
+    z = anom / anom.std()
     regime = pd.Series(np.where(z >= ACTIVE_Z, "active",
                        np.where(z <= BREAK_Z, "break", "normal")), index=dom.index)
 
+    # climatology = each cell's seasonal level x a smooth domain-wide cycle
     shape = (dom.rolling(15, center=True, min_periods=1).mean() / dom.mean())
-    clim_rain = rain_c.mean(axis=0).to_frame().T.reindex(rain_c.index, method="ffill")
-    clim_rain = rain_c.mean(axis=0) * shape.values[:, None]
-    clim_rain = pd.DataFrame(clim_rain, index=rain_c.index, columns=rain_c.columns)
+    clim_rain = pd.DataFrame(rain_c.mean(axis=0).values[None, :] * shape.values[:, None],
+                             index=rain_c.index, columns=rain_c.columns)
 
     dom_t = temp_c.mean(axis=1)
     shift = dom_t.rolling(15, center=True, min_periods=1).mean() - dom_t.mean()
@@ -275,7 +296,7 @@ def main():
     df["clim_rain"] = [clim_rain.at[d, c] for d, c in zip(df.date, df.cell_id)]
     df["clim_t2m"] = [clim_t2m.at[d, c] for d, c in zip(df.date, df.cell_id)]
 
-    # D = persistence: the analysis available `lead` days before the valid date
+    # F = persistence: the analysis available `lead` days before the valid date
     tr_lookup = {(c, d): v for c, d, v in zip(df.cell_id, df.date, df.truth_rain)}
     tt_lookup = {(c, d): v for c, d, v in zip(df.cell_id, df.date, df.truth_t2m)}
     dr, dt = [], []
@@ -283,12 +304,12 @@ def main():
         src_d = d - pd.Timedelta(days=int(L))
         dr.append(tr_lookup.get((c, src_d), np.nan))
         dt.append(tt_lookup.get((c, src_d), np.nan))
-    df["model_d_rain"] = dr
-    df["model_d_t2m"] = dt
-    df["model_d_rain"] = df.model_d_rain.fillna(df.clim_rain)
-    df["model_d_t2m"] = df.model_d_t2m.fillna(df.clim_t2m)
+    df["model_f_rain"] = dr
+    df["model_f_t2m"] = dt
+    df["model_f_rain"] = df.model_f_rain.fillna(df.clim_rain)
+    df["model_f_t2m"] = df.model_f_t2m.fillna(df.clim_t2m)
 
-    for c in ["model_a_rain", "model_b_rain", "model_c_rain", "model_d_rain"]:
+    for c in ["model_%s_rain" % m for m in "abcdef"]:
         df[c] = df[c].clip(lower=0)
     df["is_extreme"] = (df.truth_rain >= EXTREME_MM).astype(int)
     df["doy"] = df.date.dt.dayofyear
@@ -303,17 +324,18 @@ def main():
 
     print("\n--- REAL multi-model error signature (all leads) --------------")
     print("%-26s%10s%9s%8s" % ("source", "bias(mm)", "RMSE", "corr"))
-    names = {"a": "A  ECMWF IFS", "b": "B  ECMWF AIFS",
-             "c": "C  GFS+ICON+GEM mean", "d": "D  Persistence"}
-    for m in "abcd":
+    names = {"a": "A  ECMWF IFS", "b": "B  ECMWF AIFS", "c": "C  NOAA GFS",
+             "d": "D  DWD ICON", "e": "E  EC GEM", "f": "F  Persistence"}
+    for m in "abcdef":
         f = df["model_%s_rain" % m]
         print("%-26s%10.2f%9.2f%8.3f" % (names[m], (f - df.truth_rain).mean(),
               rmse(f, df.truth_rain), np.corrcoef(f, df.truth_rain)[0, 1]))
 
     print("\n--- RMSE by lead time ----------------------------------------")
-    print("%-6s%9s%9s%9s%9s" % ("lead", "A", "B", "C", "D"))
+    print("%-6s%8s%8s%8s%8s%8s%8s" % ("lead", "A", "B", "C", "D", "E", "F"))
     for L, g in df.groupby("lead_time"):
-        print("%-6d%9.2f%9.2f%9.2f%9.2f" % (L, *[rmse(g["model_%s_rain" % m], g.truth_rain) for m in "abcd"]))
+        print("%-6d%8.2f%8.2f%8.2f%8.2f%8.2f%8.2f"
+              % (L, *[rmse(g["model_%s_rain" % m], g.truth_rain) for m in "abcdef"]))
 
     print("\n--- best source per (lead x regime) --------------------------")
     print("%-6s%14s%14s%14s" % ("lead", "active", "break", "normal"))
@@ -323,7 +345,7 @@ def main():
             g = gl[gl.regime == reg]
             if not len(g):
                 out_c.append("-"); continue
-            sc = {m.upper(): rmse(g["model_%s_rain" % m], g.truth_rain) for m in "abcd"}
+            sc = {m.upper(): rmse(g["model_%s_rain" % m], g.truth_rain) for m in "abcde"}
             b = min(sc, key=sc.get)
             out_c.append("%s (%.2f)" % (b, sc[b]))
         print("%-6d%14s%14s%14s" % (L, *out_c))

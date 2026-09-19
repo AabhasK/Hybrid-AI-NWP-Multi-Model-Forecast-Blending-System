@@ -146,6 +146,24 @@ def main():
     share = share[["A", "B", "C", "D"]]
     share_pct = (100 * share.div(share.sum(axis=1), axis=0)).round(1)
 
+    # ---- empirical P(heavy | blended amount), for the live panel ----------
+    # The trained LightGBM flagger cannot run in a browser, so the live view
+    # needs a lookup it CAN evaluate. This is the observed frequency of a
+    # >=40 mm breach within each band of blended rainfall, measured on the
+    # out-of-sample predictions - an honest empirical curve, not a guess.
+    edges = [0, 5, 10, 15, 20, 25, 30, 35, 40, 50, 60, 80, 100, 150, 10**6]
+    curve = []
+    for lo, hi in zip(edges[:-1], edges[1:]):
+        sel = pred[(pred.blend_rain >= lo) & (pred.blend_rain < hi)]
+        curve.append(round(float(sel.is_extreme.mean()), 4) if len(sel) >= 25 else None)
+    # carry the last measured value forward across any thin bands
+    last = 0.0
+    for i, v in enumerate(curve):
+        if v is None:
+            curve[i] = last
+        else:
+            last = v
+
     payload = {
         "meta": {
             "region": "Maharashtra, India",
