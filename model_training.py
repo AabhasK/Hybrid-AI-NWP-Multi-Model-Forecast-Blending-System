@@ -601,8 +601,11 @@ def main():
     print("\n--- retraining full-data per-lead models for export ---")
     final_rain, final_t2m, final_clf, weight_sets = fit_final_models(df, X)
 
-    imp = (pd.DataFrame({l: m.feature_importances_ for l, m in final_rain.items()},
-                        index=X.columns).mean(axis=1)
+    # The final per-lead models are fitted on X plus the two anchor columns,
+    # so their importance vectors are longer than X.columns. Take the names
+    # from the booster itself rather than assuming they match.
+    imp = (pd.DataFrame({l: pd.Series(m.feature_importances_, index=m.feature_name_)
+                         for l, m in final_rain.items()}).mean(axis=1)
            .sort_values(ascending=False))
     print("\n=== TOP 12 BLENDER FEATURES (gain-split importance) ===")
     for k, v in imp.head(12).items():

@@ -49,9 +49,20 @@ def get(key, default=""):
 
 
 def is_set(key):
-    """A placeholder left in .env.example must not count as configured."""
+    """
+    A placeholder left in .env.example must not count as configured, and
+    neither must a URL pasted where a key belongs - Open-Meteo's endpoint is
+    not its API key, and sending one as the other silently breaks every
+    request instead of failing loudly.
+    """
     v = get(key)
-    return bool(v) and not v.lower().startswith(("your_", "paste_", "xxx", "<"))
+    if not v or v.lower().startswith(("your_", "paste_", "xxx", "<")):
+        return False
+    if v.lower().startswith(("http://", "https://")) or "/" in v:
+        print("  ! %s looks like a URL, not a key - ignoring it. "
+              "See .env.example." % key)
+        return False
+    return True
 
 
 # --------------------------------------------------------------------------

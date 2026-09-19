@@ -172,7 +172,22 @@ def main():
         else:
             last = v
 
+    # India outline, simplified by 00_build_region.py. The mask is a world
+    # rectangle with the national rings punched out: filling it with the page
+    # background clips the forecast raster to the country instead of leaving a
+    # rectangle lying across the Arabian Sea and four neighbours.
+    geo = {}
+    mask_f = DATA / "india_mask.json"
+    if mask_f.exists():
+        geo["mask"] = json.loads(mask_f.read_text())
+    grid_f = DATA / "grid_cells.json"
+    if grid_f.exists():
+        g = json.loads(grid_f.read_text())
+        geo["bbox"] = g["bbox"]
+        geo["grid_deg"] = g["grid_deg"]
+
     payload = {
+        "geo": geo,
         "meta": {
             "region": "Maharashtra, India",
             "bbox": [16.0, 73.0, 21.0, 78.0],
