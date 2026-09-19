@@ -735,7 +735,18 @@ function sample(g, gr, gc){
   const a = [];
   for (let i = -1; i <= 2; i++)
     a.push(cr(at(g,r+i,c-1), at(g,r+i,c), at(g,r+i,c+1), at(g,r+i,c+2), tc));
-  return cr(a[0], a[1], a[2], a[3], tr);
+  const v = cr(a[0], a[1], a[2], a[3], tr);
+
+  /* A Catmull-Rom kernel is not monotone: across a sharp gradient it
+     overshoots and would invent maxima no model forecast - enough to push a
+     cell into a higher IMD class than any source predicted, and below zero
+     on the dry side. Clamping each sample to its enclosing 2x2 cell values
+     forbids new extrema while leaving the surface smooth. A cell centre's
+     own value lies inside its own 2x2 box, so exactness at the data points
+     is untouched. */
+  const n0 = at(g,r,c), n1 = at(g,r,c+1), n2 = at(g,r+1,c), n3 = at(g,r+1,c+1);
+  const lo = Math.min(n0,n1,n2,n3), hi = Math.max(n0,n1,n2,n3);
+  return v < lo ? lo : (v > hi ? hi : v);
 }
 function resample(g, w, h){
   const out = new Float32Array(w * h);

@@ -1,0 +1,72 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>selftest</title>
+<style>body{font:13px monospace;background:#111;color:#ddd}iframe{width:1200px;height:800px;border:0}</style>
+</head><body>
+<pre id="out">running</pre>
+<iframe id="f" src="dashboard.html"></iframe>
+<script>
+const lines = [];
+const say = t => { lines.push(t); document.getElementById('out').textContent = lines.join('\n'); };
+const f = document.getElementById('f');
+let errors = [];
+
+f.onload = () => {
+  const w = f.contentWindow;
+  w.addEventListener('error', e => errors.push(e.message));
+  const ev = s => { try { return w.eval(s); } catch(e){ return 'EVAL_ERR:' + e.message; } };
+
+  let waited = 0;
+  const tick = setInterval(() => {
+    waited += 200;
+    const ready = ev('typeof mapReady !== "undefined" && mapReady');
+    if (ready === true || waited > 30000) {
+      clearInterval(tick);
+      run(w, ev, ready === true);
+    }
+  }, 200);
+};
+
+function run(w, ev, ready){
+  say('mapReady           : ' + ready);
+  say('engine note        : ' + (w.document.getElementById('mapnote')||{}).textContent);
+  if (!ready){ say('ERRORS: ' + errors.join(' ; ')); return; }
+
+  say('field source       : ' + ev('!!map.getSource("field")'));
+  say('layers present     : ' + ev('["hills","field","iso","cells-fill","cells-line","cell-hover"].filter(id=>map.getLayer(id)).join(",")'));
+  say('isohyet features   : ' + ev('map.getSource("iso")._data.features.length'));
+  say('isohyet segments   : ' + ev('map.getSource("iso")._data.features.reduce((a,f)=>a+f.geometry.coordinates.length,0)'));
+  say('cell polygons      : ' + ev('map.getSource("cells")._data.features.length'));
+
+  // interpolation sanity: resampled field must bracket the source grid
+  say('grid min/max       : ' + ev('(()=>{const g=gridOf(slice().rain);return Math.min(...g).toFixed(1)+" / "+Math.max(...g).toFixed(1)})()'));
+  say('field min/max      : ' + ev('(()=>{const r=resample(gridOf(slice().rain),300,300);return Math.min(...r).toFixed(1)+" / "+Math.max(...r).toFixed(1)})()'));
+  // interpolation must reproduce the original values AT the cell centres
+  say('exactness at cells : ' + ev('(()=>{const a=slice().rain,g=gridOf(a);let m=0;' +
+      'for(let r=0;r<NR;r++)for(let c=0;c<NC;c++){const v=sample(g,r,c);m=Math.max(m,Math.abs(v-g[r*NC+c]));}' +
+      'return "max abs err "+m.toFixed(6)})()'));
+
+  const before = ev('slice().rain[60]');
+  w.setLead(5);
+  say('setLead(5)         : rain[60] ' + before + ' -> ' + ev('slice().rain[60]') +
+      ' , iso feats ' + ev('map.getSource("iso")._data.features.length'));
+  w.setVar('temp');
+  say('setVar(temp)       : legend "' + ev('document.getElementById("legend").textContent.slice(0,14)') +
+      '" , iso feats ' + ev('map.getSource("iso")._data.features.length'));
+  w.setVar('rain'); w.setLead(3);
+
+  try { w.document.getElementById('mGrid').click(); say('grid toggle        : fill-opacity ' + ev('map.getPaintProperty("cells-fill","fill-opacity")')); }
+  catch(e){ say('grid toggle        : THREW ' + e.message); }
+  try { w.document.getElementById('mSmooth').click(); say('field toggle       : raster-opacity ' + ev('map.getPaintProperty("field","raster-opacity")')); }
+  catch(e){ say('field toggle       : THREW ' + e.message); }
+  try { w.document.getElementById('mIso').click(); say('isohyet off        : feats ' + ev('map.getSource("iso")._data.features.length')); w.document.getElementById('mIso').click(); }
+  catch(e){ say('isohyet toggle     : THREW ' + e.message); }
+  try { w.document.getElementById('m3d').click(); say('terrain on         : pitch ' + ev('map.getPitch().toFixed(0)') + ' terrain ' + ev('!!map.getTerrain()')); w.document.getElementById('m3d').click(); }
+  catch(e){ say('terrain toggle     : THREW ' + e.message); }
+  try { w.focusCell(60); say('focusCell(60)      : popup ' + ev('!!popup')); }
+  catch(e){ say('focusCell          : THREW ' + e.message); }
+  try { w.showInspector(60); say('inspector          : ' + ev('document.getElementById("inspector").classList.contains("on")')); }
+  catch(e){ say('inspector          : THREW ' + e.message); }
+
+  say('JS ERRORS          : ' + (errors.length ? errors.join(' ; ') : 'none'));
+  say('DONE');
+}
+</script></body></html>

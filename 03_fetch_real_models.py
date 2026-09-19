@@ -58,9 +58,14 @@ PREV_API = "https://previous-runs-api.open-meteo.com/v1/forecast"
 ERA5_API = "https://archive-api.open-meteo.com/v1/era5"
 
 # model id -> the role it plays in the blend
+# NOTE on the AI model id: `ecmwf_aifs025` serves live forecasts but returns
+# all-null for every `_previous_dayN` variable - Open-Meteo keeps no previous-
+# runs archive under that id. `ecmwf_aifs025_single` (the deterministic AIFS
+# run) does carry the archive. `gfs_graphcast025` resolves but is likewise
+# empty on this endpoint. Verified 2026-09-19.
 MODELS = {
     "ecmwf_ifs025": "A",
-    "ecmwf_aifs025": "B",
+    "ecmwf_aifs025_single": "B",
     "gfs_seamless": "C",
     "icon_seamless": "C",
     "gem_seamless": "C",
@@ -216,6 +221,16 @@ def main():
     truth["truth_rain"] = truth.truth_rain.clip(lower=0)
 
     # ---- fold the raw models into the four blend sources -------------------
+    # A model can answer 200 OK with every value null (some ids serve live
+    # forecasts but keep no previous-runs archive). Catch that here rather
+    # than letting it surface as a missing column three steps downstream.
+    empty = [m for m, g in fc.groupby("model_id") if g.rain.isna().all()]
+    if empty:
+        raise SystemExit(
+            "these models returned no archived data: %s\n"
+            "they resolve but carry no previous-runs history - pick another id"
+            % ", ".join(empty))
+
     fc["role"] = fc.model_id.map(MODELS)
     fc = fc[fc.role.notna()]
     src = (fc.groupby(["cell_id", "date", "lead_time", "role"])[["rain", "t2m"]]
