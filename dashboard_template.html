@@ -415,11 +415,35 @@ body{
 
 /* ---- verifiable sources strip ---------------------------------------- */
 .sources{border:1px solid var(--rule);border-radius:3px;background:var(--raised);
-  margin:0 0 16px;padding:13px 16px 14px}
-.srchead{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:11px}
-.srchead h2{font-family:"Archivo Narrow",sans-serif;font-size:15px;font-weight:600;margin:0;
-  letter-spacing:.01em}
-.srchead p{margin:0;color:var(--ink-3);font-size:13px;max-width:78ch}
+  margin:0 0 16px}
+.srcsum{display:flex;align-items:center;gap:13px;flex-wrap:wrap;
+  padding:9px 14px;cursor:pointer;list-style:none;-webkit-user-select:none;user-select:none}
+.srcsum::-webkit-details-marker{display:none}
+.srcsum::marker{content:""}
+.srcsum:hover{background:var(--rule-soft)}
+.srcsum:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
+.sources[open] .srcsum{border-bottom:1px solid var(--rule)}
+.srctitle{font-family:"Archivo Narrow",sans-serif;font-size:14.5px;font-weight:600;
+  letter-spacing:.01em;flex:0 0 auto}
+/* Collapsed, the row still names every centre. The trust signal must not
+   depend on the reader thinking to open the panel. */
+.srcchips{display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex:1 1 auto;min-width:0}
+.sources[open] .srcchips{display:none}
+.srcchip{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-2);
+  background:var(--plane);border:1px solid var(--rule);border-radius:2px;
+  padding:2px 7px 2px 4px;white-space:nowrap}
+.srcchip img{width:15px;height:15px;object-fit:contain;display:block}
+.srcchip .dot{width:8px;height:8px;border-radius:50%;display:block;flex:0 0 auto}
+.srcchip.ref{color:var(--ink-3);padding:2px 7px}
+.srcchip .mg{font-family:"Archivo Narrow",sans-serif;font-size:8.5px;font-weight:700;
+  color:var(--ink-3);min-width:15px;text-align:center;letter-spacing:.02em}
+.srcchip.isai{border-color:var(--accent);color:var(--ink)}
+.srcmore{display:inline-flex;align-items:center;gap:6px;color:var(--ink-3);font-size:12.5px;
+  flex:0 0 auto;margin-left:auto}
+.srcmore .chev{display:inline-block;transition:transform .18s;font-size:16px;line-height:1}
+.sources[open] .srcmore .chev{transform:rotate(90deg)}
+.srcbody{padding:13px 16px 15px}
+.srcnote{margin:0 0 13px;color:var(--ink-3);font-size:13px;max-width:84ch;line-height:1.45}
 .srclist{list-style:none;margin:0;padding:0;display:grid;gap:10px;
   grid-template-columns:repeat(auto-fit,minmax(236px,1fr))}
 .srcitem{display:flex;gap:10px;align-items:flex-start;min-width:0}
@@ -567,15 +591,20 @@ table.dt tr.hl td{color:#fff;font-weight:600}
   </header>
 
   <!-- ====================== verifiable sources ========================= -->
-  <section class="sources" aria-label="Forecast sources">
-    <div class="srchead">
-      <h2>Forecast sources</h2>
-      <p>Five model streams from four national meteorological centres, retrieved
-         at real lead times from published archives. Nothing is simulated, and
-         every source below is independently checkable.</p>
+  <details class="sources" id="sourcesBox">
+    <summary class="srcsum">
+      <span class="srctitle">Forecast sources</span>
+      <span class="srcchips" id="srcChips"></span>
+      <span class="srcmore"><span class="srcmoretext">Details</span><span class="chev">›</span></span>
+    </summary>
+    <div class="srcbody">
+      <p class="srcnote">Five model streams from four national meteorological centres,
+         retrieved at real lead times from published archives. Nothing is simulated,
+         and every source below is independently checkable &mdash; each name links to
+         the operator&rsquo;s own documentation.</p>
+      <ul class="srclist" id="srcList"></ul>
     </div>
-    <ul class="srclist" id="srcList"></ul>
-  </section>
+  </details>
 
   <!-- ========================== horizon rail =========================== -->
   <section class="rail">
@@ -1649,14 +1678,26 @@ const SRCMETA = {
   'Persistence':{exp:'Yesterday repeated', logo:null,
                  org:'Skill reference only, never blended', url:null}
 };
-const MONO = {ecmwf:'ECMWF', noaa:'NOAA', dwd:'DWD', eccc:'ECCC', copernicus:'C3S'};
+const MONO = {ecmwf:'ECMWF', noaa:'NOAA', dwd:'DWD', eccc:'ECCC', copernicus:'C3S',
+              openmeteo:'OM'};
+/* Match a logo slug loosely, so "noaa" still finds noaa-gfs.png and the team
+   does not have to rename downloads to an exact filename. */
+function logoFor(slug){
+  if (!slug) return null;
+  if (LOGOS[slug]) return LOGOS[slug];
+  const keys = Object.keys(LOGOS);
+  const hit = keys.find(k => k.indexOf(slug) === 0) ||
+              keys.find(k => k.replace(/[^a-z0-9]/g,'').indexOf(slug.replace(/[^a-z0-9]/g,'')) >= 0);
+  return hit ? LOGOS[hit] : null;
+}
 
 (function buildSources(){
   const ul = document.getElementById('srcList');
   if (!ul) return;
   function slot(key, alt){
-    return '<span class="srclogo">' + (key && LOGOS[key]
-      ? '<img src="'+LOGOS[key]+'" alt="'+alt+'">'
+    const src = logoFor(key);
+    return '<span class="srclogo">' + (src
+      ? '<img src="'+src+'" alt="'+alt+'">'
       : '<span>'+(MONO[key] || '—')+'</span>') + '</span>';
   }
   const items = DATA.meta.sources.map(function(src){
@@ -1671,11 +1712,42 @@ const MONO = {ecmwf:'ECMWF', noaa:'NOAA', dwd:'DWD', eccc:'ECCC', copernicus:'C3
   });
   /* the verification target belongs on this list too - every score on the
      Verification tab is measured against it */
+  items.push('<li class="srcitem ref">'+slot('openmeteo','Open-Meteo')+
+    '<span class="srctext"><b><a href="https://open-meteo.com/en/docs/previous-runs-api"'+
+    ' target="_blank" rel="noopener">Open-Meteo</a></b>'+
+    '<span class="exp">Previous Runs API &mdash; how the archived forecasts are retrieved</span>'+
+    '<span class="org">Delivery route, not a forecast producer</span></span></li>');
   items.push('<li class="srcitem ref">'+slot('copernicus','Copernicus Climate Change Service')+
     '<span class="srctext"><b>ERA5</b>'+
     '<span class="exp">Reanalysis used as verification truth</span>'+
     '<span class="org">Copernicus Climate Change Service / ECMWF</span></span></li>');
   ul.innerHTML = items.join('');
+
+  /* The collapsed row carries the same names, so a judge who never opens the
+     panel still sees who the forecast came from. */
+  const chips = document.getElementById('srcChips');
+  if (chips){
+    chips.innerHTML = DATA.meta.sources.filter(x => x.blend !== false).map(function(src){
+      const m = SRCMETA[src.name] || {logo:null};
+      /* a monogram here would just repeat the name ("NOAA  NOAA GFS"), so
+         without a logo the chip carries the source's map colour instead */
+      const lg = logoFor(m.logo);
+      const mark = lg
+        ? '<img src="'+lg+'" alt="">'
+        : '<i class="dot" style="background:'+(SERIES[src.key]||'var(--ink-3)')+'"></i>';
+      return '<span class="srcchip'+(ISAI(src.key)?' isai':'')+'">'+mark+src.name+'</span>';
+    }).join('') +
+    '<span class="srcchip ref" title="Verification truth">verified vs ERA5</span>';
+  }
+
+  /* remember whether the reader left it open; per browser, never shared */
+  const box = document.getElementById('sourcesBox');
+  if (box){
+    try { if (localStorage.getItem('bd.sources') === 'open') box.open = true; } catch(e){}
+    box.addEventListener('toggle', function(){
+      try { localStorage.setItem('bd.sources', box.open ? 'open' : 'shut'); } catch(e){}
+    });
+  }
 })();
 
 /* --- controls --------------------------------------------------------- */
