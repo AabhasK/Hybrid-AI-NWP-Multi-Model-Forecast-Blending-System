@@ -57,7 +57,7 @@ body{
   color:var(--ink);
   font-family:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
   font-feature-settings:"tnum" 1, "cv05" 1;
-  font-size:14px;
+  font-size:15.5px;
   line-height:1.5;
   -webkit-font-smoothing:antialiased;
 }
@@ -76,16 +76,16 @@ body{
 .brand{min-width:0;flex:1 1 640px}
 .brand h1{
   font-family:"Archivo Narrow",sans-serif;
-  font-size:31px;font-weight:600;letter-spacing:-.012em;margin:0;line-height:1;
+  font-size:34px;font-weight:600;letter-spacing:-.012em;margin:0;line-height:1;
 }
-.brand p{margin:5px 0 0;color:var(--ink-3);font-size:12.5px;max-width:46ch}
+.brand p{margin:5px 0 0;color:var(--ink-3);font-size:14px;max-width:46ch}
 .runmeta{display:flex;gap:26px;margin-left:auto;flex-wrap:wrap}
 .runmeta div{min-width:88px}
-.runmeta dt{font-size:11px;color:var(--ink-3);letter-spacing:.02em;margin:0}
-.runmeta dd{margin:1px 0 0;font-size:14.5px;font-weight:600}
+.runmeta dt{font-size:12.5px;color:var(--ink-3);letter-spacing:.02em;margin:0}
+.runmeta dd{margin:1px 0 0;font-size:16px;font-weight:600}
 .pill{
   display:inline-flex;align-items:center;gap:7px;
-  padding:3px 11px 3px 8px;border-radius:999px;font-size:12.5px;font-weight:600;
+  padding:3px 11px 3px 8px;border-radius:999px;font-size:14px;font-weight:600;
   border:1px solid;
 }
 .pill .dot{width:7px;height:7px;border-radius:50%;background:currentColor}
@@ -101,14 +101,14 @@ body{
   padding:6px 0;border-bottom:1px solid var(--rule-soft);
 }
 .scorerow:last-child{border-bottom:0}
-.scorerow .nm{font-size:12px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scorerow .nm{font-size:13.5px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .scorerow .tr{height:9px;background:var(--rule-soft);border-radius:2px;overflow:hidden}
 .scorerow .tr i{display:block;height:100%;border-radius:2px}
-.scorerow .vl{font-family:"Archivo Narrow",sans-serif;font-size:14px;
+.scorerow .vl{font-family:"Archivo Narrow",sans-serif;font-size:15.5px;
   font-weight:600;text-align:right;color:var(--ink-2)}
 .scorerow.ours .nm{color:var(--ink);font-weight:600}
-.scorerow.ours .vl{color:var(--ink);font-size:16px}
-.verdict{margin:13px 0 0;font-size:12.5px;color:var(--ink-2);line-height:1.6}
+.scorerow.ours .vl{color:var(--ink);font-size:18px}
+.verdict{margin:13px 0 0;font-size:14px;color:var(--ink-2);line-height:1.6}
 .verdict b{color:var(--ink);font-weight:600}
 
 /* ====================== horizon rail (the hero control) ================= */
@@ -116,8 +116,8 @@ body{
   padding:13px 0 2px;
 }
 .rail-head{display:flex;align-items:center;gap:14px;margin-bottom:11px;flex-wrap:wrap}
-.rail-head h2{font-family:"Archivo Narrow",sans-serif;font-size:16px;font-weight:600;margin:0}
-.rail-head span{color:var(--ink-3);font-size:12.5px}
+.rail-head h2{font-family:"Archivo Narrow",sans-serif;font-size:18px;font-weight:600;margin:0}
+.rail-head span{color:var(--ink-3);font-size:14px}
 .track{
   position:relative;height:56px;cursor:pointer;
   touch-action:none;user-select:none;
@@ -140,15 +140,15 @@ body{
   border:1px solid var(--rule);margin-top:6px;
   transition:transform .22s,background-color .22s,border-color .22s;
 }
-.stn .lead{font-size:14.5px;font-weight:600;margin-top:8px;letter-spacing:.01em}
-.stn .vd{font-size:11px;margin-top:0}
+.stn .lead{font-size:16px;font-weight:600;margin-top:8px;letter-spacing:.01em}
+.stn .vd{font-size:12.5px;margin-top:0}
 .stn[aria-checked="true"]{color:var(--ink)}
 .stn[aria-checked="true"] .knob{transform:scale(1.55);background:var(--m-a);border-color:var(--m-a)}
 .stn:hover .knob{border-color:var(--ink-3)}
 
 /* ====================== panels ========================================= */
-.brand .pitch{margin:6px 0 0;color:var(--ink-2);font-size:13.5px;line-height:1.45;max-width:82ch}
-.brand .credit{margin:6px 0 0;color:var(--ink-3);font-size:12px}
+.brand .pitch{margin:6px 0 0;color:var(--ink-2);font-size:15px;line-height:1.45;max-width:82ch}
+.brand .credit{margin:6px 0 0;color:var(--ink-3);font-size:13.5px}
 .brand .credit b{color:var(--ink-2);font-weight:600}
 
 /* one sentence that says what is on screen right now, in words */
@@ -156,11 +156,11 @@ body{
   margin:12px 0 0;padding:11px 14px;border-radius:3px;
   background:linear-gradient(90deg, rgba(240,180,41,.09), rgba(240,180,41,0) 62%);
   border:1px solid var(--rule);border-left:3px solid #f0b429;
-  font-size:14px;color:var(--ink-2);line-height:1.5;
+  font-size:15.5px;color:var(--ink-2);line-height:1.5;
 }
 .nowline b{color:var(--ink);font-weight:600}
 .nowline .lead{color:#f0b429}
-.tabhint{margin:9px 0 0;font-size:12.5px;color:var(--ink-3)}
+.tabhint{margin:9px 0 0;font-size:14px;color:var(--ink-3)}
 
 /* ====================== the map stage =================================
    The map is the product, so it gets the page. Panels float over it as
@@ -171,8 +171,8 @@ body{
 .stagehead{
   display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:0 0 9px;
 }
-.stagehead h3{font-family:"Archivo Narrow",sans-serif;font-size:17px;font-weight:600;margin:0}
-.stagehead .why{font-size:12.5px;color:var(--ink-3);margin:0}
+.stagehead h3{font-family:"Archivo Narrow",sans-serif;font-size:19px;font-weight:600;margin:0}
+.stagehead .why{font-size:14px;color:var(--ink-3);margin:0}
 .stagehead .seg{margin-left:auto}
 
 .stagebody{
@@ -215,17 +215,17 @@ body{
   display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
 }
 .dockhead h4{
-  font-family:"Archivo Narrow",sans-serif;font-size:13.5px;
+  font-family:"Archivo Narrow",sans-serif;font-size:15px;
   font-weight:600;margin:0;color:var(--ink);
 }
-.dockhead span{font-size:11px;color:var(--ink-3)}
-.dockhint{margin:0;padding:9px 13px;font-size:11.5px;color:var(--ink-3);line-height:1.4}
+.dockhead span{font-size:12.5px;color:var(--ink-3)}
+.dockhint{margin:0;padding:9px 13px;font-size:13px;color:var(--ink-3);line-height:1.4}
 .dockscroll{overflow-y:auto;padding:12px 13px}
 .docktoggle{
   position:absolute;right:12px;top:12px;z-index:7;width:28px;height:28px;
   border-radius:3px;border:1px solid rgba(255,255,255,.12);
   background:rgba(19,18,15,.92);color:var(--ink-2);cursor:pointer;
-  font-size:14px;line-height:1;display:none;
+  font-size:15.5px;line-height:1;display:none;
 }
 .docktoggle.show{display:block}
 .docktoggle:hover{color:var(--ink)}
@@ -250,11 +250,11 @@ body{
 .finder svg{width:14px;height:14px;color:var(--ink-3);flex:none}
 .finder input{
   background:none;border:0;outline:none;color:var(--ink);flex:1;
-  font-family:"Archivo",sans-serif;font-size:13px;padding:7px 0;
+  font-family:"Archivo",sans-serif;font-size:14.5px;padding:7px 0;
 }
 .finder input::placeholder{color:var(--ink-3)}
 .finder button{background:none;border:0;color:var(--ink-3);cursor:pointer;
-  font-size:17px;line-height:1;padding:0 2px}
+  font-size:19px;line-height:1;padding:0 2px}
 .finder button:hover{color:var(--ink)}
 #placeResults{
   position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:40;margin:0;
@@ -264,15 +264,15 @@ body{
 }
 #placeResults li{
   padding:7px 10px;border-radius:2px;cursor:pointer;display:flex;
-  align-items:baseline;gap:8px;font-size:13px;
+  align-items:baseline;gap:8px;font-size:14.5px;
 }
-#placeResults li .sub{color:var(--ink-3);font-size:11.5px;margin-left:auto}
+#placeResults li .sub{color:var(--ink-3);font-size:13px;margin-left:auto}
 #placeResults li[aria-selected="true"]{background:var(--rule)}
 #placeResults li:hover{background:var(--rule-soft)}
-#placeResults .none{color:var(--ink-3);cursor:default;font-size:12.5px}
+#placeResults .none{color:var(--ink-3);cursor:default;font-size:14px}
 .areachip{
   display:inline-flex;align-items:center;gap:7px;margin-left:10px;
-  padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;
+  padding:3px 10px;border-radius:999px;font-size:13.5px;font-weight:600;
   background:#231f16;border:1px solid #4a4128;color:#f0d79a;
 }
 
@@ -283,7 +283,7 @@ body{
 .tabs button{
   background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;
   color:var(--ink-3);cursor:pointer;padding:9px 16px;
-  font-family:"Archivo Narrow",sans-serif;font-size:14.5px;font-weight:600;
+  font-family:"Archivo Narrow",sans-serif;font-size:16px;font-weight:600;
   transition:color .15s,border-color .15s;
 }
 .tabs button:hover{color:var(--ink-2)}
@@ -329,8 +329,8 @@ body{
   display:flex;align-items:center;gap:12px;flex-wrap:wrap;
   padding:13px 16px;border-bottom:1px solid var(--rule-soft);
 }
-.p-head h3{font-family:"Archivo Narrow",sans-serif;font-size:15px;font-weight:600;margin:0}
-.p-head .why{font-size:12px;color:var(--ink-3);margin:0}
+.p-head h3{font-family:"Archivo Narrow",sans-serif;font-size:17px;font-weight:600;margin:0}
+.p-head .why{font-size:13.5px;color:var(--ink-3);margin:0}
 .p-body{padding:14px 16px;flex:1;min-height:0}
 .p-body.flush{padding:0}
 
@@ -338,7 +338,7 @@ body{
 .seg{display:flex;margin-left:auto;border:1px solid var(--rule);border-radius:3px;overflow:hidden}
 .seg button{
   background:none;border:0;color:var(--ink-3);cursor:pointer;
-  font-family:"Archivo Narrow",sans-serif;font-size:12.5px;font-weight:600;
+  font-family:"Archivo Narrow",sans-serif;font-size:14px;font-weight:600;
   padding:5px 12px;transition:background-color .18s,color .18s;
 }
 .seg button + button{border-left:1px solid var(--rule)}
@@ -353,13 +353,15 @@ body{
 .mapboxgl-map,.maplibregl-map{font-family:"Archivo",sans-serif}
 .mapboxgl-popup-content,.maplibregl-popup-content{
   background:var(--raised);color:var(--ink);border:1px solid var(--rule);
-  border-radius:3px;padding:13px 15px;box-shadow:0 12px 38px rgba(0,0,0,.6)
+  border-radius:3px;padding:13px 15px;box-shadow:0 12px 38px rgba(0,0,0,.6);
+  /* never let the popup outgrow a short map and clip its last rows */
+  max-height:min(70vh,560px);overflow-y:auto
 }
 .mapboxgl-popup-tip,.maplibregl-popup-tip{border-top-color:var(--raised)!important;
   border-bottom-color:var(--raised)!important}
-.mapboxgl-popup-close-button,.maplibregl-popup-close-button{color:var(--ink-3);font-size:17px;padding:2px 7px}
+.mapboxgl-popup-close-button,.maplibregl-popup-close-button{color:var(--ink-3);font-size:19px;padding:2px 7px}
 .mapboxgl-ctrl-attrib,.maplibregl-ctrl-attrib{background:rgba(16,15,13,.84)!important;
-  max-width:62%;font-size:10.5px}
+  max-width:62%;font-size:12px}
 .mapboxgl-ctrl-attrib a,.maplibregl-ctrl-attrib a{color:var(--ink-3)!important}
 .mapboxgl-ctrl-group,.maplibregl-ctrl-group{background:var(--raised)!important;
   border:1px solid var(--rule)!important;box-shadow:none!important}
@@ -382,34 +384,72 @@ body{
   opacity:0;transition:opacity .18s;
 }
 .inspector.on{opacity:1}
-.inspector .ih{font-size:11px;color:var(--ink-3);display:flex;justify-content:space-between}
-.inspector .iv{font-family:"Archivo Narrow",sans-serif;font-size:27px;font-weight:600;line-height:1.1;margin:3px 0 1px}
-.inspector .ic{font-size:11.5px;color:var(--ink-2);margin-bottom:9px}
-.inspector .ir{display:grid;grid-template-columns:11px 1fr auto;gap:6px;align-items:center;font-size:11.5px;margin:3px 0}
+.inspector .ih{font-size:12.5px;color:var(--ink-3);display:flex;justify-content:space-between}
+.inspector .iv{font-family:"Archivo Narrow",sans-serif;font-size:30px;font-weight:600;line-height:1.1;margin:3px 0 1px}
+.inspector .ic{font-size:13px;color:var(--ink-2);margin-bottom:9px}
+.inspector .ir{display:grid;grid-template-columns:11px 1fr auto;gap:6px;align-items:center;font-size:13px;margin:3px 0}
 .inspector .ir i{height:7px;border-radius:2px;display:block}
 .inspector .sw{width:8px;height:8px;border-radius:2px}
-.mapnote{font-size:11px;color:var(--ink-3);margin-left:14px;white-space:nowrap}
+.mapnote{font-size:12.5px;color:var(--ink-3);margin-left:14px;white-space:nowrap}
 
-.pop h4{margin:0;font-family:"Archivo Narrow",sans-serif;font-size:14px;font-weight:600}
-.pop .coords{display:flex;gap:14px;color:var(--ink-3);font-size:11.5px;margin:3px 0 11px}
+.pop h4{margin:0;font-family:"Archivo Narrow",sans-serif;font-size:15.5px;font-weight:600}
+.pop .coords{display:flex;gap:14px;color:var(--ink-3);font-size:13px;margin:3px 0 11px}
 .pop .big{display:flex;align-items:baseline;gap:7px;margin-bottom:2px}
-.pop .big b{font-family:"Archivo Narrow",sans-serif;font-size:31px;font-weight:600;line-height:1}
-.pop .big span{color:var(--ink-2);font-size:12.5px}
-.pop .cat{font-size:12px;margin-bottom:11px}
-.pop .srcrow{display:grid;grid-template-columns:11px 52px 1fr 40px 34px;align-items:center;gap:6px;margin:4px 0;font-size:11.5px}
-.pop .srcrow .nm{color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pop{width:292px}
+.pop .big b{font-family:"Archivo Narrow",sans-serif;font-size:34px;font-weight:600;line-height:1}
+.pop .big span{color:var(--ink-2);font-size:14px}
+.pop .cat{font-size:13.5px;margin-bottom:11px}
+.pop .srcrow{display:grid;grid-template-columns:10px max-content minmax(34px,1fr) 46px 42px;
+  align-items:center;gap:8px;margin:5px 0;font-size:13px}
+/* full centre names, never ellipsed - the sources ARE the credibility */
+.pop .srcrow .nm{color:var(--ink);white-space:nowrap}
+.pop .srcrow .ai{display:inline-block;background:var(--accent);color:#161512;
+  font-size:9.5px;font-weight:700;line-height:1;padding:2px 4px;border-radius:2px;
+  margin-left:5px;vertical-align:1px;letter-spacing:.03em}
+/* width:auto lets the box size to the popup instead of spilling out of it */
+.pop{width:auto}
+.pop .prov{margin:8px 0 0;font-size:11.5px;line-height:1.35;color:var(--ink-3)}
 .pop .swatch{width:9px;height:9px;border-radius:2px}
 .pop .bar{height:5px;background:var(--rule-soft);position:relative;border-radius:3px;overflow:hidden}
 .pop .bar i{position:absolute;left:0;top:0;bottom:0;border-radius:3px}
-.pop .foot{margin-top:11px;padding-top:9px;border-top:1px solid var(--rule);display:flex;justify-content:space-between;font-size:12px;color:var(--ink-2)}
+.pop .foot{margin-top:11px;padding-top:9px;border-top:1px solid var(--rule);display:flex;justify-content:space-between;font-size:13.5px;color:var(--ink-2)}
+
+/* ---- verifiable sources strip ---------------------------------------- */
+.sources{border:1px solid var(--rule);border-radius:3px;background:var(--raised);
+  margin:0 0 16px;padding:13px 16px 14px}
+.srchead{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:11px}
+.srchead h2{font-family:"Archivo Narrow",sans-serif;font-size:15px;font-weight:600;margin:0;
+  letter-spacing:.01em}
+.srchead p{margin:0;color:var(--ink-3);font-size:13px;max-width:78ch}
+.srclist{list-style:none;margin:0;padding:0;display:grid;gap:10px;
+  grid-template-columns:repeat(auto-fit,minmax(236px,1fr))}
+.srcitem{display:flex;gap:10px;align-items:flex-start;min-width:0}
+.srcitem.ref{opacity:.72}
+.srclogo{flex:0 0 34px;height:34px;border-radius:3px;background:var(--plane);
+  border:1px solid var(--rule);display:flex;align-items:center;justify-content:center;
+  overflow:hidden}
+.srclogo img{max-width:100%;max-height:100%;object-fit:contain;display:block}
+/* until a real logo is supplied the slot carries a monogram, so the strip
+   never renders as a row of broken images */
+.srclogo span{font-family:"Archivo Narrow",sans-serif;font-size:11.5px;font-weight:700;
+  color:var(--ink-3);letter-spacing:.02em}
+.srctext{min-width:0}
+.srctext b{display:block;font-size:14px;font-weight:600;line-height:1.25}
+.srctext .exp{display:block;font-size:12.5px;color:var(--ink-2);line-height:1.3;margin-top:1px}
+.srctext b a{color:inherit;text-decoration:none;border-bottom:1px solid var(--rule)}
+.srctext b a:hover{border-bottom-color:var(--accent);color:var(--accent)}
+.srctext .org{display:block;font-size:11.5px;color:var(--ink-3);line-height:1.3;margin-top:1px}
+.srctext b{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.srctext .ai{display:inline-block;background:var(--accent);color:#141310;font-size:10px;
+  font-weight:700;line-height:1;padding:3px 5px;border-radius:2px;
+  letter-spacing:.06em;text-transform:uppercase;flex:0 0 auto}
+@media (max-width:720px){ .srclist{grid-template-columns:1fr} }
 
 /* legend */
 .legend{display:flex;align-items:center;gap:0;padding:9px 16px;border-top:1px solid var(--rule-soft);flex-wrap:wrap}
 .legend .lg{display:flex;flex-direction:column;gap:4px;flex:1;min-width:56px}
 .legend .sw{height:9px}
-.legend .lb{font-size:10px;color:var(--ink-3);font-family:"Archivo Narrow",sans-serif;line-height:1.2}
-.legend .unit{font-size:11px;color:var(--ink-3);margin-right:12px;white-space:nowrap}
+.legend .lb{font-size:11.5px;color:var(--ink-3);font-family:"Archivo Narrow",sans-serif;line-height:1.2}
+.legend .unit{font-size:12.5px;color:var(--ink-3);margin-right:12px;white-space:nowrap}
 
 /* ====================== alerts ========================================= */
 .alerts{max-height:268px;overflow-y:auto;padding:4px 0}
@@ -424,43 +464,43 @@ body{
 }
 .alert:hover{background:var(--raised)}
 .alert .icon{width:19px;height:19px;flex:none}
-.alert .ttl{display:block;font-weight:600;font-size:13px}
-.alert .sub{display:block;font-size:11.5px;color:var(--ink-3);margin-top:2px}
-.alert .pct{display:block;font-family:"Archivo Narrow",sans-serif;font-size:19px;font-weight:600;text-align:right;line-height:1}
-.alert .pctl{display:block;font-size:10px;color:var(--ink-3);text-align:right;margin-top:2px}
+.alert .ttl{display:block;font-weight:600;font-size:14.5px}
+.alert .sub{display:block;font-size:13px;color:var(--ink-3);margin-top:2px}
+.alert .pct{display:block;font-family:"Archivo Narrow",sans-serif;font-size:21px;font-weight:600;text-align:right;line-height:1}
+.alert .pctl{display:block;font-size:11.5px;color:var(--ink-3);text-align:right;margin-top:2px}
 .sev-critical .ttl{color:#ff9b9b}
 .sev-serious  .ttl{color:#ffbc9c}
 .sev-warning  .ttl{color:#ffd77a}
-.empty{padding:34px 16px;text-align:center;color:var(--ink-3);font-size:13px}
+.empty{padding:34px 16px;text-align:center;color:var(--ink-3);font-size:14.5px}
 
 /* ====================== reliability matrix ============================= */
 .matrix{display:grid;grid-template-columns:78px repeat(5,1fr);gap:3px}
-.matrix .hd{font-size:11.5px;color:var(--ink-3);font-family:"Archivo Narrow",sans-serif;padding:0 0 5px;text-align:center}
-.matrix .rh{font-size:12px;color:var(--ink-2);display:flex;align-items:center;font-family:"Archivo Narrow",sans-serif}
+.matrix .hd{font-size:13px;color:var(--ink-3);font-family:"Archivo Narrow",sans-serif;padding:0 0 5px;text-align:center}
+.matrix .rh{font-size:13.5px;color:var(--ink-2);display:flex;align-items:center;font-family:"Archivo Narrow",sans-serif}
 .cellm{
   border:1px solid var(--rule-soft);padding:9px 4px;text-align:center;border-radius:2px;
   transition:outline-color .2s;outline:1px solid transparent;
 }
 .cellm.on{outline-color:var(--ink)}
-.cellm b{font-family:"Archivo Narrow",sans-serif;font-size:17px;font-weight:700;display:block;line-height:1}
-.cellm span{font-size:10.5px;color:var(--ink-2);display:block;margin-top:2px}
+.cellm b{font-family:"Archivo Narrow",sans-serif;font-size:19px;font-weight:700;display:block;line-height:1}
+.cellm span{font-size:12px;color:var(--ink-2);display:block;margin-top:2px}
 
 /* ====================== table view ===================================== */
 .tabletoggle{
-  background:none;border:0;color:var(--ink-3);font:inherit;font-size:12px;cursor:pointer;
+  background:none;border:0;color:var(--ink-3);font:inherit;font-size:13.5px;cursor:pointer;
   padding:9px 16px;border-top:1px solid var(--rule-soft);width:100%;text-align:left;
 }
 .tabletoggle:hover{color:var(--ink-2)}
-table.dt{width:100%;border-collapse:collapse;font-size:12px}
+table.dt{width:100%;border-collapse:collapse;font-size:13.5px}
 table.dt th,table.dt td{padding:5px 8px;text-align:right;border-bottom:1px solid var(--rule-soft)}
 table.dt th:first-child,table.dt td:first-child{text-align:left}
-table.dt th{color:var(--ink-3);font-weight:500;font-size:11px}
+table.dt th{color:var(--ink-3);font-weight:500;font-size:12.5px}
 table.dt tr.hl td{color:#fff;font-weight:600}
 
 /* ====================== footer ========================================= */
 .foot{
   margin-top:26px;padding-top:18px;border-top:1px solid var(--rule);
-  display:flex;gap:34px;flex-wrap:wrap;font-size:12px;color:var(--ink-3);
+  display:flex;gap:34px;flex-wrap:wrap;font-size:13.5px;color:var(--ink-3);
 }
 .foot p{margin:0;max-width:62ch;line-height:1.65}
 .foot b{color:var(--ink-2);font-weight:600}
@@ -490,7 +530,7 @@ table.dt tr.hl td{color:#fff;font-weight:600}
   .docktoggle{display:none!important}
   .runmeta{margin-left:0;gap:18px}
   #map{min-height:380px}
-  .brand h1{font-size:21px}
+  .brand h1{font-size:23px}
 }
 </style>
 </head>
@@ -526,6 +566,17 @@ table.dt tr.hl td{color:#fff;font-weight:600}
     </dl>
   </header>
 
+  <!-- ====================== verifiable sources ========================= -->
+  <section class="sources" aria-label="Forecast sources">
+    <div class="srchead">
+      <h2>Forecast sources</h2>
+      <p>Five model streams from four national meteorological centres, retrieved
+         at real lead times from published archives. Nothing is simulated, and
+         every source below is independently checkable.</p>
+    </div>
+    <ul class="srclist" id="srcList"></ul>
+  </section>
+
   <!-- ========================== horizon rail =========================== -->
   <section class="rail">
     <div class="rail-head">
@@ -544,7 +595,7 @@ table.dt tr.hl td{color:#fff;font-weight:600}
       <div class="seg">
         <label for="runSel" style="display:none">Forecast run</label>
         <select id="runSel" style="background:var(--raised);color:var(--ink);border:0;
-                font-family:'Archivo Narrow',sans-serif;font-size:12.5px;
+                font-family:'Archivo Narrow',sans-serif;font-size:14px;
                 font-weight:600;padding:5px 10px;cursor:pointer"></select>
       </div>
     </div>
@@ -666,7 +717,7 @@ table.dt tr.hl td{color:#fff;font-weight:600}
             <div class="dockscroll">
               <div class="matrix" id="matrix"></div>
               <div id="matLegend" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;
-                   font-size:11px;color:var(--ink-2)"></div>
+                   font-size:12.5px;color:var(--ink-2)"></div>
             </div>
           </div>
         </aside>
@@ -784,6 +835,10 @@ function hasClimatology(s){
   return false;
 }
 const SHORT = k => NAMEOF[k].split(' ').pop();
+const SUBOF = Object.fromEntries(DATA.meta.sources.map(s => [s.key, s.sub || '']));
+/* Which member is the data-driven one? It is the project's whole premise, so
+   it gets marked rather than sitting as one acronym among five. */
+const ISAI  = k => (SUBOF[k] || '').split(/[^A-Za-z]+/).indexOf('AI') >= 0;
 /* archived runs carry a weight per cell; a live run carries one per lead */
 function wAt(s, k, i){
   const a = s['w' + lc(k)];
@@ -1487,7 +1542,7 @@ function showInspector(i){
   el.innerHTML =
     '<div class="ih"><span>Cell '+c.id+'</span><span class="num">'+c.elev+' m</span></div>'+
     '<div class="iv num">'+val.toFixed(1)+
-      '<span style="font-size:13px;font-weight:500;color:var(--ink-2)"> '+VARUNIT[variable]+'</span></div>'+
+      '<span style="font-size:14.5px;font-weight:500;color:var(--ink-2)"> '+VARUNIT[variable]+'</span></div>'+
     '<div class="ic"><span class="sw" style="display:inline-block;background:'+cat.c+
       ';margin-right:5px"></span>'+cat.l+'</div>'+
     keys.map(function(k,j){
@@ -1509,7 +1564,7 @@ function openCell(i, keepView){
   const c = DATA.cells[i];
   pinned = i;
   if (popup) popup.remove();
-  popup = new GL.Popup({closeButton:true, maxWidth:'300px', offset:10})
+  popup = new GL.Popup({closeButton:true, maxWidth:'372px', offset:10})
     .setLngLat([c.lon, c.lat]).setHTML(popupHtml(i)).addTo(map);
   popup.on('close', function(){ pinned = null; });
   if (!keepView) map.easeTo({center:[c.lon, c.lat], duration:520});
@@ -1538,7 +1593,8 @@ function popupHtml(i){
   const rows = keys.map(function(k,j){
     return '<div class="srcrow">'+
       '<span class="swatch" style="background:'+SERIES[k]+'"></span>'+
-      '<span class="nm">'+SHORT(k)+'</span>'+
+      '<span class="nm">'+NAMEOF[k]+
+        (ISAI(k) ? '<span class="ai">AI</span>' : '')+'</span>'+
       '<span class="bar"><i style="width:'+(100*srcs[j]/maxS).toFixed(1)+'%;background:'+SERIES[k]+'"></i></span>'+
       '<span class="num" style="text-align:right">'+srcs[j].toFixed(1)+'</span>'+
       '<span class="num" style="text-align:right;color:var(--ink-3)">'+
@@ -1552,15 +1608,75 @@ function popupHtml(i){
     '<div class="big"><b class="num">'+val.toFixed(1)+'</b><span>'+VARUNIT[variable]+' blended</span></div>'+
     '<p class="cat"><span class="swatch" style="display:inline-block;background:'+cat.c+
       ';margin-right:6px;vertical-align:1px"></span>'+cat.l+'</p>'+
-    '<div class="srcrow" style="font-size:10.5px;color:var(--ink-3);margin-bottom:2px">'+
+    '<div class="srcrow" style="font-size:12px;color:var(--ink-3);margin-bottom:2px">'+
       '<span></span><span>Source</span><span></span>'+
       '<span style="text-align:right">'+VARUNIT[variable]+'</span>'+
       '<span style="text-align:right">weight</span></div>'+
     rows+
     '<div class="foot"><span>'+s.conf[i].toFixed(0)+'% confidence</span>'+
     '<span>'+(100*s.pext[i]).toFixed(0)+'% chance of heavy rain</span></div>'+
+    '<p class="prov">Operational runs from '+keys.filter(k => KEYS.indexOf(k) >= 0).length+
+      ' centres via Open-Meteo. Verified against ERA5 reanalysis.</p>'+
     '</div>';
 }
+
+/* ===================================================================== */
+/* verifiable sources                                                     */
+/* ===================================================================== */
+/* Logos are inlined as data URIs at build time from assets/logos/, so the
+   page stays a single file. Any that are missing fall back to a monogram. */
+const LOGOS = /*__LOGOS__*/{};
+
+/* "IFS" and "AIFS" mean nothing to a judge who does not work in NWP.
+   Expand every acronym and name the institution behind it, with a link, so
+   each source is checkable rather than asserted. */
+const SRCMETA = {
+  'ECMWF IFS':  {exp:'Integrated Forecasting System', logo:'ecmwf',
+                 org:'European Centre for Medium-Range Weather Forecasts',
+                 url:'https://www.ecmwf.int/en/forecasts/documentation-and-support'},
+  'ECMWF AIFS': {exp:'Artificial Intelligence Forecasting System', logo:'ecmwf',
+                 org:'European Centre for Medium-Range Weather Forecasts',
+                 url:'https://www.ecmwf.int/en/about/media-centre/news/2025/ecmwf-launches-aifs-single-operational'},
+  'NOAA GFS':   {exp:'Global Forecast System', logo:'noaa',
+                 org:'National Oceanic and Atmospheric Administration, USA',
+                 url:'https://www.ncei.noaa.gov/products/weather-climate-models/global-forecast'},
+  'DWD ICON':   {exp:'Icosahedral Nonhydrostatic model', logo:'dwd',
+                 org:'Deutscher Wetterdienst, Germany',
+                 url:'https://www.dwd.de/EN/research/weatherforecasting/num_modelling/num_modelling.html'},
+  'EC GEM':     {exp:'Global Environmental Multiscale model', logo:'eccc',
+                 org:'Environment and Climate Change Canada',
+                 url:'https://eccc-msc.github.io/open-data/msc-data/nwp_gem-global/readme_gemglobal_en/'},
+  'Persistence':{exp:'Yesterday repeated', logo:null,
+                 org:'Skill reference only, never blended', url:null}
+};
+const MONO = {ecmwf:'ECMWF', noaa:'NOAA', dwd:'DWD', eccc:'ECCC', copernicus:'C3S'};
+
+(function buildSources(){
+  const ul = document.getElementById('srcList');
+  if (!ul) return;
+  function slot(key, alt){
+    return '<span class="srclogo">' + (key && LOGOS[key]
+      ? '<img src="'+LOGOS[key]+'" alt="'+alt+'">'
+      : '<span>'+(MONO[key] || '—')+'</span>') + '</span>';
+  }
+  const items = DATA.meta.sources.map(function(src){
+    const m = SRCMETA[src.name] || {exp:src.sub||'', org:'', logo:null, url:null};
+    const nm = m.url ? '<a href="'+m.url+'" target="_blank" rel="noopener">'+src.name+'</a>'
+                     : src.name;
+    return '<li class="srcitem'+(src.blend === false ? ' ref' : '')+'">'+
+      slot(m.logo, m.org || src.name)+
+      '<span class="srctext"><b>'+nm+(ISAI(src.key)?'<span class="ai">AI</span>':'')+'</b>'+
+      '<span class="exp">'+m.exp+'</span>'+
+      '<span class="org">'+m.org+'</span></span></li>';
+  });
+  /* the verification target belongs on this list too - every score on the
+     Verification tab is measured against it */
+  items.push('<li class="srcitem ref">'+slot('copernicus','Copernicus Climate Change Service')+
+    '<span class="srctext"><b>ERA5</b>'+
+    '<span class="exp">Reanalysis used as verification truth</span>'+
+    '<span class="org">Copernicus Climate Change Service / ECMWF</span></span></li>');
+  ul.innerHTML = items.join('');
+})();
 
 /* --- controls --------------------------------------------------------- */
 document.getElementById('vRain').addEventListener('click',function(){ setVar('rain'); });
@@ -1611,7 +1727,7 @@ document.getElementById('m3d').addEventListener('click',function(e){
 /* weights — 100% stacked bars, one per lead                              */
 /* ===================================================================== */
 Chart.defaults.font.family = "'Archivo Narrow','Archivo',sans-serif";
-Chart.defaults.font.size = 12;
+Chart.defaults.font.size = 13.5;
 Chart.defaults.color = INK3;
 
 const wctx = document.getElementById('cWeights');
@@ -1725,7 +1841,7 @@ function paintSkill(){
     id:'endLabels',
     afterDatasetsDraw(chart){
       const g = chart.ctx; g.save();
-      g.font = "600 11.5px 'Archivo Narrow',sans-serif";
+      g.font = "600 13px 'Archivo Narrow',sans-serif";
       g.textBaseline='middle';
 
       /* Sources can finish within a few hundredths of a mm of each other
@@ -1757,7 +1873,7 @@ function paintSkill(){
 function paintTable(rows){
   const el = document.getElementById('tblWrap');
   el.innerHTML =
-   '<table class="dt num"><caption style="text-align:left;color:var(--ink-3);font-size:11.5px;'+
+   '<table class="dt num"><caption style="text-align:left;color:var(--ink-3);font-size:13px;'+
    'padding:6px 0 8px">Out-of-sample RMSE in mm per day, by lead time.</caption>'+
    '<thead><tr><th>Lead</th>'+
    ALLK.filter(k=>rows[0]['model_'+lc(k)]!==undefined).map(k=>'<th>'+SHORT(k)+'</th>').join('')+

@@ -12,6 +12,9 @@ grid cells, every chart, every number - is embedded and renders offline.)
 Run:  python build_dashboard.py
 """
 
+import base64
+import json
+import mimetypes
 from pathlib import Path
 
 import config
@@ -21,6 +24,8 @@ TEMPLATE = ROOT / "dashboard_template.html"
 PAYLOAD = ROOT / "data" / "dashboard_data.json"
 OUT = ROOT / "dashboard.html"
 TOKEN = "/*__NWP_DATA__*/null"
+LOGO_TOKEN = "/*__LOGOS__*/{}"
+LOGO_DIR = ROOT / "assets" / "logos"
 MAPBOX_LINE = "const MAPBOX_TOKEN = '';"
 
 
@@ -48,10 +53,26 @@ def main():
     else:
         basemap = "MapLibre GL + OpenFreeMap (no MAPBOX_TOKEN set)"
 
+    # Logos are inlined as data URIs so the page stays one file. Whatever is
+    # absent simply falls back to a monogram in the browser, so a missing logo
+    # is never a broken image.
+    logos, names = {}, []
+    if LOGO_DIR.is_dir():
+        for f in sorted(LOGO_DIR.iterdir()):
+            if f.suffix.lower() not in (".svg", ".png", ".jpg", ".jpeg", ".webp"):
+                continue
+            mime = mimetypes.guess_type(f.name)[0] or "image/png"
+            b64 = base64.b64encode(f.read_bytes()).decode("ascii")
+            logos[f.stem.lower()] = "data:%s;base64,%s" % (mime, b64)
+            names.append(f.stem.lower())
+    if LOGO_TOKEN in html:
+        html = html.replace(LOGO_TOKEN, json.dumps(logos).replace(chr(60)+chr(47), chr(60)+chr(92)+chr(47)))
+
     OUT.write_text(html, encoding="utf-8")
     kb = OUT.stat().st_size / 1024
     print("wrote %s  (%.0f KB, self-contained)" % (OUT, kb))
     print("basemap: %s" % basemap)
+    print("logos:   %s" % (", ".join(names) if names else "none in assets/logos (monogram fallback in use)"))
 
 
 if __name__ == "__main__":
