@@ -3,8 +3,11 @@
 **Everything in this system is real data. There are no synthetic forecasts.**
 
 Both halves of the problem are now genuine. The verification target is **ERA5
-reanalysis** — daily rainfall and 2 m temperature for 121 grid cells at 0.5°
-across a 5° × 5° box over Maharashtra (16–21 °N, 73–78 °E). The forecasts being
+reanalysis** — daily rainfall and 2 m temperature over **all India**. Weights
+are fitted on a 1° training grid (286 land cells) and applied on a 0.25°
+(~28 km) live grid of **4,645 cells**, clipped to the national boundary; the
+archive is priced per cell per day, so estimation is deliberately coarser than
+application. The forecasts being
 blended are **archived operational output from five forecasting centres**,
 retrieved at real lead times from the Open-Meteo Previous Runs API:
 

@@ -749,9 +749,12 @@ table.dt tr.hl td{color:#fff;font-weight:600}
       forecasts verified against ERA5 reanalysis.
     </p>
     <p>
-      <b>Forecast sources.</b> The four contributing model streams are synthetically
-      generated with distinct, physically-motivated error signatures. The blending
-      method is source-agnostic — see DATA_NOTE.md.
+      <b>Forecast sources.</b> Archived operational output from five centres at
+      real lead times — ECMWF IFS, ECMWF AIFS, NOAA GFS, DWD ICON and
+      Environment Canada GEM — retrieved from the Open-Meteo Previous Runs API.
+      Nothing is perturbed, simulated or reconstructed. Truth is ERA5 reanalysis;
+      persistence is carried as a skill reference and is not blended.
+      Provenance and caveats: DATA_NOTE.md.
     </p>
   </footer>
 </div>
