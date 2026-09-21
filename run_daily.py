@@ -56,7 +56,11 @@ BLEND = ["a", "b", "c", "d", "e"]
 LEADS = [1, 2, 3, 4, 5]
 VARS = {"rain": "precipitation_sum", "t2m": "temperature_2m_mean",
         "wind": "wind_speed_10m_max"}
-BATCH = 25
+# Open-Meteo bills per HTTP request, with a fractional surcharge past ten
+# weather variables rather than per location, so packing more cells into each
+# request cuts the call count for the same data. 60 keeps the URL near 1.5 kB,
+# far inside any practical limit.
+BATCH = 60
 ACTIVE_Z, BREAK_Z = 0.50, -0.50
 EXTREME_MM, HIGH_WIND_KMH = 40.0, 40.0
 
@@ -106,9 +110,16 @@ def fetch_live(cells):
     for bi, batch in enumerate(batches):
         lat = ",".join("%.2f" % c["lat"] for c in batch)
         lon = ",".join("%.2f" % c["lon"] for c in batch)
+        # forecast_days=7 returned today plus six days ahead, of which only
+        # leads 1-5 survive the filter in main() - two of every seven days
+        # were fetched and discarded. Asking for the exact window cuts the
+        # payload by 29% for identical output.
         url = ("%s/v1/forecast?latitude=%s&longitude=%s&daily=%s"
-               "&forecast_days=7&timezone=UTC&models=%s%s"
-               % (host, lat, lon, ",".join(VARS.values()), models, suffix))
+               "&start_date=%s&end_date=%s&timezone=UTC&models=%s%s"
+               % (host, lat, lon, ",".join(VARS.values()),
+                  (date.today() + timedelta(days=min(LEADS))).isoformat(),
+                  (date.today() + timedelta(days=max(LEADS))).isoformat(),
+                  models, suffix))
 
         ckey = hashlib.md5(("%s|%s|%s|%s" % (lat, lon, models,
                             ",".join(VARS.values()))).encode()).hexdigest()
@@ -131,8 +142,17 @@ def fetch_live(cells):
                 break
             except urllib.error.HTTPError as exc:
                 if exc.code == 429:
-                    # Open-Meteo's quota resets on the hour. Waiting keeps every
-                    # request already paid for; failing throws the run away.
+                    # The free tier limits per minute (600), per hour (5,000)
+                    # and per day. Sleeping to the top of the hour on the FIRST
+                    # 429 treats a one-minute burst limit as an hourly outage
+                    # and throws away up to 59 minutes of usable quota. Back
+                    # off briefly first and only wait out the hour once short
+                    # retries have clearly failed.
+                    if attempt < 2:
+                        nap = 75 * (attempt + 1)
+                        print("  [rate limited; retrying in %ds]" % nap, flush=True)
+                        time.sleep(nap)
+                        continue
                     now = time.gmtime()
                     wait = (60 - now.tm_min) * 60 - now.tm_sec + 90
                     print("  [hourly quota reached; waiting %d min for reset]"
