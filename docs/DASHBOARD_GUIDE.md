@@ -37,16 +37,16 @@ institution's own documentation.
 | Shown as | Full name | Who runs it | Type |
 |---|---|---|---|
 | ECMWF IFS | Integrated Forecasting System | European Centre for Medium-Range Weather Forecasts | physics |
-| ECMWF AIFS **AI** | Artificial Intelligence Forecasting System | ECMWF | **machine learning** |
+| ECMWF AIFS | Artificial Intelligence Forecasting System | ECMWF | **machine learning** |
 | NOAA GFS | Global Forecast System | NOAA, USA | physics |
 | DWD ICON | Icosahedral Nonhydrostatic model | Deutscher Wetterdienst, Germany | physics |
 | EC GEM | Global Environmental Multiscale model | Environment and Climate Change Canada | physics |
 
-**Why AIFS carries an amber `AI` tag.** The problem statement asks for a
-*hybrid AI–NWP* system. AIFS is the AI half — a real operational neural
-forecasting system, not something we trained. Everything else is physics.
-That one tag is the difference the whole project rests on, which is why it is
-marked. `IFS` and `AIFS` differ by a single letter, so every chart labels them
+**AIFS is the AI half**, and it is the reason this counts as a *hybrid
+AI–NWP* system: a real operational neural forecasting system, not something we
+trained. Everything else in the list is physics. The panel says so in words —
+*Artificial Intelligence Forecasting System* — rather than with a badge.
+`IFS` and `AIFS` differ by a single letter, so every chart labels them
 `(physics)` and `(AI)` to keep them apart.
 
 Also listed when expanded:

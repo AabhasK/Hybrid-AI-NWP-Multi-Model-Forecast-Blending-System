@@ -406,9 +406,6 @@ body{
   align-items:center;gap:8px;margin:5px 0;font-size:13px}
 /* full centre names, never ellipsed - the sources ARE the credibility */
 .pop .srcrow .nm{color:var(--ink);white-space:nowrap}
-.pop .srcrow .ai{display:inline-block;background:var(--focus);color:#161512;
-  font-size:9.5px;font-weight:700;line-height:1;padding:2px 4px;border-radius:2px;
-  margin-left:5px;vertical-align:1px;letter-spacing:.03em}
 /* width:auto lets the box size to the popup instead of spilling out of it */
 .pop{width:auto}
 .pop .prov{margin:8px 0 0;font-size:11.5px;line-height:1.35;color:var(--ink-3)}
@@ -441,10 +438,6 @@ body{
 .srcchip.ref{color:var(--ink-3);padding:2px 7px}
 .srcchip .mg{font-family:"Archivo Narrow",sans-serif;font-size:8.5px;font-weight:700;
   color:var(--ink-3);min-width:15px;text-align:center;letter-spacing:.02em}
-.srcchip.isai{color:var(--ink)}
-.srcchip .tag{font-style:normal;background:var(--focus);color:#141310;
-  font-size:9px;font-weight:700;line-height:1;padding:2px 4px;border-radius:2px;
-  letter-spacing:.05em;margin-left:2px}
 .srcmore{display:inline-flex;align-items:center;gap:6px;color:var(--ink-3);font-size:12.5px;
   flex:0 0 auto;margin-left:auto}
 .srcmore .chev{display:inline-block;transition:transform .18s;font-size:16px;line-height:1}
@@ -470,9 +463,6 @@ body{
 .srctext b a:hover{border-bottom-color:var(--focus);color:var(--focus)}
 .srctext .org{display:block;font-size:11.5px;color:var(--ink-3);line-height:1.3;margin-top:1px}
 .srctext b{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
-.srctext .ai{display:inline-block;background:var(--focus);color:#141310;font-size:10px;
-  font-weight:700;line-height:1;padding:3px 5px;border-radius:2px;
-  letter-spacing:.06em;text-transform:uppercase;flex:0 0 auto}
 @media (max-width:720px){ .srclist{grid-template-columns:1fr} }
 
 /* legend */
@@ -850,9 +840,6 @@ const TYPEOF = k => (SUBOF[k] || '').split(',')[0].trim();
 const LABEL  = k => NAMEOF[k] + (TYPEOF(k) ? '  (' + TYPEOF(k).replace(/^Physics NWP$/,'physics')
                                                  .replace(/^AI model$/,'AI') + ')' : '');
 const SUBOF = Object.fromEntries(DATA.meta.sources.map(s => [s.key, s.sub || '']));
-/* Which member is the data-driven one? It is the project's whole premise, so
-   it gets marked rather than sitting as one acronym among five. */
-const ISAI  = k => (SUBOF[k] || '').split(/[^A-Za-z]+/).indexOf('AI') >= 0;
 /* archived runs carry a weight per cell; a live run carries one per lead */
 function wAt(s, k, i){
   const a = s['w' + lc(k)];
@@ -1634,8 +1621,7 @@ function popupHtml(i){
   const rows = keys.map(function(k,j){
     return '<div class="srcrow">'+
       '<span class="swatch" style="background:'+SERIES[k]+'"></span>'+
-      '<span class="nm">'+NAMEOF[k]+
-        (ISAI(k) ? '<span class="ai">AI</span>' : '')+'</span>'+
+      '<span class="nm">'+NAMEOF[k]+'</span>'+
       '<span class="bar"><i style="width:'+(100*srcs[j]/maxS).toFixed(1)+'%;background:'+SERIES[k]+'"></i></span>'+
       '<span class="num" style="text-align:right">'+srcs[j].toFixed(1)+'</span>'+
       '<span class="num" style="text-align:right;color:var(--ink-3)">'+
@@ -1725,7 +1711,7 @@ function logoFor(slug){
                      : src.name;
     return '<li class="srcitem'+(src.blend === false ? ' ref' : '')+'">'+
       slot(m.logo, m.org || src.name)+
-      '<span class="srctext"><b>'+nm+(ISAI(src.key)?'<span class="ai">AI</span>':'')+'</b>'+
+      '<span class="srctext"><b>'+nm+'</b>'+
       '<span class="exp">'+m.exp+'</span>'+
       '<span class="org">'+m.org+'</span></span></li>';
   });
@@ -1754,10 +1740,7 @@ function logoFor(slug){
       const mark = lg
         ? '<img src="'+lg+'" alt="">'
         : '<i class="dot" style="background:'+(SERIES[src.key]||'var(--ink-3)')+'"></i>';
-      /* The ring alone read as decoration. Label it, so the one member the
-         whole "hybrid AI-NWP" premise rests on identifies itself. */
-      return '<span class="srcchip'+(ISAI(src.key)?' isai':'')+'">'+mark+src.name+
-             (ISAI(src.key) ? '<i class="tag">AI</i>' : '')+'</span>';
+      return '<span class="srcchip">'+mark+src.name+'</span>';
     }).join('') +
     '<span class="srcchip ref" title="Verification truth">verified vs ERA5</span>';
   }
