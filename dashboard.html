@@ -83,6 +83,7 @@ body{
 .runmeta div{min-width:88px}
 .runmeta dt{font-size:12.5px;color:var(--ink-3);letter-spacing:.02em;margin:0}
 .runmeta dd{margin:1px 0 0;font-size:16px;font-weight:600}
+.runmeta dd.stale{color:var(--accent)}
 .pill{
   display:inline-flex;align-items:center;gap:7px;
   padding:3px 11px 3px 8px;border-radius:999px;font-size:14px;font-weight:600;
@@ -438,6 +439,9 @@ body{
 .srcchip .mg{font-family:"Archivo Narrow",sans-serif;font-size:8.5px;font-weight:700;
   color:var(--ink-3);min-width:15px;text-align:center;letter-spacing:.02em}
 .srcchip.isai{border-color:var(--accent);color:var(--ink)}
+.srcchip .tag{font-style:normal;background:var(--accent);color:#141310;
+  font-size:9px;font-weight:700;line-height:1;padding:2px 4px;border-radius:2px;
+  letter-spacing:.05em;margin-left:2px}
 .srcmore{display:inline-flex;align-items:center;gap:6px;color:var(--ink-3);font-size:12.5px;
   flex:0 0 auto;margin-left:auto}
 .srcmore .chev{display:inline-block;transition:transform .18s;font-size:16px;line-height:1}
@@ -467,26 +471,6 @@ body{
   font-weight:700;line-height:1;padding:3px 5px;border-radius:2px;
   letter-spacing:.06em;text-transform:uppercase;flex:0 0 auto}
 @media (max-width:720px){ .srclist{grid-template-columns:1fr} }
-
-/* ---- consumer cross-check -------------------------------------------- */
-.xctable{display:grid;gap:0;font-size:13.5px}
-.xcrow{display:grid;grid-template-columns:minmax(74px,1fr) repeat(3,minmax(58px,74px)) 46px;
-  gap:9px;align-items:center;padding:6px 0;border-bottom:1px solid var(--rule-soft)}
-.xcrow.head{color:var(--ink-3);font-size:11.5px;border-bottom:1px solid var(--rule);
-  padding-bottom:7px;text-transform:uppercase;letter-spacing:.04em}
-.xcrow:last-child{border-bottom:none}
-.xcrow .cty{color:var(--ink);font-weight:600}
-.xcrow .v{text-align:right;font-variant-numeric:tabular-nums}
-.xcrow .v.ours{color:var(--ink);font-weight:600}
-.xcrow .v.them{color:var(--ink-2)}
-.xcrow .v.na{color:var(--ink-3)}
-/* agreement badge: how close the consumer apps sit to our blend */
-.xcrow .agree{text-align:right;font-size:11.5px;font-variant-numeric:tabular-nums}
-.xcrow .agree.ok{color:#199e70}
-.xcrow .agree.mid{color:var(--accent)}
-.xcrow .agree.off{color:#d95926}
-.xcnote{margin:13px 0 0;font-size:12.5px;line-height:1.5;color:var(--ink-3)}
-.xcnote b{color:var(--ink-2);font-weight:600}
 
 /* legend */
 .legend{display:flex;align-items:center;gap:0;padding:9px 16px;border-top:1px solid var(--rule-soft);flex-wrap:wrap}
@@ -772,17 +756,6 @@ table.dt tr.hl td{color:#fff;font-weight:600}
       <div id="tblWrap" hidden style="padding:0 16px 14px"></div>
     </section>
 
-    <section class="panel v-xc" id="xcPanel" hidden>
-      <div class="p-head">
-        <h3>Cross-check against consumer forecasts</h3>
-        <p class="why" id="xcWhy">&mdash;</p>
-      </div>
-      <div class="p-body">
-        <div class="xctable" id="xcTable"></div>
-        <p class="xcnote" id="xcNote"></p>
-      </div>
-    </section>
-
     <section class="panel v-note">
       <div class="p-head"><h3>How this is measured</h3></div>
       <div class="p-body">
@@ -1036,7 +1009,6 @@ function setLead(L){
   if(L===lead) return;
   lead = L;
   paintRail(); paintMap(); paintWeights(); paintSkill(); paintMatrix();
-  paintCrosscheck();
   paintRunMeta(); paintWeightMap(); paintNowLine();
   if (activePane === 'extremes') paintExtremes();
 }
@@ -1055,13 +1027,26 @@ runSel.value = runKey;
 runSel.addEventListener('change', ()=>{
   runKey = runSel.value;
   buildRail(); paintMap(); paintWeights(); paintMatrix();
-  paintCrosscheck();
   paintRunMeta(); paintWeightMap(); paintNowLine();
   if (activePane === 'extremes') paintExtremes();
 });
 
 function paintRunMeta(){
-  document.getElementById('mIssued').textContent = fmtDate(runKey)+' 00Z';
+  /* A run issued before today makes T+1 land on a date that has already
+     started, which reads as a broken forecast horizon. Say how old the run
+     is rather than letting the reader work it out from the dates. */
+  const issued = new Date(runKey + 'T00:00:00');
+  const today  = new Date(); today.setHours(0,0,0,0);
+  const ageDays = Math.round((today - issued) / 86400000);
+  const age = ageDays <= 0 ? '' : ageDays === 1 ? ' · yesterday'
+            : ' · ' + ageDays + ' days old';
+  const issEl = document.getElementById('mIssued');
+  issEl.textContent = fmtDate(runKey) + ' 00Z' + age;
+  issEl.className = 'cond num' + (ageDays >= 1 ? ' stale' : '');
+  issEl.title = ageDays >= 1
+    ? 'This is not today’s run, so T+1 is a date that has already begun. '
+      + 'Re-run run_daily.py to refresh.'
+    : '';
   const rg = REGIME_COPY[slice().regime];
   const el = document.getElementById('mRegime');
   el.className = 'pill '+rg.cls;
@@ -1759,7 +1744,10 @@ function logoFor(slug){
       const mark = lg
         ? '<img src="'+lg+'" alt="">'
         : '<i class="dot" style="background:'+(SERIES[src.key]||'var(--ink-3)')+'"></i>';
-      return '<span class="srcchip'+(ISAI(src.key)?' isai':'')+'">'+mark+src.name+'</span>';
+      /* The ring alone read as decoration. Label it, so the one member the
+         whole "hybrid AI-NWP" premise rests on identifies itself. */
+      return '<span class="srcchip'+(ISAI(src.key)?' isai':'')+'">'+mark+src.name+
+             (ISAI(src.key) ? '<i class="tag">AI</i>' : '')+'</span>';
     }).join('') +
     '<span class="srcchip ref" title="Verification truth">verified vs ERA5</span>';
   }
@@ -1773,68 +1761,6 @@ function logoFor(slug){
     });
   }
 })();
-
-/* ===================================================================== */
-/* consumer cross-check                                                   */
-/* ===================================================================== */
-/* AccuWeather and Google are NOT blend members. They are shown so a judge
-   can check the blend against something familiar, and so the contrast is
-   visible: both give a number and nothing else, while every figure here
-   can be traced to the model that produced it. The panel hides itself
-   entirely when crosscheck.json was never generated. */
-function paintCrosscheck(){
-  const panel = document.getElementById('xcPanel');
-  const xc = DATA.crosscheck;
-  if (!panel) return;
-  if (!xc || !xc.cities || !xc.cities.length || !(xc.providers||[]).length){
-    panel.hidden = true; return;
-  }
-  panel.hidden = false;
-  const L = String(lead);
-  const hasA = xc.providers.indexOf('accuweather') >= 0;
-  const hasG = xc.providers.indexOf('google') >= 0;
-
-  document.getElementById('xcWhy').textContent =
-    'Rainfall in mm for T+' + lead + (xc.valid && xc.valid[L] ? ', valid ' + xc.valid[L] : '') +
-    '. Comparison only — neither provider is blended.';
-
-  const cell = (v, cls) => v === null || v === undefined
-    ? '<span class="v na">—</span>'
-    : '<span class="v '+cls+'">'+Number(v).toFixed(1)+'</span>';
-
-  let rows = '<div class="xcrow head"><span>City</span>'+
-    '<span class="v">Blend Desk</span>'+
-    '<span class="v">'+(hasA ? 'AccuWeather' : '')+'</span>'+
-    '<span class="v">'+(hasG ? 'Google' : '')+'</span>'+
-    '<span class="agree">spread</span></div>';
-
-  xc.cities.forEach(function(c){
-    const ours = (c.ours||{})[L] ? c.ours[L].rain : null;
-    const a = hasA && (c.accuweather||{})[L] ? c.accuweather[L].rain : null;
-    const g = hasG && (c.google||{})[L] ? c.google[L].rain : null;
-    /* spread = how far the widest consumer number sits from ours, in mm.
-       Reported as an absolute gap rather than a percentage, because a
-       percentage of a near-zero rainfall total is meaningless. */
-    const others = [a, g].filter(v => v !== null && v !== undefined);
-    let badge = '<span class="agree na">—</span>';
-    if (ours !== null && others.length){
-      const gap = Math.max.apply(null, others.map(v => Math.abs(v - ours)));
-      const cls = gap <= 5 ? 'ok' : gap <= 15 ? 'mid' : 'off';
-      badge = '<span class="agree '+cls+'">±'+gap.toFixed(0)+'</span>';
-    }
-    rows += '<div class="xcrow"><span class="cty">'+c.city+'</span>'+
-      cell(ours,'ours')+cell(a,'them')+cell(g,'them')+badge+'</div>';
-  });
-  document.getElementById('xcTable').innerHTML = rows;
-
-  /* AccuWeather's free tier requires visible attribution wherever their
-     data is displayed, so it is rendered as a condition of use. */
-  let note = xc.note || '';
-  if (hasA) note += ' Forecast data by <b>AccuWeather</b>.';
-  if (hasG) note += ' Weather data © <b>Google</b>.';
-  if (xc.issued) note += ' Retrieved ' + xc.issued + '.';
-  document.getElementById('xcNote').innerHTML = note;
-}
 
 /* --- controls --------------------------------------------------------- */
 document.getElementById('vRain').addEventListener('click',function(){ setVar('rain'); });
@@ -2697,7 +2623,7 @@ document.querySelector('.tabs').addEventListener('keydown', function(e){
   if (e.key === 'ArrowLeft'){ showPane(PANES[(i-1+PANES.length) % PANES.length]); document.getElementById('tab-'+activePane).focus(); }
 });
 
-buildRail(); paintRunMeta(); paintMap(); paintWeights(); paintCrosscheck();
+buildRail(); paintRunMeta(); paintMap(); paintWeights();
 paintSkill(); paintMatrix();
 showPane('forecast');
 paintNowLine(); paintTabHint();
