@@ -837,6 +837,11 @@ function hasClimatology(s){
   return false;
 }
 const SHORT = k => NAMEOF[k].split(' ').pop();
+/* IFS and AIFS differ by a single letter and sit side by side in every
+   legend. Tagging each with its type removes the guesswork. */
+const TYPEOF = k => (SUBOF[k] || '').split(',')[0].trim();
+const LABEL  = k => NAMEOF[k] + (TYPEOF(k) ? '  (' + TYPEOF(k).replace(/^Physics NWP$/,'physics')
+                                                 .replace(/^AI model$/,'AI') + ')' : '');
 const SUBOF = Object.fromEntries(DATA.meta.sources.map(s => [s.key, s.sub || '']));
 /* Which member is the data-driven one? It is the project's whole premise, so
    it gets marked rather than sitting as one acronym among five. */
@@ -1781,7 +1786,7 @@ function paintWeights(){
   const data = {
     labels:[1,2,3,4,5].map(L=>'T+'+L),
     datasets: KEYS.map((k,j)=>({
-      label: NAMEOF[k],
+      label: LABEL(k),
       data: rows.map(r=>100*(r['w_'+lc(k)] || 0)),
       backgroundColor: rows.map((_,i)=> (i+1)===lead ? SERIES[k] : SERIES[k]+'59'),
       borderColor: SURFACE, borderWidth:2, borderSkipped:false,
@@ -2189,7 +2194,7 @@ function paintWeightMap(){
     el.innerHTML = '<span class="unit cond">leading source</span>' +
       KEYS.map(function(k){
         return '<span class="lg"><span class="sw" style="background:'+SERIES[k]+'"></span>'+
-               '<span class="lb">'+NAMEOF[k]+'</span></span>'; }).join('');
+               '<span class="lb">'+LABEL(k)+'</span></span>'; }).join('');
   }
 }
 

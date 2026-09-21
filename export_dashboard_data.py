@@ -120,7 +120,9 @@ def build_live(wreg_df):
             "valid": g.valid_date.iloc[0].strftime("%Y-%m-%d"),
             "regime": regime,
             "rain": r1(g.blend_rain), "t2m": r1(g.blend_t2m), "wind": r1(g.blend_wind),
-            "ct2m": r1(g.blend_t2m),          # no climatology on a live run
+            # No climatology exists for a future date, so the old code stored a
+            # byte-identical copy of t2m here. The dashboard reads a missing
+            # ct2m as "no climatology" already, so the copy is pure weight.
             "conf": r1(g.confidence),
             "pext": r3(g.prob_heavy),
         }
@@ -235,6 +237,19 @@ def main():
     mask_f = DATA / "india_mask.json"
     if mask_f.exists():
         geo["mask"] = json.loads(mask_f.read_text())
+
+    # Trim coordinate precision. 4 dp is ~11 m at this latitude, which is far
+    # finer than a 28 km grid or any zoom the map allows, and it removes the
+    # single largest block of redundant bytes in the payload.
+    def trim(o):
+        if isinstance(o, float):
+            return round(o, 4)
+        if isinstance(o, list):
+            return [trim(x) for x in o]
+        if isinstance(o, dict):
+            return {k: trim(v) for k, v in o.items()}
+        return o
+    geo = trim(geo)
     places_f = DATA / "places.json"
     if places_f.exists():
         geo["places"] = json.loads(places_f.read_text())

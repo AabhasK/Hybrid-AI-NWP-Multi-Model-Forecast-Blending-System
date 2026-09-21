@@ -10,3 +10,6 @@ data/_india_raw.geojson
 data/_india_states.geojson
 data/_india_districts.geojson
 data/_real_raw/
+
+# bulky regenerable caches
+data/_imd/
