@@ -96,6 +96,23 @@ KEYS = [
         "free": "yes, registration required",
     },
     {
+        "name": "ACCUWEATHER_API_KEY",
+        "what": "adds AccuWeather to the city cross-check panel - a comparison "
+                "only, never a blend member",
+        "without": "the cross-check panel simply omits that column",
+        "where": "https://developer.accuweather.com/  (free 'Limited Trial' app)",
+        "free": "50 calls/day, non-commercial only, requires visible "
+                "AccuWeather attribution wherever the data is shown",
+    },
+    {
+        "name": "GOOGLE_WEATHER_API_KEY",
+        "what": "adds Google Weather to the city cross-check panel - a "
+                "comparison only, never a blend member",
+        "without": "the cross-check panel simply omits that column",
+        "where": "Google Cloud console, enable the Weather API on Maps Platform",
+        "free": "10,000 calls/month, then $0.15 per 1,000",
+    },
+    {
         "name": "IMD_API_KEY",
         "what": "swaps ERA5 for IMD gridded rainfall as the verification truth, "
                 "which removes the AIFS/ERA5 circularity noted in DATA_NOTE.md",
@@ -113,6 +130,8 @@ CDS_API_KEY = get("CDS_API_KEY")
 CDS_API_URL = get("CDS_API_URL", "https://cds.climate.copernicus.eu/api")
 IMD_API_BASE = get("IMD_API_BASE", "https://mausam.imd.gov.in/api")
 IMD_API_KEY = get("IMD_API_KEY")
+ACCUWEATHER_API_KEY = get("ACCUWEATHER_API_KEY")
+GOOGLE_WEATHER_API_KEY = get("GOOGLE_WEATHER_API_KEY")
 
 # Open-Meteo routes paid keys through a different host
 OPENMETEO_HOST = ("https://customer-api.open-meteo.com"

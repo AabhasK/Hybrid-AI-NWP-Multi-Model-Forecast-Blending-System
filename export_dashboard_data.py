@@ -284,8 +284,20 @@ def main():
             domw = [round(float(wlook[(c, lead)].dominant_weight), 3) for c in order]
         cell_lead[str(lead)] = {"dom": doms, "domw": domw}
 
+    # Optional: the consumer-forecast cross-check. Absent unless crosscheck.py
+    # has been run with at least one provider key, and the dashboard omits the
+    # whole panel when it is missing - it is a comparison, never a blend input.
+    xc = None
+    xc_f = DATA / "crosscheck.json"
+    if xc_f.exists():
+        try:
+            xc = json.loads(xc_f.read_text(encoding="utf-8"))
+        except Exception:
+            xc = None
+
     payload = {
         "geo": geo,
+        "crosscheck": xc,
         "meta": {
             "team": config.TEAM_NAME,
             "institute": config.TEAM_INSTITUTE,
