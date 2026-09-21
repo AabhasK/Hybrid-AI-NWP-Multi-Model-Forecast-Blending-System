@@ -23,6 +23,7 @@ depends on verification data that does not exist yet for today.
 """
 
 import argparse
+import hashlib
 import json
 import subprocess
 import sys
@@ -91,13 +92,39 @@ def fetch_live(cells):
     batches = [cells[i:i + BATCH] for i in range(0, len(cells), BATCH)]
     print("fetching live runs: %d cells in %d requests" % (len(cells), len(batches)))
 
+    # Responses are cached per run date so an interrupted run resumes instead
+    # of restarting. On a free-tier quota a full national sweep can straddle
+    # several hourly windows, and losing that to a closed terminal is costly.
+    #
+    # The key hashes the COORDINATES, never the batch index: a key built from
+    # position would silently serve one batch's data for another the moment
+    # the grid or batch size changed.
+    cache_dir = DATA / "_live_raw" / date.today().isoformat()
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    hits = 0
+
     for bi, batch in enumerate(batches):
         lat = ",".join("%.2f" % c["lat"] for c in batch)
         lon = ",".join("%.2f" % c["lon"] for c in batch)
         url = ("%s/v1/forecast?latitude=%s&longitude=%s&daily=%s"
                "&forecast_days=7&timezone=UTC&models=%s%s"
                % (host, lat, lon, ",".join(VARS.values()), models, suffix))
+
+        ckey = hashlib.md5(("%s|%s|%s|%s" % (lat, lon, models,
+                            ",".join(VARS.values()))).encode()).hexdigest()
+        cfile = cache_dir / (ckey + ".json")
+        payload = None
+        if cfile.exists():
+            try:
+                payload = json.loads(cfile.read_text(encoding="utf-8"))
+                hits += 1
+            except Exception:
+                payload = None          # corrupt entry; refetch below
+        from_cache = payload is not None
+
         for attempt in range(6):
+            if payload is not None:
+                break
             try:
                 with urllib.request.urlopen(url, timeout=120) as r:
                     payload = json.load(r)
@@ -120,6 +147,12 @@ def fetch_live(cells):
                     raise
                 print("   retry %d (%s)" % (attempt + 1, type(exc).__name__))
                 time.sleep(4 * (attempt + 1))
+        if not cfile.exists():
+            try:
+                cfile.write_text(json.dumps(payload), encoding="utf-8")
+            except Exception:
+                pass                    # a cache write must never fail the run
+
         if not isinstance(payload, list):
             payload = [payload]
 
@@ -140,8 +173,11 @@ def fetch_live(cells):
                 if ok:
                     rows.append(rec)
         print("   batch %d/%d" % (bi + 1, len(batches)), end="\r", flush=True)
-        time.sleep(0.3)
+        if not from_cache:
+            time.sleep(0.3)             # be polite only when we actually called
     print()
+    if hits:
+        print("   resumed %d/%d batches from cache" % (hits, len(batches)))
     return pd.DataFrame(rows)
 
 
