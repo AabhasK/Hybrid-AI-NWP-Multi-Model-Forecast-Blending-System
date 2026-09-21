@@ -59,7 +59,7 @@ def main():
     logos, names = {}, []
     if LOGO_DIR.is_dir():
         for f in sorted(LOGO_DIR.iterdir()):
-            if f.suffix.lower() not in (".svg", ".png", ".jpg", ".jpeg", ".webp"):
+            if f.suffix.lower() not in (".svg", ".png", ".jpg", ".jpeg", ".webp", ".gif"):
                 continue
             mime = mimetypes.guess_type(f.name)[0] or "image/png"
             b64 = base64.b64encode(f.read_bytes()).decode("ascii")

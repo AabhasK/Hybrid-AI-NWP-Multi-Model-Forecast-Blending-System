@@ -662,17 +662,6 @@ table.dt tr.hl td{color:#fff;font-weight:600}
       <div class="stagebody">
         <div id="map"></div>
 
-        <div class="mapctl">
-          <div class="seg" role="group" aria-label="Field rendering">
-            <button id="mSmooth" aria-pressed="true">Field</button>
-            <button id="mGrid" aria-pressed="false">Grid</button>
-          </div>
-          <div class="seg" role="group" aria-label="Overlays">
-            <button id="mIso" aria-pressed="true">Contours</button>
-            <button id="m3d" aria-pressed="false">Terrain</button>
-          </div>
-        </div>
-
         <button class="docktoggle" id="dockToggle" aria-expanded="true"
                 aria-controls="dock" title="Hide the side panels">&rsaquo;&rsaquo;</button>
 
@@ -689,14 +678,6 @@ table.dt tr.hl td{color:#fff;font-weight:600}
               <span>weights sum to 100%</span>
             </div>
             <div class="chartbox short"><canvas id="cWeights"></canvas></div>
-          </div>
-
-          <div class="dockcard grow">
-            <div class="dockhead">
-              <h4 id="alertTitle">Watch list</h4>
-              <span id="alertWhy">&mdash;</span>
-            </div>
-            <div class="alerts" id="alerts"></div>
           </div>
         </aside>
       </div>
@@ -728,14 +709,6 @@ table.dt tr.hl td{color:#fff;font-weight:600}
             <div class="dockhead"><h4>Cell readout</h4></div>
             <div class="inspector" id="winspector" aria-live="polite"></div>
             <p class="dockhint">Point at the map to see which source leads there.</p>
-          </div>
-
-          <div class="dockcard">
-            <div class="dockhead">
-              <h4>Share of the country</h4>
-              <span>cells each source dominates</span>
-            </div>
-            <div class="chartbox short"><canvas id="cShare"></canvas></div>
           </div>
 
           <div class="dockcard grow">
@@ -1026,8 +999,8 @@ const focusStn = ()=> stationsEl.children[lead-1].focus();
 function setLead(L){
   if(L===lead) return;
   lead = L;
-  paintRail(); paintMap(); paintWeights(); paintAlerts(); paintSkill(); paintMatrix();
-  paintRunMeta(); paintWeightMap(); paintShare(); paintNowLine();
+  paintRail(); paintMap(); paintWeights(); paintSkill(); paintMatrix();
+  paintRunMeta(); paintWeightMap(); paintNowLine();
   if (activePane === 'extremes') paintExtremes();
 }
 
@@ -1044,8 +1017,8 @@ DATA.issue_dates.forEach(d=>{
 runSel.value = runKey;
 runSel.addEventListener('change', ()=>{
   runKey = runSel.value;
-  buildRail(); paintMap(); paintWeights(); paintAlerts(); paintMatrix();
-  paintRunMeta(); paintWeightMap(); paintShare(); paintNowLine();
+  buildRail(); paintMap(); paintWeights(); paintMatrix();
+  paintRunMeta(); paintWeightMap(); paintNowLine();
   if (activePane === 'extremes') paintExtremes();
 });
 
@@ -1364,7 +1337,13 @@ function indiaOutline(){
 }
 
 /* ===================================================================== */
-let mapReady = false, showGrid = false, showIso = true, show3d = false;
+/* The map draws one way only: a smooth interpolated field with isohyets over
+   flat hillshade. The Field/Grid, Contours and Terrain toggles were removed -
+   they offered four ways to look at one dataset, which is a thing to explain
+   in a demo rather than a deliverable the problem statement asks for.
+   cells-fill stays in the style at zero opacity as the hover/click target. */
+let mapReady = false;
+const showGrid = false, showIso = true;
 let pinned = null, popup = null;
 let wmap = null, wmapReady = false, shareChart = null;
 
@@ -1682,10 +1661,17 @@ const MONO = {ecmwf:'ECMWF', noaa:'NOAA', dwd:'DWD', eccc:'ECCC', copernicus:'C3
               openmeteo:'OM'};
 /* Match a logo slug loosely, so "noaa" still finds noaa-gfs.png and the team
    does not have to rename downloads to an exact filename. */
+const LOGO_ALIAS = {eccc:['eccc','ec-gem','ecgem','gem','canada'],
+                    copernicus:['copernicus','c3s','era5'],
+                    openmeteo:['openmeteo','open-meteo'],
+                    noaa:['noaa','gfs'], dwd:['dwd','icon'], ecmwf:['ecmwf','ifs']};
 function logoFor(slug){
   if (!slug) return null;
   if (LOGOS[slug]) return LOGOS[slug];
   const keys = Object.keys(LOGOS);
+  const alias = LOGO_ALIAS[slug] || [];
+  for (const a of alias){ if (LOGOS[a]) return LOGOS[a];
+    const k = keys.find(x => x.indexOf(a) === 0); if (k) return LOGOS[k]; }
   const hit = keys.find(k => k.indexOf(slug) === 0) ||
               keys.find(k => k.replace(/[^a-z0-9]/g,'').indexOf(slug.replace(/[^a-z0-9]/g,'')) >= 0);
   return hit ? LOGOS[hit] : null;
@@ -1768,32 +1754,8 @@ function setVar(v){
     if (el) el.setAttribute('aria-pressed', String(v === n));
   });
   if (popup){ popup.remove(); popup = null; pinned = null; }
-  paintMap(); paintAlerts(); paintNowLine();
+  paintMap(); paintNowLine();
 }
-
-document.getElementById('mSmooth').addEventListener('click',function(){
-  showGrid = false;
-  document.getElementById('mSmooth').setAttribute('aria-pressed','true');
-  document.getElementById('mGrid').setAttribute('aria-pressed','false');
-  paintMap();
-});
-document.getElementById('mGrid').addEventListener('click',function(){
-  showGrid = true;
-  document.getElementById('mSmooth').setAttribute('aria-pressed','false');
-  document.getElementById('mGrid').setAttribute('aria-pressed','true');
-  paintMap();
-});
-document.getElementById('mIso').addEventListener('click',function(e){
-  showIso = !showIso;
-  e.currentTarget.setAttribute('aria-pressed', String(showIso));
-  paintMap();
-});
-document.getElementById('m3d').addEventListener('click',function(e){
-  show3d = !show3d;
-  e.currentTarget.setAttribute('aria-pressed', String(show3d));
-  map.setTerrain(show3d ? {source:'dem', exaggeration: USE_MAPBOX ? 1.8 : 1.5} : null);
-  map.easeTo({pitch: show3d ? 58 : 0, bearing: show3d ? -17 : 0, duration:900});
-});
 
 /* ===================================================================== */
 /* weights — 100% stacked bars, one per lead                              */
@@ -1980,77 +1942,6 @@ function scopeCells(){
   return idx || DATA.cells.map((_, i) => i);
 }
 
-function paintAlerts(){
-  const s = slice(), box = document.getElementById('alerts');
-  const isRain = variable==='rain';
-  document.getElementById('alertTitle').textContent = isRain ? 'Heavy rainfall watch' : 'Heat stress watch';
-  document.getElementById('alertWhy').textContent = isRain
-    ? 'Cells where the classifier puts P(≥'+M.extreme_mm+' mm) above 25%, at T+'+lead+'.'
-    : (hasClimatology(s)
-        ? 'Cells running 1.5 °C or more above their seasonal normal at T+'+lead+'.'
-        : 'Cells near or above '+(M.heat_c||34)+' °C at T+'+lead+
-          '. A live run has no seasonal normal to compare against.');
-
-  let items = [];
-  const scope = scopeCells();
-  if(isRain){
-    scope.forEach(i=>{ const c = DATA.cells[i];
-      const p = s.pext[i];
-      /* rank on probability first, then on how much rain is actually coming -
-         in a full active spell dozens of cells sit at p≈1 and the amount is
-         what separates them */
-      if(p >= 0.25) items.push({i, c, score: p*1000 + s.rain[i],
-        sev: p>=0.65?'critical' : p>=0.45?'serious' : 'warning',
-        ttl: s.rain[i].toFixed(0)+' mm expected',
-        sub: binOf(s.rain[i],RAIN_BINS).l.toLowerCase()+' rain, '+s.conf[i].toFixed(0)+'% confidence',
-        pct: p>=0.995 ? '>99%' : Math.round(100*p)+'%', pctl:'P(heavy)'});
-    });
-  }else{
-    /* Inside a monsoon window an absolute heatwave cut is the wrong
-       instrument - monsoon air is cool and saturated. The heat signal that
-       matters is the BREAK-SPELL warm anomaly: when the trough shifts and
-       skies clear, cells run several degrees above their local normal. */
-    const climOK = hasClimatology(s);
-    scope.forEach(i=>{ const c = DATA.cells[i];
-      const t = s.t2m[i], nrm = s.ct2m[i], an = climOK ? t - nrm : 0;
-      if(!climOK){
-        if (t >= (M.heat_c || 34) - 3) items.push({i, c, score: t,
-          sev: t>=(M.heat_c||34)+3?'critical':t>=(M.heat_c||34)?'serious':'warning',
-          ttl: t.toFixed(1)+' °C mean temperature',
-          sub: 'blended 2 m mean, '+c.elev+' m',
-          pct: t.toFixed(1)+'°', pctl:'2 m mean'});
-        return;
-      }
-      if(an >= 1.5 || t >= M.heat_c) items.push({i, c, score: an,
-        sev: (an>=3 || t>=M.heat_c) ? 'critical' : an>=2.2 ? 'serious' : 'warning',
-        ttl: t.toFixed(1)+' °C, normal is '+nrm.toFixed(1)+' °C',
-        sub: an.toFixed(1)+' °C above the seasonal mean at '+c.elev+' m',
-        pct: (an>=0?'+':'')+an.toFixed(1)+'°', pctl:'vs normal'});
-    });
-  }
-  items.sort((a,b)=>b.score-a.score);
-  const shown = items.slice(0,40);
-
-  if(!shown.length){
-    box.innerHTML = '<p class="empty">Nothing above threshold'+(area?' in '+area.n:'')+' at T+'+lead+
-      '.<br>Move the horizon rail or pick another run.</p>';
-    return;
-  }
-  box.innerHTML = shown.map(it=>
-    '<button class="alert sev-'+it.sev+'" data-i="'+it.i+'">'+
-      '<span style="color:var(--'+it.sev+')">'+(isRain?ICON.rain:ICON.heat)+'</span>'+
-      '<span><span class="ttl">'+it.ttl+'</span>'+
-      '<span class="sub">'+it.c.id+' at '+it.c.lat.toFixed(1)+'°N '+it.c.lon.toFixed(1)+'°E, '+it.sub+'</span></span>'+
-      '<span><span class="pct num">'+it.pct+'</span><span class="pctl">'+it.pctl+'</span></span>'+
-    '</button>').join('') +
-    (items.length>40 ? '<p class="empty" style="padding:12px">'+(items.length-40)+' more cells above threshold</p>' : '');
-
-  box.querySelectorAll('.alert').forEach(b=>{
-    b.addEventListener('click',()=>{
-      focusCell(+b.dataset.i);
-    });
-  });
-}
 
 /* ===================================================================== */
 /* reliability matrix                                                     */
@@ -2317,42 +2208,6 @@ document.getElementById('wLead').addEventListener('click', function(){ setWmapMo
 document.getElementById('wSpread').addEventListener('click', function(){ setWmapMode('spread'); });
 
 /* share of cells each source dominates, by lead time */
-function paintShare(){
-  const ctx = document.getElementById('cShare');
-  if (!ctx) return;
-  const leads = [1,2,3,4,5];
-  const data = {
-    labels: leads.map(L => 'T+' + L),
-    datasets: KEYS.map(function(k, j){
-      return {
-        label: NAMEOF[k],
-        data: leads.map(L => (DATA.weights.dominant_share[String(L)] || {})[k] || 0),
-        backgroundColor: leads.map(L => L === lead ? SERIES[k] : SERIES[k] + '59'),
-        borderColor: SURFACE, borderWidth: 2, borderSkipped: false,
-        borderRadius: j === KEYS.length-1 ? {topRight:4,bottomRight:4} : (j === 0 ? {topLeft:4,bottomLeft:4} : 0)
-      };
-    })
-  };
-  const opts = {
-    indexAxis:'y', responsive:true, maintainAspectRatio:false, animation:{duration:300},
-    scales:{
-      x:{stacked:true, max:100, grid:{color:GRID, drawTicks:false}, border:{display:false},
-         ticks:{callback:v=>v+'%', color:INK3, font:{size:10.5}}},
-      y:{stacked:true, grid:{display:false}, border:{color:GRID},
-         ticks:{color:(c)=>(c.index+1)===lead?'#f2efe8':INK3,
-                font:{weight:(c)=>(c.index+1)===lead?'700':'500', size:12}}}
-    },
-    plugins:{
-      legend:{position:'bottom', labels:{boxWidth:8, boxHeight:8, padding:7,
-              usePointStyle:true, pointStyle:'rect', color:INK2, font:{size:10.5}}},
-      tooltip:{backgroundColor:'#17222b', borderColor:GRID, borderWidth:1,
-               titleColor:'#eef4f8', bodyColor:INK2, padding:10,
-               callbacks:{label:c=>' '+c.dataset.label+': '+c.parsed.x.toFixed(0)+'% of cells'}}
-    }
-  };
-  if (shareChart){ shareChart.data = data; shareChart.options = opts; shareChart.update(); }
-  else shareChart = new Chart(ctx, {type:'bar', data, options:opts});
-}
 
 /* =====================================================================
    Extremes tab - the problem statement names heavy rainfall, heat wave
@@ -2698,7 +2553,7 @@ function refreshArea(){
     const head = document.querySelector('.p-map .p-head h3');
     if (head) head.after(el);
   }
-  paintAlerts(); paintNowLine();
+  paintNowLine();
   if (activePane === 'extremes') paintExtremes();
 }
 
@@ -2742,8 +2597,8 @@ document.querySelector('.tabs').addEventListener('keydown', function(e){
   if (e.key === 'ArrowLeft'){ showPane(PANES[(i-1+PANES.length) % PANES.length]); document.getElementById('tab-'+activePane).focus(); }
 });
 
-buildRail(); paintRunMeta(); paintMap(); paintWeights(); paintAlerts();
-paintSkill(); paintMatrix(); paintShare();
+buildRail(); paintRunMeta(); paintMap(); paintWeights();
+paintSkill(); paintMatrix();
 showPane('forecast');
 paintNowLine(); paintTabHint();
 let resizeTimer;
