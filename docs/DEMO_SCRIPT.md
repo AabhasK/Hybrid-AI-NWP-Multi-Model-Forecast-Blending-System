@@ -3,8 +3,9 @@
 Read the **bold** lines aloud. Everything else is what to do with the mouse.
 Rehearse once: the whole thing is four clicks.
 
-Numbers below are from the **21 September 2026** run. Re-check them against the
-screen before recording — `run_daily.py` changes them daily.
+Numbers below are from the **21 September 2026** run, trained on the national
+archive (286 cells, 116 days). Re-check them against the screen before
+recording — `run_daily.py` changes the forecast figures daily.
 
 ---
 
@@ -51,8 +52,9 @@ screen before recording — `run_daily.py` changes them daily.
 21 September it said:*
 
 > **"Forecast for 24 September, three days ahead. An active monsoon spell.
-> The blend trusts ECMWF AIFS most, at 63% of the weight. Of 4,645 cells,
-> 694 are flagged for heavy rain."**
+> The blend trusts ECMWF AIFS most, at 63% of the weight."**
+>
+> *(The cell counts change every run — read whatever is on screen.)*
 
 *Drag the horizon rail slowly from T+1 to T+5. Watch the weight bars on the
 right change shape.*
@@ -79,9 +81,10 @@ right change shape.*
 *Point at the "Who is driving this forecast" chart — it flips from orange to
 blue.*
 
-> **For rainfall, ECMWF's AI model carries 63% of the weight and their physics
-> model gets zero. Switch to temperature and it inverts — the physics model
-> leads at 39%, and the AI model drops to 31%.**
+> **For rainfall, ECMWF's AI model carries most of the weight and their physics
+> model gets almost none. Switch to temperature and it inverts — the physics
+> model takes the lead and the AI model drops behind it.** (Read the exact
+> percentages off the chart; they move with the run.)
 >
 > **The best rainfall model is one of the worst temperature models. That's
 > measured, not assumed. It's why you can't just pick a favourite and use it
@@ -104,16 +107,14 @@ blue.*
 *Point at the scorecard.*
 
 > **Against ECMWF IFS, the model a forecaster reaches for by default, we cut
-> error by a third. We also beat a plain equal-weight average of all five,
-> which is the benchmark most published blending schemes fail to clear.**
->
-> **The margin there is slim — 10.58 against 10.59 — and we say so on the
-> page rather than hide it.**
+> error by 29%. We beat the strongest single model, ECMWF AIFS, by 2.2%. And
+> we beat a plain equal-weight average of all five by 7.9% — the benchmark
+> most published blending schemes fail to clear.**
 
 *Click **Extremes** tab.*
 
 > **Heavy rain, heat and high wind. The rain flag is a calibrated
-> probability, not a yes/no — it scores 0.957 ROC-AUC.**
+> probability, not a yes/no — it scores 0.947 ROC-AUC.**
 
 ---
 
@@ -149,14 +150,15 @@ panel narrows to it.
 - "ahead of a plain average" — not "far ahead of"
 
 **Never say:**
-- that the ML layer improves on the weights — it currently costs 0.092 RMSE
+- any figure from the "+ ML correction" row — that model is not saved to
+  disk, so the daily product cannot compute it
 - "real-time" — it is a daily run on medium-range forecasts
 - that IMD data is integrated — it is not
 - any number that is not on screen at that moment
 
 **If asked "why not just use AIFS?"**
-> Because it's fourth of five on temperature. The blend beats AIFS alone by
-> 51% there. And AIFS only became operational in 2025 — its lead is something
+> Because it's third of five on temperature, behind ECMWF's physics model.
+> The blend beats AIFS alone by 50% there. And AIFS only became operational in 2025 — its lead is something
 > this system *found*, not something we assumed. Next season it could be a
 > different model, and the framework would tell us.
 

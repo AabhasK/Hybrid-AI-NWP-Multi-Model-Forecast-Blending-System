@@ -149,8 +149,8 @@ Rows to understand:
 | The five model names | Each model on its own |
 | **Persistence** | "Tomorrow = today". The floor. Beating it is the minimum. |
 | **Equal-weight mean** | A plain average of all five, no learning at all. **This is the row that matters** — it is the benchmark most published blending schemes fail to beat. |
-| **Learned NNLS weights** | Our weighting. The number we stand behind. |
-| Weights + ML correction | The full pipeline including the machine-learning layer. |
+| **Blend (ours, live product)** | The learned weights — what `run_daily.py` actually computes, and the number we stand behind. |
+| + ML correction (offline only) | Scores better, but the trained model is not saved, so the daily product cannot apply it. Shown for honesty, never quoted. |
 
 Three columns: **RMSE** (penalises large misses hardest), **MAE** (average
 miss size), **Skill vs persistence** (0 = no better than persistence, 1 =
@@ -178,7 +178,7 @@ Three columns, the three hazards the statement names.
 
 | Column | Trigger |
 |---|---|
-| **Heavy rainfall** | A machine-learning classifier's probability of ≥40 mm in a day, listed where it exceeds 25%. Scores **ROC-AUC 0.957**. A calibrated probability, not a yes/no flag. |
+| **Heavy rainfall** | A machine-learning classifier's probability of ≥40 mm in a day, listed where it exceeds 25%. Scores **ROC-AUC 0.947**. A calibrated probability, not a yes/no flag. |
 | **Heat stress** | 1.5 °C or more above that location's seasonal normal. On a live run there *is* no seasonal normal for a future date, so it falls back to an absolute threshold — and the panel says so rather than printing a meaningless "+0.0 vs normal". |
 | **High wind** | Daily-maximum 10 m wind at or above 40 km/h, which is IMD warning territory. |
 
@@ -215,12 +215,13 @@ we verify against ERA5 and AIFS is *trained* on ERA5, which flatters it.
 Substituting IMD gauge data is the fix, and is validated.
 
 **"Does it beat a simple average?"**
-Yes, on both RMSE and MAE — but by a slim margin, on 116 days. Say "ahead",
-not "far ahead".
+Yes, on both — 8.424 against 9.142 RMSE, and 4.282 against 4.457 MAE. That is
+7.9%, on 116 days of national verification.
 
 **"What does the ML layer add?"**
-On the current data, nothing — it costs 0.092 RMSE. The linear weights are
-the result we stand behind. Volunteering this is a strength.
+0.26 RMSE. But the trained booster is not saved to disk, so `run_daily.py`
+cannot apply it and the daily product does not use it. We quote the 8.424 the
+product actually computes. Persisting it is the next improvement.
 
 ---
 

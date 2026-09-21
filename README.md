@@ -95,9 +95,14 @@ are fitted per regime and lead, not per cell.
 
 These are the things we would rather say ourselves than be caught on.
 
-- **The equal-weight mean is hard to beat, and on the current verification set
-  it is still ahead of the learned blend.** The dashboard's verdict sentence is
-  computed from the table and says so.
+- **The equal-weight mean is a stubborn benchmark.** The blend clears it by
+  7.9% on the national verification set (8.424 vs 9.142 RMSE), but it beat an
+  earlier regional build, and the dashboard's verdict sentence is computed from
+  the table rather than asserted, so it cannot drift from the numbers.
+- **The best-scoring pipeline is not the one that ships.** A boosted correction
+  reaches 8.164, but it is not persisted to disk, so the daily run applies the
+  learned weights alone. The scorecard labels both rows and marks the
+  weights-only row as the product.
 - **We verify against ERA5, and ECMWF AIFS is trained on ERA5**, which flatters
   it. Gauge-based truth via `imdlib` (IMD's own 0.25° gridded rainfall, no API
   key) is validated and is the fix.
@@ -127,5 +132,6 @@ measurement that settled it, including the bugs) and **`DATA_NOTE.md`**.
 | `imd_client.py` | IMD API client, ready if institutional access appears |
 | `docs/DECISIONS.md` | Engineering decision log |
 | `docs/DATA_SOURCES.md` | Every source, live-probe status, rate limits |
-| `TEAM.md` | What the team needs to supply |
+| `docs/DEMO_SCRIPT.md` | Two-minute demo, timed and scripted |
+| `docs/DASHBOARD_GUIDE.md` | What every element on screen means |
 | `02_synth_models.py`, `01_fetch_era5.py` | Superseded synthetic pipeline, kept as fallback |

@@ -285,21 +285,53 @@ def main():
             geo["grid_deg"] = g["grid_deg"]
             break
 
-    # per-cell dominant source. On the live national grid the trained per-cell
-    # weights do not exist yet (that needs the national archive), so each cell
-    # reports the regime weights the forecast was actually blended with.
+    # Per-cell dominant source - the "model reliability map" the problem
+    # statement asks for.
+    #
+    # Weights are FITTED on the 1-degree training grid but APPLIED on the
+    # 0.25-degree live grid, so each live cell inherits from the training cell
+    # it sits inside. Without this the map fell back to one regime vector per
+    # lead, which painted all 4,645 cells the same colour and made the whole
+    # reliability map look like it carried no information.
     cell_lead = {}
+    wmap_f = DATA / "weight_map.csv"
+    wmap = pd.read_csv(wmap_f) if wmap_f.exists() else None
+
+    nearest = {}
+    if wmap is not None and USE_LIVE:
+        tc = wmap.drop_duplicates("cell_id")[["cell_id", "lat", "lon"]].reset_index(drop=True)
+        tlat = tc.lat.values[None, :]
+        tlon = tc.lon.values[None, :]
+        clat = cells.lat.values[:, None]
+        clon = cells.lon.values[:, None]
+        # squared degrees is fine here: the grids share a projection and we
+        # only need the containing box, not a true geodesic distance
+        idx = np.argmin((clat - tlat) ** 2 + (clon - tlon) ** 2, axis=1)
+        nearest = dict(zip(cells.cell_id.values, tc.cell_id.values[idx]))
+
     for lead in range(1, 6):
         if USE_LIVE:
             sl = runs[default_run].get(str(lead))
             if not sl:
                 continue
-            # a live run carries one weight vector per lead, shared by every
-            # cell, so the dominant source is the same everywhere at that lead
-            w = [float(sl["w"][m]) for m in BLEND]
-            dom = BLEND[int(np.argmax(w))].upper()
-            doms = [dom] * len(order)
-            domw = [round(float(max(w)), 3)] * len(order)
+            if nearest:
+                sub = wmap[wmap.lead_time == lead].set_index("cell_id")
+                doms, domw = [], []
+                for c in order:
+                    t = nearest.get(c)
+                    if t is not None and t in sub.index:
+                        r = sub.loc[t]
+                        doms.append(str(r.dominant_model))
+                        domw.append(round(float(r.dominant_weight), 3))
+                    else:
+                        w = [float(sl["w"][m]) for m in BLEND]
+                        doms.append(BLEND[int(np.argmax(w))].upper())
+                        domw.append(round(float(max(w)), 3))
+            else:
+                w = [float(sl["w"][m]) for m in BLEND]
+                dom = BLEND[int(np.argmax(w))].upper()
+                doms = [dom] * len(order)
+                domw = [round(float(max(w)), 3)] * len(order)
         else:
             doms = [wlook[(c, lead)].dominant_model for c in order]
             domw = [round(float(wlook[(c, lead)].dominant_weight), 3) for c in order]

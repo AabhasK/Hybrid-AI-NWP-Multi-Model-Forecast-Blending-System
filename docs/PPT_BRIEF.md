@@ -19,10 +19,9 @@ Do not invent, round up, or soften any of them.
 > recreating the layout. **Do not exceed the slide count** — submissions are
 > rejected for it.
 
-> **⚠ Numbers are in flux this week.** A national retrain is now possible
-> (the archive finished downloading on 20 Sep 2026). If it runs, every figure
-> in §"Results" changes. **Confirm with the team before finalising slide 5.**
-> Everything else in this brief is stable.
+> **Numbers below are from the national retrain of 21 Sep 2026** — 155,584
+> rows, 286 cells at 1°, 116 days, verified against ERA5. They supersede every
+> earlier figure. Re-check against the dashboard before submitting.
 
 ---
 
@@ -193,39 +192,35 @@ Rainfall, mm/day. Lower RMSE and MAE are better; higher skill is better.
 
 | Forecast | RMSE | MAE | Skill vs persistence |
 |---|---|---|---|
-| Persistence *(reference)* | 17.664 | 7.944 | 0.000 |
-| ECMWF IFS | 15.734 | 5.698 | 0.109 |
-| DWD ICON | 14.923 | 6.224 | 0.155 |
-| NOAA GFS | 13.905 | 6.250 | 0.213 |
-| EC GEM | 13.680 | 6.272 | 0.226 |
-| ECMWF AIFS | 10.733 | 4.600 | 0.392 |
-| Equal-weight mean *(naive baseline)* | 10.590 | 4.477 | 0.400 |
-| **Learned NNLS weights** | **10.576** | **4.427** | **0.401** |
-| Weights + ML correction *(full pipeline)* | 10.668 | 4.428 | 0.396 |
+| Persistence *(reference)* | 14.007 | 6.937 | 0.000 |
+| DWD ICON | 14.041 | 6.152 | -0.002 |
+| EC GEM | 13.594 | 6.548 | 0.029 |
+| NOAA GFS | 12.806 | 6.026 | 0.086 |
+| ECMWF IFS | 11.857 | 5.240 | 0.153 |
+| Equal-weight mean *(naive baseline)* | 9.142 | 4.457 | 0.347 |
+| ECMWF AIFS *(best single model)* | 8.611 | 4.402 | 0.385 |
+| **Blend — live product** | **8.424** | **4.282** | **0.399** |
+| + ML correction *(offline only)* | 8.164 | 3.924 | 0.417 |
 
-**The headline claims that are true and defensible:**
+**The headline claims, all true and defensible:**
 
 | Claim | Number |
 |---|---|
-| vs **ECMWF IFS**, the default operational choice | **33% less error** (15.734 → 10.576) |
-| vs the **equal-weight mean** | **ahead on both** RMSE and MAE |
-| vs every individual model stream | ahead |
-| vs persistence | **skill score 0.401** |
-| Heavy-rainfall flagging | **ROC-AUC 0.957**, PR-AUC 0.559, Brier 0.023 |
-| at a base rate of | 3.5% (1,865 positive cell-days) |
+| vs **ECMWF IFS**, the default operational choice | **29% less error** |
+| vs **ECMWF AIFS**, the strongest single model | **2.2% better** |
+| vs the **equal-weight mean** | **7.9% better** |
+| vs persistence | **skill score 0.399** |
+| Heavy-rainfall flagging | **ROC-AUC 0.947** at a 2.1% base rate |
 | Coverage | **4,645 cells · 0.25° (~28 km) · all India · T+1…T+5** |
 
-**Lead the slide with the learned NNLS weights (10.576), not the full
-pipeline.** The weights are the problem statement's actual deliverable, and
-they beat the equal-weight mean on both metrics — which is the benchmark most
-published adaptive schemes fail to clear.
+**Lead the slide with the weights-only blend (8.424).** It is the problem
+statement's actual deliverable, it is what the daily product computes, and it
+beats every single model, the equal-weight mean and persistence.
 
-**Be straight about the last row.** The LightGBM correction on top currently
-*costs* 0.092 RMSE (10.668 vs 10.576). The team is deciding whether to set
-λ = 0 and ship the linear weights. **Do not put a claim on the slide that the
-ML layer cannot underperform the weights — that is not what the numbers show.**
-If asked, the honest answer is: λ is fitted per block and does not transfer
-out-of-sample, so it is being reconsidered. Volunteering this is a strength.
+**Be straight about the last row.** The boosted correction scores better still
+(8.164), but the trained model is not saved to disk, so the daily run cannot
+apply it — the number that ships is **8.424**. Quote that one. If asked,
+say plainly that persisting the booster is the next improvement.
 
 **Impact:**
 - *Disaster management:* earlier, better-targeted heavy-rainfall and high-wind
@@ -301,7 +296,8 @@ team's college mark.
 
 1. **Open on the Forecast tab.** Read the summary line aloud: *"Forecast for 23
    September, three days ahead over India. The blend trusts ECMWF AIFS most, at
-   64% of the weight. Of 4,645 cells, 363 are flagged for heavy rain."*
+   63% of the weight."* Read the live sentence off the screen — the counts
+   change daily.
 2. **Open the Forecast sources panel.** One click shows all five streams with
    full names and institutions. *"Nothing here is simulated."*
 3. **Drag the horizon rail T+1 → T+5.** The weight bars shift as the horizon
@@ -312,8 +308,8 @@ team's college mark.
 6. **Model weights tab → "Where models disagree".** *"Where they agree, any
    model will do. Where they diverge — here, and here — the choice of model is
    the whole forecast. That is what we are solving."*
-7. **Verification tab.** Say the 33%-vs-IFS number, then that the learned
-   weights also beat a plain average of all five.
+7. **Verification tab.** Say the 29%-vs-IFS number, then that the blend also
+   beats the strongest single model and a plain average of all five.
 
 ---
 
@@ -323,9 +319,9 @@ team's college mark.
 |---|---|
 | *"Is this real model data?"* | Yes — archived operational output from five model streams at real lead times, verified against ERA5. Nothing is simulated. |
 | *"What are IFS and AIFS?"* | Integrated Forecasting System and Artificial Intelligence Forecasting System, both from ECMWF. One is physics, one is data-driven. |
-| *"Does it beat a simple average?"* | Yes, on both RMSE and MAE — 10.576 vs 10.590, and 4.427 vs 4.477. Slim, and we say so. |
+| *"Does it beat a simple average?"* | Yes, on both — 8.424 vs 9.142 RMSE, 4.282 vs 4.457 MAE. That is 7.9%. |
 | *"Why does AIFS win?"* | It genuinely verifies better here, and published results agree it beats IFS on many scores. But we verify against ERA5 and **AIFS is trained on ERA5**, which flatters it. Gauge-based truth via IMD's public gridded data is validated and is the fix. |
-| *"What does the ML layer add?"* | On the current 116-day set, nothing — it costs 0.092 RMSE, so we are reconsidering λ. The linear weights are the result we stand behind. |
+| *"What does the ML layer add?"* | 0.26 RMSE on the national set. But it is not persisted, so the daily product does not use it and we do not claim it. |
 | *"Is IMD data in it?"* | Not yet — IMD issues no personal API keys. The client is written and works the moment institutional access appears. |
 | *"How do you avoid overfitting?"* | Blocked time-series CV, no random splits, and a short history we state openly: 116 days, 286 cells. |
 | *"What did it cost to run?"* | Nothing. No API keys, free endpoints, single HTML file. |
@@ -334,10 +330,11 @@ team's college mark.
 
 ## Do not claim
 
-- ❌ "Beats all models by a large margin" — the margin over the equal-weight
-  mean is 0.014 RMSE. Slim. Say "ahead", not "far ahead"
-- ❌ That the ML correction cannot underperform the linear weights — **it
-  currently does**, by 0.092 RMSE
+- ❌ "Beats all models by a large margin" — the margin over ECMWF AIFS alone
+  is 2.2%. Say "ahead of every single model", and use the per-variable
+  argument (AIFS is fourth of five on temperature) for the strong claim
+- ❌ Any number from the ML-corrected row (8.164) — the daily product does
+  not compute it
 - ❌ "Five centres" — it is five model streams from **four** institutions
 - ❌ "Real-time" without qualification — it is a **daily** operational run on
   medium-range forecasts, T+1…T+5
@@ -346,7 +343,6 @@ team's college mark.
   runs; ECMWF's 51-member ensemble is verified available but not yet weighted
 - ❌ Any number not in this file
 
-*Pending and may improve before submission: the national retrain (archive
-completed 20 Sep 2026) will refresh every figure in slide 5 and give wind its
-own weights instead of reusing the rainfall vector. Check
-`docs/PS_COMPLIANCE.md` for the current state before finalising.*
+*Still open: wind reuses the rainfall weight vector (the archive has wind, the
+training loop does not fit it yet), and the boosted correction is not persisted.
+Check `docs/PS_COMPLIANCE.md` §6 for the current gap list before finalising.*

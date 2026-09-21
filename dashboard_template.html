@@ -933,8 +933,15 @@ const slice= () => run()[String(lead)];
 /* ===================================================================== */
 const M = DATA.meta;
 const overall = DATA.metrics.overall;
-const blendRow = overall.find(r=>r.source.startsWith('BLENDED'));
-const singles  = overall.filter(r=>!r.source.startsWith('BLENDED') && !r.source.includes('Persistence'));
+/* The verdict must describe what the daily product actually computes, which
+   is the learned weights - the boosted correction is not persisted and never
+   runs in run_daily.py. Falling back to BLENDED keeps archive builds working. */
+const blendRow = overall.find(r=>/^Linear blend/.test(r.source))
+              || overall.find(r=>r.source.startsWith('BLENDED'));
+/* Only rows with a source key are individual models. The old filter let
+   "Linear blend" and "Equal-weight mean" in, so "best single model" could be
+   a blend competing against itself. */
+const singles  = overall.filter(r=>r.key && r.key !== 'F');
 const bestSingle = Math.min(...singles.map(r=>r.rmse));
 const clf50 = DATA.metrics.classifier.find(r=>Math.abs(r.threshold-0.4)<1e-6) || DATA.metrics.classifier[0];
 
@@ -2041,23 +2048,28 @@ function hexA(hex,a){
    forecast centres genuinely report verification.
 ===================================================================== */
 function paintScore(){
+  /* Show BOTH blend rows. run_daily.py applies the learned weights only -
+     the boosted correction is not persisted, so it cannot run in the daily
+     product. Hiding the weights-only row meant the scorecard scored a
+     pipeline the live map does not use. The weights row is the one marked
+     as ours, because it is the one that ships. */
   const rows = DATA.metrics.overall
-    .filter(r => !/Linear blend/.test(r.source))
     .slice().sort((a, b) => a.rmse - b.rmse);
   const worst = Math.max(...rows.map(r => r.rmse));
 
   const colourFor = (src, keyOf) => {
-    if (/BLENDED/.test(src)) return BLEND;
+    if (/Linear blend|BLENDED/.test(src)) return BLEND;
     if (/Equal-weight/.test(src)) return '#5b7186';
     return SERIES[keyOf] || '#5b7186';
   };
   const nameFor = src => src
-    .replace('BLENDED (ours)', 'Blend (ours)')
+    .replace('Linear blend (weights)', 'Blend (ours, live product)')
+    .replace('BLENDED (ours)', '+ ML correction (offline only)')
     .replace('Equal-weight mean (naive)', 'Equal-weight mean')
     .replace(/^[A-F]\s+/, '');
 
   document.getElementById('score').innerHTML = rows.map(r => {
-    const ours = /BLENDED/.test(r.source);
+    const ours = /Linear blend/.test(r.source);
     return '<div class="scorerow'+(ours ? ' ours' : '')+'">'+
       '<span class="nm">'+nameFor(r.source)+'</span>'+
       '<span class="tr"><i style="width:'+(100*r.rmse/worst).toFixed(1)+

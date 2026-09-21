@@ -232,7 +232,17 @@ def blend(df, weights):
                              [1.0 / len(BLEND)] * len(BLEND), dtype=float)
                 if w.shape[0] != len(BLEND):
                     w = np.full(len(BLEND), 1.0 / len(BLEND))
-                out[m] = F[m] @ (w / w.sum())
+                w = w / w.sum()
+                # A single missing member used to poison the whole cell: a
+                # plain dot product returns NaN if any term is NaN, so one
+                # centre dropping a variable blanked the blend there. Mask the
+                # absent members and renormalise over what did arrive, which
+                # is what the documentation always claimed happened.
+                Fm = F[m]
+                ok = ~np.isnan(Fm)
+                den = (ok * w).sum(axis=1)
+                num = np.nansum(np.where(ok, Fm, 0.0) * w, axis=1)
+                out[m] = np.where(den > 0, num / np.where(den > 0, den, 1.0), np.nan)
         df["blend_%s" % var] = out
     df["blend_rain"] = df.blend_rain.clip(lower=0)
     df["blend_wind"] = df.blend_wind.clip(lower=0)
