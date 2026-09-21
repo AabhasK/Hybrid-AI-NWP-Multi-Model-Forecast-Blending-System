@@ -83,7 +83,7 @@ body{
 .runmeta div{min-width:88px}
 .runmeta dt{font-size:12.5px;color:var(--ink-3);letter-spacing:.02em;margin:0}
 .runmeta dd{margin:1px 0 0;font-size:16px;font-weight:600}
-.runmeta dd.stale{color:var(--accent)}
+.runmeta dd.stale{color:var(--focus)}
 .pill{
   display:inline-flex;align-items:center;gap:7px;
   padding:3px 11px 3px 8px;border-radius:999px;font-size:14px;font-weight:600;
@@ -137,7 +137,10 @@ body{
   display:flex;flex-direction:column;align-items:center;gap:0;
 }
 .stn .knob{
-  width:11px;height:11px;border-radius:50%;background:var(--plane);
+  /* flex:0 0 11px, not height:11px - the stations are column flex items, so
+     height is the MAIN axis and the default flex-shrink squashed these into
+     3.5px ellipses. */
+  flex:0 0 11px;width:11px;height:11px;border-radius:50%;background:var(--plane);
   border:1px solid var(--rule);margin-top:6px;
   transition:transform .22s,background-color .22s,border-color .22s;
 }
@@ -403,7 +406,7 @@ body{
   align-items:center;gap:8px;margin:5px 0;font-size:13px}
 /* full centre names, never ellipsed - the sources ARE the credibility */
 .pop .srcrow .nm{color:var(--ink);white-space:nowrap}
-.pop .srcrow .ai{display:inline-block;background:var(--accent);color:#161512;
+.pop .srcrow .ai{display:inline-block;background:var(--focus);color:#161512;
   font-size:9.5px;font-weight:700;line-height:1;padding:2px 4px;border-radius:2px;
   margin-left:5px;vertical-align:1px;letter-spacing:.03em}
 /* width:auto lets the box size to the popup instead of spilling out of it */
@@ -438,8 +441,8 @@ body{
 .srcchip.ref{color:var(--ink-3);padding:2px 7px}
 .srcchip .mg{font-family:"Archivo Narrow",sans-serif;font-size:8.5px;font-weight:700;
   color:var(--ink-3);min-width:15px;text-align:center;letter-spacing:.02em}
-.srcchip.isai{border-color:var(--accent);color:var(--ink)}
-.srcchip .tag{font-style:normal;background:var(--accent);color:#141310;
+.srcchip.isai{color:var(--ink)}
+.srcchip .tag{font-style:normal;background:var(--focus);color:#141310;
   font-size:9px;font-weight:700;line-height:1;padding:2px 4px;border-radius:2px;
   letter-spacing:.05em;margin-left:2px}
 .srcmore{display:inline-flex;align-items:center;gap:6px;color:var(--ink-3);font-size:12.5px;
@@ -464,10 +467,10 @@ body{
 .srctext b{display:block;font-size:14px;font-weight:600;line-height:1.25}
 .srctext .exp{display:block;font-size:12.5px;color:var(--ink-2);line-height:1.3;margin-top:1px}
 .srctext b a{color:inherit;text-decoration:none;border-bottom:1px solid var(--rule)}
-.srctext b a:hover{border-bottom-color:var(--accent);color:var(--accent)}
+.srctext b a:hover{border-bottom-color:var(--focus);color:var(--focus)}
 .srctext .org{display:block;font-size:11.5px;color:var(--ink-3);line-height:1.3;margin-top:1px}
 .srctext b{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
-.srctext .ai{display:inline-block;background:var(--accent);color:#141310;font-size:10px;
+.srctext .ai{display:inline-block;background:var(--focus);color:#141310;font-size:10px;
   font-weight:700;line-height:1;padding:3px 5px;border-radius:2px;
   letter-spacing:.06em;text-transform:uppercase;flex:0 0 auto}
 @media (max-width:720px){ .srclist{grid-template-columns:1fr} }
