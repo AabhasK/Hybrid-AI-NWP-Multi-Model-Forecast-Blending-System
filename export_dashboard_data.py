@@ -99,6 +99,13 @@ def build_live(wreg_df):
     live = pd.read_parquet(DATA / "live_blend.parquet")
     live["valid_date"] = pd.to_datetime(live["valid_date"])
 
+    # the same file run_daily.py blends with, so the page cannot disagree
+    # with the numbers it is displaying
+    wsets = {}
+    wf = DATA / "blend_weight_sets.json"
+    if wf.exists():
+        wsets = json.loads(wf.read_text(encoding="utf-8"))
+
     cells = (live[["cell_id", "lat", "lon", "elevation_m"]]
              .drop_duplicates("cell_id").sort_values(["lat", "lon"]).reset_index(drop=True))
     order = list(cells.cell_id)
@@ -134,6 +141,20 @@ def build_live(wreg_df):
         # be most of the payload for no information.
         slice_["w"] = {m: round(float(getattr(w, "w_%s" % m)) if w else 1.0 / len(BLEND), 3)
                        for m in BLEND}
+
+        # Per-variable weights. The blender has always applied these - rainfall
+        # and temperature want almost opposite mixes - but only the rainfall
+        # vector reached the page, so the dashboard showed rain weights while
+        # displaying temperature. Ship all three.
+        wv = {}
+        for var in ("rain", "t2m", "wind"):
+            byvar = wsets.get(str(lead), {})
+            table = byvar.get(var) or byvar.get("rain") or {}
+            vec = table.get(regime) or table.get("_all")
+            if vec and len(vec) == len(BLEND):
+                wv[var] = {m: round(float(vec[i]), 3) for i, m in enumerate(BLEND)}
+        if wv:
+            slice_["wv"] = wv
         by_lead[str(lead)] = slice_
 
     return cells, order, {issued: by_lead}, issued

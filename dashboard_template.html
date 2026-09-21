@@ -672,7 +672,7 @@ table.dt tr.hl td{color:#fff;font-weight:600}
           <div class="dockcard">
             <div class="dockhead">
               <h4>Who is driving this forecast</h4>
-              <span>weights sum to 100%</span>
+              <span id="wWhy">weights sum to 100%</span>
             </div>
             <div class="chartbox short"><canvas id="cWeights"></canvas></div>
           </div>
@@ -841,9 +841,20 @@ const LABEL  = k => NAMEOF[k] + (TYPEOF(k) ? '  (' + TYPEOF(k).replace(/^Physics
                                                  .replace(/^AI model$/,'AI') + ')' : '');
 const SUBOF = Object.fromEntries(DATA.meta.sources.map(s => [s.key, s.sub || '']));
 /* archived runs carry a weight per cell; a live run carries one per lead */
+/* Weights differ per VARIABLE, and by a lot: rainfall gives ECMWF AIFS ~71%
+   and ECMWF IFS 0%, while temperature gives IFS ~48% and AIFS ~26%. The page
+   used to read the rainfall vector whatever was on screen, so switching to
+   temperature still showed rain weights. Pick the vector for the variable
+   being displayed; wind has no trained set yet and falls back to rainfall,
+   which is what the blender itself does. */
+const WKEY = {rain:'rain', temp:'t2m', wind:'wind'};
 function wAt(s, k, i){
   const a = s['w' + lc(k)];
-  if (a) return a[i];
+  if (a) return a[i];                       // archive runs: per-cell arrays
+  if (s.wv){
+    const v = s.wv[WKEY[variable]] || s.wv.rain;
+    if (v && v[lc(k)] !== undefined) return v[lc(k)];
+  }
   return (s.w && s.w[lc(k)] !== undefined) ? s.w[lc(k)] : null;
 }
 const VARNAME = {rain:'Rainfall', temp:'2 m temperature', wind:'Peak 10 m wind'};
@@ -863,19 +874,26 @@ const RAIN_BINS = [
   {max:244.5, c:'#4fc9be', l:'Very heavy',   r:'124.5–244.4'},
   {max:1e9,   c:'#9ee5d5', l:'Extremely hvy',r:'≥244.5'}
 ];
+/* The scale has to span the whole country, not just the plains. India runs
+   from -19 C on the Karakoram to +35 C in Rajasthan on the same day; the old
+   ramp started at 22 C, so 618 Himalayan cells collapsed into one near-black
+   bin and the whole northern band read as missing data. Cool colours below
+   20 C, warm above - the conventional reading for temperature. */
 const TEMP_BINS = [
-  {max:22, c:'#2a2218', l:'< 22',  r:''},
-  {max:25, c:'#5c4016', l:'22–25', r:''},
-  {max:27, c:'#8a5a11', l:'25–27', r:''},
-  {max:29, c:'#b3780e', l:'27–29', r:''},
-  {max:31, c:'#d99a18', l:'29–31', r:''},
-  {max:33, c:'#efbc52', l:'31–33', r:''},
-  {max:99, c:'#fadf9f', l:'≥ 33',  r:''}
+  {max:0,  c:'#4a6fa5', l:'< 0',   r:''},
+  {max:8,  c:'#5f8296', l:'0–8',   r:''},
+  {max:15, c:'#74907f', l:'8–15',  r:''},
+  {max:20, c:'#8f8659', l:'15–20', r:''},
+  {max:25, c:'#a8721f', l:'20–25', r:''},
+  {max:28, c:'#c2870f', l:'25–28', r:''},
+  {max:31, c:'#d99a18', l:'28–31', r:''},
+  {max:34, c:'#efbc52', l:'31–34', r:''},
+  {max:99, c:'#fadf9f', l:'≥ 34',  r:''}
 ];
 /* IMD wind descriptors. A violet ramp keeps wind clearly distinct from the
    teal rainfall scale and the amber heat scale. */
 const WIND_BINS = [
-  {max:10,  c:'#221d23', l:'Calm',     r:'< 10'},
+  {max:10,  c:'#3d3347', l:'Calm',     r:'< 10'},
   {max:20,  c:'#3b2a52', l:'Light',    r:'10–19'},
   {max:30,  c:'#533a73', l:'Moderate', r:'20–29'},
   {max:40,  c:'#6d4b94', l:'Fresh',    r:'30–39'},
@@ -1293,7 +1311,7 @@ const MS_CASES = {
   13:[['B','R']], 14:[['L','B']]
 };
 const RAIN_ISO = [7.6, 35.6, 64.5, 124.5];
-const TEMP_ISO = [25, 27, 29, 31, 33];
+const TEMP_ISO = [0, 10, 20, 25, 28, 31, 34];
 
 function contourFeatures(field, levels){
   const feats = [];
@@ -1773,7 +1791,9 @@ function setVar(v){
     if (el) el.setAttribute('aria-pressed', String(v === n));
   });
   if (popup){ popup.remove(); popup = null; pinned = null; }
-  paintMap(); paintNowLine();
+  /* the weight mix is variable-specific, so it must repaint too - this is
+     the switch that shows IFS taking over from AIFS on temperature */
+  paintMap(); paintNowLine(); paintWeights();
 }
 
 /* ===================================================================== */
@@ -1789,13 +1809,30 @@ let weightChart;
 function weightRowsForRegime(reg){
   const even = {};
   KEYS.forEach(k => { even['w_'+lc(k)] = 1 / KEYS.length; });
-  return [1,2,3,4,5].map(L=>
-    DATA.weights.by_regime_lead.find(x=>x.regime===reg && x.lead_time===L) || even);
+  return [1,2,3,4,5].map(function(L){
+    /* A live run carries the exact per-variable vector it blended with, so
+       prefer that: it is the only source that differs between rainfall and
+       temperature, and the difference is the point. The trained regime table
+       is rainfall-only and stays the fallback for archive runs. */
+    const sl = run()[String(L)];
+    if (sl && sl.wv){
+      const v = sl.wv[WKEY[variable]] || sl.wv.rain;
+      if (v){
+        const row = {};
+        KEYS.forEach(k => { row['w_'+lc(k)] = v[lc(k)] || 0; });
+        return row;
+      }
+    }
+    return DATA.weights.by_regime_lead.find(x=>x.regime===reg && x.lead_time===L) || even;
+  });
 }
 
 function paintWeights(){
   const reg  = slice().regime;
   const rows = weightRowsForRegime(reg);
+  const why = document.getElementById('wWhy');
+  if (why) why.textContent = 'for ' + VARNAME[variable].toLowerCase() +
+      (variable === 'wind' ? ' · reuses the rainfall mix' : ' · sums to 100%');
   const last = KEYS.length - 1;
   const data = {
     labels:[1,2,3,4,5].map(L=>'T+'+L),
