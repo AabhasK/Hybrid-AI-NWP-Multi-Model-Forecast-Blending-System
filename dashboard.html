@@ -1091,7 +1091,9 @@ function sizeStage(){
     const top = el.getBoundingClientRect().top + window.scrollY;
     const legend = el.parentElement.querySelector('.legend');
     const below = (legend ? legend.offsetHeight + 12 : 0) + 22;
-    el.style.height = Math.max(420, window.innerHeight - top - below) + 'px';
+    /* The map is the centrepiece, so give it a real floor and let the
+       page scroll rather than squeezing it into whatever is left. */
+    el.style.height = Math.max(620, window.innerHeight - top - below) + 'px';
   });
 }
 
@@ -1500,6 +1502,11 @@ map.on('style.load', function(){
   map.addLayer({id:'cell-hover', type:'line', source:'cells',
     filter:['==',['get','idx'],-1],
     paint:{'line-color':'#eef4f8','line-width':1.8}}, firstLabel);
+  /* The cell a search resolved to. Hover fades as soon as the pointer
+     moves, so a search needs its own mark that stays put. */
+  map.addLayer({id:'cell-focus', type:'line', source:'cells',
+    filter:['==',['get','idx'],-1],
+    paint:{'line-color':'#f0b429','line-width':2.6,'line-opacity':1}}, firstLabel);
 
   let hoverIdx = -1;
   map.on('mousemove','cells-fill', function(e){
@@ -2112,6 +2119,9 @@ function ensureWeightMap(){
     wmap.addSource('wcells', {type:'geojson', data:weightPolys()});
     wmap.addLayer({id:'wcells-fill', type:'fill', source:'wcells',
       paint:{'fill-color':['get','col'],'fill-opacity':['get','op']}}, firstLabel);
+    wmap.addLayer({id:'wcell-focus', type:'line', source:'wcells',
+      filter:['==',['get','idx'],-1],
+      paint:{'line-color':'#f0b429','line-width':2.6}});
     wmap.addLayer({id:'wcells-line', type:'line', source:'wcells',
       paint:{'line-color':'rgba(11,16,21,.55)','line-width':0.4}}, firstLabel);
 
@@ -2498,6 +2508,49 @@ function inRings(x, y, rings){
 }
 
 /* indices of the cells the current area covers; null means all of India */
+/* The cell a coordinate falls inside. Nearest-centre is not the same
+   thing: a point just past a cell edge is nearer that cell's centre than
+   its own, which is why a search could land beside the highlighted box. */
+function cellAt(lon, lat){
+  for (let i = 0; i < DATA.cells.length; i++){
+    const c = DATA.cells[i];
+    if (Math.abs(c.lon - lon) <= HALF + 1e-9 && Math.abs(c.lat - lat) <= HALF + 1e-9)
+      return i;
+  }
+  let best = -1, bd = Infinity;
+  DATA.cells.forEach(function(c, i){
+    const d = (c.lon - lon) ** 2 + (c.lat - lat) ** 2;
+    if (d < bd){ bd = d; best = i; }
+  });
+  return best;
+}
+
+/* Mark a cell on both maps, or clear with idx < 0. */
+function focusCell(idx){
+  [[map,'cell-focus'], [wmap,'wcell-focus']].forEach(function(pair){
+    const m = pair[0], id = pair[1];
+    if (!m || !m.getLayer || !m.getLayer(id)) return;
+    try { m.setFilter(id, ['==', ['get','idx'], idx]); } catch(e){}
+  });
+}
+
+/* Frame one cell so it reads as a box rather than a dot. Padding is what
+   sets the final zoom: the tighter it is, the larger the cell appears. */
+function zoomToCell(m, idx, duration){
+  if (!m || idx < 0) return;
+  const c = DATA.cells[idx];
+  /* Centring the cell in the raw container puts it under the dock on the
+     right and the popup below, so the one thing the search just found is
+     the one thing covered. Pad around the furniture instead. */
+  const base = fitPad();
+  const wide = window.innerWidth > 900;
+  m.fitBounds([[c.lon - HALF, c.lat - HALF], [c.lon + HALF, c.lat + HALF]], {
+    padding: {top: base.top + 70, right: base.right + 70,
+              bottom: base.bottom + (wide ? 220 : 90), left: base.left + 70},
+    duration: duration || 900, maxZoom: 10.5
+  });
+}
+
 function areaCells(){
   if (!area) return null;
   if (area.k === 'state' && area.r){
@@ -2537,25 +2590,37 @@ function choose(p){
   $clear.hidden = false;
   $search.setAttribute('aria-expanded','false');
 
-  const pad = p.k === 'state' ? 40 : 10;
+  /* A state covers many cells, so it keeps its outline and its bounds.
+     Anything smaller resolves to ONE cell - frame that cell and mark it,
+     rather than dropping the viewer at zoom 7 to hunt for a 28 km box. */
+  const single = p.k !== 'state';
+  const idx = single ? cellAt(p.c[0], p.c[1]) : -1;
+  focusCell(idx);
+
   [map, wmap].forEach(function(m){
     if (!m) return;
     drawAreaOutline(m);
-    if (p.k === 'state' && p.b){
-      m.fitBounds([[p.b[0], p.b[1]], [p.b[2], p.b[3]]], {padding: pad, duration: 900});
+    if (single && idx >= 0){
+      zoomToCell(m, idx, 900);
+    } else if (p.b){
+      m.fitBounds([[p.b[0], p.b[1]], [p.b[2], p.b[3]]],
+                  {padding: 40, duration: 900});
     } else {
       m.easeTo({center: p.c, zoom: 7.2, duration: 900});
     }
   });
-  if (p.k !== 'state'){
-    const idx = areaCells();
-    if (idx && idx.length === 1) setTimeout(()=>openCell(idx[0], true), 950);
-  }
+  /* Deliberately NOT openCell() here. A map popup anchors at the cell
+     centre, so it lands on top of the very box the search just framed and
+     outlined. The dock readout carries the same figures and sits beside
+     the map, leaving the highlighted cell visible. Clicking it still
+     opens the popup for anyone who wants it. */
+  if (single && idx >= 0) setTimeout(function(){ showInspector(idx); }, 950);
   refreshArea();
 }
 
 function clearArea(){
   area = null;
+  focusCell(-1);
   $search.value = '';
   $clear.hidden = true;
   currentList = [];
