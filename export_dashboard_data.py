@@ -114,14 +114,16 @@ def build_live(wreg_df):
     for r in wreg_df.itertuples(index=False):
         wlook[(str(r.regime), int(r.lead_time))] = r
 
-    issued = (live.valid_date.min() - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+    issued_at = (live.valid_date - pd.to_timedelta(live.lead_time, unit="D")).min()
+    issued = issued_at.strftime("%Y-%m-%d")
     by_lead = {}
-    for lead in range(1, 6):
+    for lead in range(0, 6):
         g = live[live.lead_time == lead].set_index("cell_id").reindex(order)
         if g.blend_rain.isna().all():
             continue
         regime = str(g.regime.mode().iat[0])
-        w = wlook.get((regime, lead)) or wlook.get(("normal", lead))
+        trained_lead = max(1, lead)
+        w = wlook.get((regime, trained_lead)) or wlook.get(("normal", trained_lead))
 
         slice_ = {
             "valid": g.valid_date.iloc[0].strftime("%Y-%m-%d"),
@@ -148,7 +150,7 @@ def build_live(wreg_df):
         # displaying temperature. Ship all three.
         wv = {}
         for var in ("rain", "t2m", "wind"):
-            byvar = wsets.get(str(lead), {})
+            byvar = wsets.get(str(max(1, lead)), {})
             table = byvar.get(var) or byvar.get("rain") or {}
             vec = table.get(regime) or table.get("_all")
             if vec and len(vec) == len(BLEND):
@@ -186,7 +188,7 @@ def main():
         for d0 in pick_issue_dates(pred, N_ISSUE_DATES):
             key = d0.strftime("%Y-%m-%d")
             by_lead = {}
-            for lead in range(1, 6):
+            for lead in range(0, 6):
                 valid_date = d0 + pd.Timedelta(days=lead)
                 g = pred[(pred.date == valid_date) & (pred.lead_time == lead)]
                 g = g.set_index("cell_id").reindex(order)
@@ -309,13 +311,13 @@ def main():
         idx = np.argmin((clat - tlat) ** 2 + (clon - tlon) ** 2, axis=1)
         nearest = dict(zip(cells.cell_id.values, tc.cell_id.values[idx]))
 
-    for lead in range(1, 6):
+    for lead in range(0, 6):
         if USE_LIVE:
             sl = runs[default_run].get(str(lead))
             if not sl:
                 continue
             if nearest:
-                sub = wmap[wmap.lead_time == lead].set_index("cell_id")
+                sub = wmap[wmap.lead_time == max(1, lead)].set_index("cell_id")
                 doms, domw = [], []
                 for c in order:
                     t = nearest.get(c)
@@ -333,8 +335,9 @@ def main():
                 doms = [dom] * len(order)
                 domw = [round(float(max(w)), 3)] * len(order)
         else:
-            doms = [wlook[(c, lead)].dominant_model for c in order]
-            domw = [round(float(wlook[(c, lead)].dominant_weight), 3) for c in order]
+            trained_lead = max(1, lead)
+            doms = [wlook[(c, trained_lead)].dominant_model for c in order]
+            domw = [round(float(wlook[(c, trained_lead)].dominant_weight), 3) for c in order]
         cell_lead[str(lead)] = {"dom": doms, "domw": domw}
 
     payload = {
@@ -359,7 +362,7 @@ def main():
             "extreme_mm": EXTREME_MM,
             "heat_c": HEAT_C,
             "sources": SOURCE_META,
-            "generated": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"),
+            "generated": pd.Timestamp.now(tz="Asia/Kolkata").strftime("%Y-%m-%d %H:%M"),
         },
         "cells": [
             {"id": r.cell_id, "lat": round(r.lat, 3), "lon": round(r.lon, 3),

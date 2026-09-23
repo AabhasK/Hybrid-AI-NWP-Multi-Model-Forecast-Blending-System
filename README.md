@@ -54,11 +54,18 @@ python export_dashboard_data.py
 python build_dashboard.py        # -> dashboard.html
 ```
 
-`run_daily.py --publish` does the last three in one step. Schedule it:
+`run_daily.py --publish` does the last three in one step and includes today's
+forecast (T) through T+5. The T blend uses the nearest trained weights, T+1.
+To refresh every three hours on macOS, install the supplied LaunchAgent:
 
 ```
-0 7 * * *  cd /path/to/NWP-SIH && python run_daily.py --publish
+mkdir -p ~/Library/LaunchAgents
+cp ops/com.hybridai.nwp-dashboard-refresh.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.hybridai.nwp-dashboard-refresh.plist
 ```
+
+The job updates `data/dashboard_data.json` and rebuilds `dashboard.html`. The
+HTML itself is a snapshot; it changes when this scheduled job runs.
 
 Requires `numpy pandas scipy scikit-learn lightgbm pyarrow joblib`.
 On this machine: `C:/Users/khand/anaconda3/python.exe`.

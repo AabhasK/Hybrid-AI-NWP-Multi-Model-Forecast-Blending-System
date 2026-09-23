@@ -9,8 +9,8 @@ that were learned offline, and writes a dated product.
   python run_daily.py              # blend today's runs
   python run_daily.py --publish    # also refresh the dashboard payload
 
-Schedule it with Task Scheduler or cron:
-  0 7 * * *  cd /path/to/NWP-SIH && python run_daily.py --publish
+Schedule it with Task Scheduler, cron, or the supplied macOS LaunchAgent
+(ops/com.hybridai.nwp-dashboard-refresh.plist; refreshes every three hours).
 
 WHY THE WEIGHTS ARE APPLIED, NOT REFITTED
 -----------------------------------------
@@ -53,7 +53,8 @@ MODELS = {
     "gem_seamless": "e",
 }
 BLEND = ["a", "b", "c", "d", "e"]
-LEADS = [1, 2, 3, 4, 5]
+# Include the issue date itself (T), followed by five daily leads.
+LEADS = [0, 1, 2, 3, 4, 5]
 VARS = {"rain": "precipitation_sum", "t2m": "temperature_2m_mean",
         "wind": "wind_speed_10m_max"}
 # Open-Meteo bills per HTTP request, with a fractional surcharge past ten
@@ -110,10 +111,8 @@ def fetch_live(cells):
     for bi, batch in enumerate(batches):
         lat = ",".join("%.2f" % c["lat"] for c in batch)
         lon = ",".join("%.2f" % c["lon"] for c in batch)
-        # forecast_days=7 returned today plus six days ahead, of which only
-        # leads 1-5 survive the filter in main() - two of every seven days
-        # were fetched and discarded. Asking for the exact window cuts the
-        # payload by 29% for identical output.
+        # Fetch today (T) through T+5 so the dashboard timeline always starts
+        # on the current date. T uses the nearest trained weights, T+1.
         url = ("%s/v1/forecast?latitude=%s&longitude=%s&daily=%s"
                "&start_date=%s&end_date=%s&timezone=UTC&models=%s%s"
                % (host, lat, lon, ",".join(VARS.values()),
@@ -225,7 +224,10 @@ def blend(df, weights):
             sel = (df.lead_time == lead).values
             if not sel.any():
                 continue
-            wset = weights.get(str(lead), {}).get(var if var in weights.get(str(lead), {}) else "rain", {})
+        # Lead zero has no trained skill estimate; use the nearest trained
+        # horizon (T+1) weights for today's forecast.
+        wlead = str(max(1, lead))
+        wset = weights.get(wlead, {}).get(var if var in weights.get(wlead, {}) else "rain", {})
             for reg in df.regime[sel].unique():
                 m = sel & (df.regime == reg).values
                 w = np.array(wset.get(reg) or wset.get("_all") or

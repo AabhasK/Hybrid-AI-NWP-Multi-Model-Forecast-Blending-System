@@ -4,10 +4,10 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Blend Desk — Hybrid AI/NWP Forecast Console</title>
-<meta name="description" content="Operational console for a dynamically blended multi-model rainfall and temperature forecast over Maharashtra." />
+<meta name="description" content="Blends five weather models into local daily guidance." />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Archivo+Narrow:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://api.mapbox.com/mapbox-gl-js/v3.9.0/mapbox-gl.css" rel="stylesheet" />
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.9.0/mapbox-gl.js"></script>
 <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
@@ -55,13 +55,13 @@ html,body{margin:0;padding:0}
 body{
   background:var(--plane);
   color:var(--ink);
-  font-family:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-family:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
   font-feature-settings:"tnum" 1, "cv05" 1;
   font-size:15.5px;
   line-height:1.5;
   -webkit-font-smoothing:antialiased;
 }
-.cond{font-family:"Archivo Narrow","Archivo",system-ui,sans-serif}
+.cond{font-family:"Inter",system-ui,sans-serif}
 .num{font-variant-numeric:tabular-nums}
 
 :focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:2px}
@@ -70,12 +70,12 @@ body{
 
 /* ====================== run strip ====================================== */
 .runbar{
-  display:flex;align-items:flex-start;gap:28px;flex-wrap:wrap;
-  padding:18px 0 13px;border-bottom:1px solid var(--rule);
+  display:flex;align-items:center;gap:34px;flex-wrap:wrap;
+  padding:18px 0;border-bottom:1px solid var(--rule);
 }
-.brand{min-width:0;flex:1 1 640px}
+.brand{min-width:0;flex:1 1 360px}
 .brand h1{
-  font-family:"Archivo Narrow",sans-serif;
+  font-family:"Inter",sans-serif;
   font-size:34px;font-weight:600;letter-spacing:-.012em;margin:0;line-height:1;
 }
 .brand p{margin:5px 0 0;color:var(--ink-3);font-size:14px;max-width:46ch}
@@ -105,7 +105,7 @@ body{
 .scorerow .nm{font-size:13.5px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .scorerow .tr{height:9px;background:var(--rule-soft);border-radius:2px;overflow:hidden}
 .scorerow .tr i{display:block;height:100%;border-radius:2px}
-.scorerow .vl{font-family:"Archivo Narrow",sans-serif;font-size:15.5px;
+.scorerow .vl{font-family:"Inter",sans-serif;font-size:15.5px;
   font-weight:600;text-align:right;color:var(--ink-2)}
 .scorerow.ours .nm{color:var(--ink);font-weight:600}
 .scorerow.ours .vl{color:var(--ink);font-size:18px}
@@ -117,7 +117,7 @@ body{
   padding:13px 0 2px;
 }
 .rail-head{display:flex;align-items:center;gap:14px;margin-bottom:11px;flex-wrap:wrap}
-.rail-head h2{font-family:"Archivo Narrow",sans-serif;font-size:18px;font-weight:600;margin:0}
+.rail-head h2{font-family:"Inter",sans-serif;font-size:18px;font-weight:600;margin:0}
 .rail-head span{color:var(--ink-3);font-size:14px}
 .track{
   position:relative;height:56px;cursor:pointer;
@@ -133,7 +133,7 @@ body{
 .stations{position:absolute;inset:0;display:flex}
 .stn{
   flex:1;position:relative;background:none;border:0;padding:0;cursor:pointer;
-  color:var(--ink-3);font-family:"Archivo Narrow",sans-serif;
+  color:var(--ink-3);font-family:"Inter",sans-serif;
   display:flex;flex-direction:column;align-items:center;gap:0;
 }
 .stn .knob{
@@ -151,9 +151,8 @@ body{
 .stn:hover .knob{border-color:var(--ink-3)}
 
 /* ====================== panels ========================================= */
-.brand .pitch{margin:6px 0 0;color:var(--ink-2);font-size:15px;line-height:1.45;max-width:82ch}
-.brand .credit{margin:6px 0 0;color:var(--ink-3);font-size:13.5px}
-.brand .credit b{color:var(--ink-2);font-weight:600}
+.brand .pitch{margin:6px 0 0;color:var(--ink-2);font-size:15px;line-height:1.45;max-width:52ch}
+.rail-head .seg{border-radius:999px}
 
 /* one sentence that says what is on screen right now, in words */
 .nowline{
@@ -175,7 +174,7 @@ body{
 .stagehead{
   display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:0 0 9px;
 }
-.stagehead h3{font-family:"Archivo Narrow",sans-serif;font-size:19px;font-weight:600;margin:0}
+.stagehead h3{font-family:"Inter",sans-serif;font-size:19px;font-weight:600;margin:0}
 .stagehead .why{font-size:14px;color:var(--ink-3);margin:0}
 .stagehead .seg{margin-left:auto}
 
@@ -219,7 +218,7 @@ body{
   display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
 }
 .dockhead h4{
-  font-family:"Archivo Narrow",sans-serif;font-size:15px;
+  font-family:"Inter",sans-serif;font-size:15px;
   font-weight:600;margin:0;color:var(--ink);
 }
 .dockhead span{font-size:12.5px;color:var(--ink-3)}
@@ -249,12 +248,12 @@ body{
 
 /* ====================== place finder ================================== */
 .finder{position:relative;display:flex;align-items:center;gap:8px;
-  background:var(--raised);border:1px solid var(--rule);border-radius:3px;
+  background:var(--raised);border:1px solid var(--rule);border-radius:999px;
   padding:0 10px;min-width:272px}
 .finder svg{width:14px;height:14px;color:var(--ink-3);flex:none}
 .finder input{
   background:none;border:0;outline:none;color:var(--ink);flex:1;
-  font-family:"Archivo",sans-serif;font-size:14.5px;padding:7px 0;
+  font-family:"Inter",sans-serif;font-size:14.5px;padding:7px 0;
 }
 .finder input::placeholder{color:var(--ink-3)}
 .finder button{background:none;border:0;color:var(--ink-3);cursor:pointer;
@@ -287,7 +286,7 @@ body{
 .tabs button{
   background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;
   color:var(--ink-3);cursor:pointer;padding:9px 16px;
-  font-family:"Archivo Narrow",sans-serif;font-size:16px;font-weight:600;
+  font-family:"Inter",sans-serif;font-size:16px;font-weight:600;
   transition:color .15s,border-color .15s;
 }
 .tabs button:hover{color:var(--ink-2)}
@@ -305,6 +304,7 @@ body{
     "sco sco sco sco sco skl skl skl skl skl skl skl"
     "nte nte nte nte nte skl skl skl skl skl skl skl";
 }
+#pane-verify{grid-template-areas:"sco sco sco sco sco skl skl skl skl skl skl skl" "nte nte nte nte nte skl skl skl skl skl skl skl"}
 #pane-extremes{
   grid-template-areas: "xr xr xr xr xh xh xh xh xw xw xw xw";
 }
@@ -333,7 +333,7 @@ body{
   display:flex;align-items:center;gap:12px;flex-wrap:wrap;
   padding:13px 16px;border-bottom:1px solid var(--rule-soft);
 }
-.p-head h3{font-family:"Archivo Narrow",sans-serif;font-size:17px;font-weight:600;margin:0}
+.p-head h3{font-family:"Inter",sans-serif;font-size:17px;font-weight:600;margin:0}
 .p-head .why{font-size:13.5px;color:var(--ink-3);margin:0}
 .p-body{padding:14px 16px;flex:1;min-height:0}
 .p-body.flush{padding:0}
@@ -342,7 +342,7 @@ body{
 .seg{display:flex;margin-left:auto;border:1px solid var(--rule);border-radius:3px;overflow:hidden}
 .seg button{
   background:none;border:0;color:var(--ink-3);cursor:pointer;
-  font-family:"Archivo Narrow",sans-serif;font-size:14px;font-weight:600;
+  font-family:"Inter",sans-serif;font-size:14px;font-weight:600;
   padding:5px 12px;transition:background-color .18s,color .18s;
 }
 .seg button + button{border-left:1px solid var(--rule)}
@@ -354,13 +354,21 @@ body{
 .p-map .p-body{display:flex;position:relative}
 .p-map{background:transparent;border:0}
 #map,#wmap{flex:1;min-height:600px;width:100%;background:#0e161d}
-.mapboxgl-map,.maplibregl-map{font-family:"Archivo",sans-serif}
+.mapboxgl-map,.maplibregl-map{font-family:"Inter",sans-serif}
 .mapboxgl-popup-content,.maplibregl-popup-content{
   background:var(--raised);color:var(--ink);border:1px solid var(--rule);
   border-radius:3px;padding:13px 15px;box-shadow:0 12px 38px rgba(0,0,0,.6);
   /* never let the popup outgrow a short map and clip its last rows */
   max-height:min(70vh,560px);overflow-y:auto
 }
+.mapboxgl-popup-content .pop,.maplibregl-popup-content .pop{min-width:270px}
+.popdonut{height:220px;position:relative;margin:0}
+.pop{display:flex;flex-direction:column;gap:8px}
+.pop-context{margin:0;color:var(--ink-3);font-size:12.5px;line-height:1.4}
+.pop-valid{display:flex;flex-wrap:wrap;gap:0 10px}
+.popdonut canvas{width:100%!important;height:100%!important}
+#pane-forecast .dock,#pane-forecast .docktoggle{display:none!important}
+#pane-weights #winspectorCard{display:none!important}
 .mapboxgl-popup-tip,.maplibregl-popup-tip{border-top-color:var(--raised)!important;
   border-bottom-color:var(--raised)!important}
 .mapboxgl-popup-close-button,.maplibregl-popup-close-button{color:var(--ink-3);font-size:19px;padding:2px 7px}
@@ -389,17 +397,18 @@ body{
 }
 .inspector.on{opacity:1}
 .inspector .ih{font-size:12.5px;color:var(--ink-3);display:flex;justify-content:space-between}
-.inspector .iv{font-family:"Archivo Narrow",sans-serif;font-size:30px;font-weight:600;line-height:1.1;margin:3px 0 1px}
+.inspector .iv{font-family:"Inter",sans-serif;font-size:30px;font-weight:600;line-height:1.1;margin:3px 0 1px}
 .inspector .ic{font-size:13px;color:var(--ink-2);margin-bottom:9px}
 .inspector .ir{display:grid;grid-template-columns:11px 1fr auto;gap:6px;align-items:center;font-size:13px;margin:3px 0}
 .inspector .ir i{height:7px;border-radius:2px;display:block}
 .inspector .sw{width:8px;height:8px;border-radius:2px}
 .mapnote{font-size:12.5px;color:var(--ink-3);margin-left:14px;white-space:nowrap}
 
-.pop h4{margin:0;font-family:"Archivo Narrow",sans-serif;font-size:15.5px;font-weight:600}
-.pop .coords{display:flex;gap:14px;color:var(--ink-3);font-size:13px;margin:3px 0 11px}
+.pop h4{margin:0;font-family:inherit;font-size:18px;font-weight:650;line-height:1.35}
+.pop-alert{margin:0;padding:9px 11px;font-size:17px;font-weight:600;line-height:1.35;border-radius:8px}
+.pop .coords{display:flex;gap:14px;color:var(--ink-3);font-size:13px;margin:0;line-height:1.4}
 .pop .big{display:flex;align-items:baseline;gap:7px;margin-bottom:2px}
-.pop .big b{font-family:"Archivo Narrow",sans-serif;font-size:34px;font-weight:600;line-height:1}
+.pop .big b{font-family:"Inter",sans-serif;font-size:34px;font-weight:600;line-height:1}
 .pop .big span{color:var(--ink-2);font-size:14px}
 .pop .cat{font-size:13.5px;margin-bottom:11px}
 .pop .srcrow{display:grid;grid-template-columns:10px max-content minmax(34px,1fr) 46px 42px;
@@ -415,7 +424,7 @@ body{
 .pop .foot{margin-top:11px;padding-top:9px;border-top:1px solid var(--rule);display:flex;justify-content:space-between;font-size:13.5px;color:var(--ink-2)}
 
 /* ---- verifiable sources strip ---------------------------------------- */
-.sources{border:1px solid var(--rule);border-radius:3px;background:var(--raised);
+.sources{border:1px solid var(--rule);border-radius:12px;background:var(--raised);
   margin:0 0 16px}
 .srcsum{display:flex;align-items:center;gap:13px;flex-wrap:wrap;
   padding:9px 14px;cursor:pointer;list-style:none;-webkit-user-select:none;user-select:none}
@@ -424,19 +433,19 @@ body{
 .srcsum:hover{background:var(--rule-soft)}
 .srcsum:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .sources[open] .srcsum{border-bottom:1px solid var(--rule)}
-.srctitle{font-family:"Archivo Narrow",sans-serif;font-size:14.5px;font-weight:600;
+.srctitle{font-family:"Inter",sans-serif;font-size:14.5px;font-weight:600;
   letter-spacing:.01em;flex:0 0 auto}
 /* Collapsed, the row still names every centre. The trust signal must not
    depend on the reader thinking to open the panel. */
 .srcchips{display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex:1 1 auto;min-width:0}
 .sources[open] .srcchips{display:none}
 .srcchip{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-2);
-  background:var(--plane);border:1px solid var(--rule);border-radius:2px;
+  background:var(--plane);border:1px solid var(--rule);border-radius:999px;
   padding:2px 7px 2px 4px;white-space:nowrap}
 .srcchip img{width:15px;height:15px;object-fit:contain;display:block}
 .srcchip .dot{width:8px;height:8px;border-radius:50%;display:block;flex:0 0 auto}
 .srcchip.ref{color:var(--ink-3);padding:2px 7px}
-.srcchip .mg{font-family:"Archivo Narrow",sans-serif;font-size:8.5px;font-weight:700;
+.srcchip .mg{font-family:"Inter",sans-serif;font-size:8.5px;font-weight:700;
   color:var(--ink-3);min-width:15px;text-align:center;letter-spacing:.02em}
 .srcmore{display:inline-flex;align-items:center;gap:6px;color:var(--ink-3);font-size:12.5px;
   flex:0 0 auto;margin-left:auto}
@@ -454,7 +463,7 @@ body{
 .srclogo img{max-width:100%;max-height:100%;object-fit:contain;display:block}
 /* until a real logo is supplied the slot carries a monogram, so the strip
    never renders as a row of broken images */
-.srclogo span{font-family:"Archivo Narrow",sans-serif;font-size:11.5px;font-weight:700;
+.srclogo span{font-family:"Inter",sans-serif;font-size:11.5px;font-weight:700;
   color:var(--ink-3);letter-spacing:.02em}
 .srctext{min-width:0}
 .srctext b{display:block;font-size:14px;font-weight:600;line-height:1.25}
@@ -469,7 +478,7 @@ body{
 .legend{display:flex;align-items:center;gap:0;padding:9px 16px;border-top:1px solid var(--rule-soft);flex-wrap:wrap}
 .legend .lg{display:flex;flex-direction:column;gap:4px;flex:1;min-width:56px}
 .legend .sw{height:9px}
-.legend .lb{font-size:11.5px;color:var(--ink-3);font-family:"Archivo Narrow",sans-serif;line-height:1.2}
+.legend .lb{font-size:11.5px;color:var(--ink-3);font-family:"Inter",sans-serif;line-height:1.2}
 .legend .unit{font-size:12.5px;color:var(--ink-3);margin-right:12px;white-space:nowrap}
 
 /* ====================== alerts ========================================= */
@@ -487,7 +496,7 @@ body{
 .alert .icon{width:19px;height:19px;flex:none}
 .alert .ttl{display:block;font-weight:600;font-size:14.5px}
 .alert .sub{display:block;font-size:13px;color:var(--ink-3);margin-top:2px}
-.alert .pct{display:block;font-family:"Archivo Narrow",sans-serif;font-size:21px;font-weight:600;text-align:right;line-height:1}
+.alert .pct{display:block;font-family:"Inter",sans-serif;font-size:21px;font-weight:600;text-align:right;line-height:1}
 .alert .pctl{display:block;font-size:11.5px;color:var(--ink-3);text-align:right;margin-top:2px}
 .sev-critical .ttl{color:#ff9b9b}
 .sev-serious  .ttl{color:#ffbc9c}
@@ -496,14 +505,14 @@ body{
 
 /* ====================== reliability matrix ============================= */
 .matrix{display:grid;grid-template-columns:78px repeat(5,1fr);gap:3px}
-.matrix .hd{font-size:13px;color:var(--ink-3);font-family:"Archivo Narrow",sans-serif;padding:0 0 5px;text-align:center}
-.matrix .rh{font-size:13.5px;color:var(--ink-2);display:flex;align-items:center;font-family:"Archivo Narrow",sans-serif}
+.matrix .hd{font-size:13px;color:var(--ink-3);font-family:"Inter",sans-serif;padding:0 0 5px;text-align:center}
+.matrix .rh{font-size:13.5px;color:var(--ink-2);display:flex;align-items:center;font-family:"Inter",sans-serif}
 .cellm{
   border:1px solid var(--rule-soft);padding:9px 4px;text-align:center;border-radius:2px;
   transition:outline-color .2s;outline:1px solid transparent;
 }
 .cellm.on{outline-color:var(--ink)}
-.cellm b{font-family:"Archivo Narrow",sans-serif;font-size:19px;font-weight:700;display:block;line-height:1}
+.cellm b{font-family:"Inter",sans-serif;font-size:19px;font-weight:700;display:block;line-height:1}
 .cellm span{font-size:12px;color:var(--ink-2);display:block;margin-top:2px}
 
 /* ====================== table view ===================================== */
@@ -562,10 +571,7 @@ table.dt tr.hl td{color:#fff;font-weight:600}
   <header class="runbar">
     <div class="brand">
       <h1>Blend Desk</h1>
-      <p class="pitch">Five global weather models disagree about tomorrow. This learns
-         which one to trust &mdash; for each place, each day ahead and each kind of
-         weather &mdash; and blends them into a single forecast.</p>
-      <p class="credit">SIH26081 &nbsp;&middot;&nbsp; Ministry of Earth Sciences / NCMRWF<span id="teamLine"></span></p>
+      <p class="pitch">Blends five weather models into local daily guidance.</p>
     </div>
     <dl class="runmeta">
       <div>
@@ -620,8 +626,8 @@ table.dt tr.hl td{color:#fff;font-weight:600}
       </div>
       <div class="seg">
         <label for="runSel" style="display:none">Forecast run</label>
-        <select id="runSel" style="background:var(--raised);color:var(--ink);border:0;
-                font-family:'Archivo Narrow',sans-serif;font-size:14px;
+        <select id="runSel" style="background:var(--raised);color:var(--ink);border:0;border-radius:999px;
+                font-family:'Inter',sans-serif;font-size:14px;
                 font-weight:600;padding:5px 10px;cursor:pointer"></select>
       </div>
     </div>
@@ -638,7 +644,7 @@ table.dt tr.hl td{color:#fff;font-weight:600}
   <nav class="tabs" role="tablist" aria-label="Sections">
     <button role="tab" id="tab-forecast" aria-selected="true"  data-pane="forecast">Forecast</button>
     <button role="tab" id="tab-weights"  aria-selected="false" data-pane="weights">Model weights</button>
-    <button role="tab" id="tab-verify"   aria-selected="false" data-pane="verify">Verification</button>
+    <button role="tab" id="tab-verify"   aria-selected="false" data-pane="verify">Model comparisons</button>
     <button role="tab" id="tab-extremes" aria-selected="false" data-pane="extremes">Extremes</button>
   </nav>
 
@@ -917,12 +923,22 @@ const fmtDate = s => {
   const d = new Date(s+'T00:00:00Z');
   return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',timeZone:'UTC'});
 };
+const fmtFullDate = s => new Date(s+'T00:00:00Z').toLocaleDateString('en-GB',{
+  day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'
+});
+function forecastRefreshLabel(){
+  const raw = (DATA.meta.generated || '').split(' ');
+  if (raw.length < 2) return 'Refresh time unavailable';
+  return 'Updated '+fmtFullDate(raw[0])+' '+raw[1]+' IST';
+}
+const leadName = L => L === 0 ? 'T' : 'T+'+L;
 
 /* ===================================================================== */
 /* state                                                                  */
 /* ===================================================================== */
-let runKey = DATA.issue_dates[Math.min(7, DATA.issue_dates.length-1)];
-let lead   = 3;
+/* Prefer the newest available run. Older exports remain selectable for review. */
+let runKey = DATA.issue_dates[DATA.issue_dates.length-1];
+let lead   = DATA.runs[DATA.issue_dates[DATA.issue_dates.length-1]]['0'] ? 0 : 1;
 let variable = 'rain';
 
 const run  = () => DATA.runs[runKey];
@@ -947,11 +963,6 @@ const clf50 = DATA.metrics.classifier.find(r=>Math.abs(r.threshold-0.4)<1e-6) ||
 
 document.getElementById('mRegion').textContent = M.region.split(',')[0];
 document.getElementById('fNcells').textContent = M.n_cells;
-(function(){
-  const t = document.getElementById('teamLine');
-  if (t && M.team) t.innerHTML = ' &nbsp;&middot;&nbsp; Team <b>' + M.team + '</b>' +
-    (M.institute ? ', ' + M.institute : '');
-})();
 document.getElementById('fRegion').textContent = M.region;
 document.getElementById('fSeason').textContent = M.season;
 
@@ -963,6 +974,9 @@ function tickClock(){
       {hour:'2-digit',minute:'2-digit',timeZone:'Asia/Kolkata'}) + ' IST';
 }
 tickClock(); setInterval(tickClock, 20000);
+/* The scheduled publisher rebuilds this standalone file every three hours.
+   Reload an open dashboard at that cadence so it picks up the new snapshot. */
+setInterval(function(){ window.location.reload(); }, 3 * 60 * 60 * 1000);
 
 /* ===================================================================== */
 /* horizon rail                                                           */
@@ -972,15 +986,17 @@ const railFill   = document.getElementById('railFill');
 
 function buildRail(){
   stationsEl.innerHTML = '';
-  for(let L=1; L<=5; L++){
+  const leads = Object.keys(run()).map(Number).sort((a,b)=>a-b);
+  for(const L of leads){
     const b = document.createElement('button');
     b.className='stn'; b.type='button';
+    b.dataset.lead = L;
     b.setAttribute('role','radio');
     b.setAttribute('aria-checked', String(L===lead));
     b.tabIndex = L===lead ? 0 : -1;
-    b.innerHTML = '<span class="knob"></span><span class="lead">T+'+L+'</span>'+
+    b.innerHTML = '<span class="knob"></span><span class="lead">'+leadName(L)+'</span>'+
                   '<span class="vd num">'+fmtDate(run()[String(L)].valid)+'</span>';
-    b.setAttribute('aria-label','Lead time '+L+' day'+(L>1?'s':'')+', valid '+run()[String(L)].valid);
+    b.setAttribute('aria-label',(L===0?'Today':'Lead time '+L+' day'+(L>1?'s':''))+', valid '+run()[String(L)].valid);
     b.addEventListener('click',()=>setLead(L));
     stationsEl.appendChild(b);
   }
@@ -988,12 +1004,15 @@ function buildRail(){
 }
 function paintRail(){
   [...stationsEl.children].forEach((b,i)=>{
-    const on = (i+1)===lead;
+    const on = Number(b.dataset.lead)===lead;
     b.setAttribute('aria-checked', String(on));
     b.tabIndex = on ? 0 : -1;
   });
-  railFill.style.width = ((lead-0.5)/5*100)+'%';
-  const dom = DATA.weights.cell_lead[String(lead)].dom;
+  const leadIndex = [...stationsEl.children].findIndex(b=>Number(b.dataset.lead)===lead);
+  const markerPosition = (leadIndex + 0.5) / Math.max(1, stationsEl.children.length);
+  railFill.style.width = (markerPosition * 100)+'%';
+  const leadWeights = DATA.weights.cell_lead[String(lead)] || DATA.weights.cell_lead[String(Math.max(1,lead))];
+  const dom = leadWeights.dom;
   const tally = {}; dom.forEach(d=>tally[d]=(tally[d]||0)+1);
   const top = Object.keys(tally).sort((a,b)=>tally[b]-tally[a])[0];
   railFill.style.backgroundColor = SERIES[top] || SERIES.A;
@@ -1003,7 +1022,8 @@ function paintRail(){
 const track = document.getElementById('track');
 function leadFromX(clientX){
   const r = track.getBoundingClientRect();
-  return Math.min(5, Math.max(1, Math.ceil(((clientX-r.left)/r.width)*5) || 1));
+  const max = Math.max(1, Object.keys(run()).length - 1);
+  return Math.min(max, Math.max(0, Math.round(((clientX-r.left)/r.width)*max)));
 }
 let dragging=false;
 track.addEventListener('pointerdown', e=>{
@@ -1014,11 +1034,11 @@ track.addEventListener('pointermove', e=>{ if(dragging) setLead(leadFromX(e.clie
 track.addEventListener('pointerup',   ()=>{dragging=false});
 track.addEventListener('keydown', e=>{
   if(e.key==='ArrowRight'||e.key==='ArrowUp'){ setLead(Math.min(5,lead+1)); focusStn(); e.preventDefault(); }
-  if(e.key==='ArrowLeft' ||e.key==='ArrowDown'){ setLead(Math.max(1,lead-1)); focusStn(); e.preventDefault(); }
-  if(e.key==='Home'){ setLead(1); focusStn(); e.preventDefault(); }
+  if(e.key==='ArrowLeft' ||e.key==='ArrowDown'){ setLead(Math.max(0,lead-1)); focusStn(); e.preventDefault(); }
+  if(e.key==='Home'){ setLead(0); focusStn(); e.preventDefault(); }
   if(e.key==='End'){ setLead(5); focusStn(); e.preventDefault(); }
 });
-const focusStn = ()=> stationsEl.children[lead-1].focus();
+const focusStn = ()=> [...stationsEl.children].find(b=>+b.dataset.lead===lead)?.focus();
 
 function setLead(L){
   if(L===lead) return;
@@ -1384,8 +1404,9 @@ function indiaOutline(){
    cells-fill stays in the style at zero opacity as the hover/click target. */
 let mapReady = false;
 const showGrid = false, showIso = true;
-let pinned = null, popup = null;
+let pinned = null, popup = null, popupWeightChart = null;
 let wmap = null, wmapReady = false, shareChart = null;
+let weightCell = 0;
 
 /* If the vector style cannot be reached, fall back to an inline style with
    Esri raster tiles. GL JS only fires `load` once the remote style resolves,
@@ -1532,15 +1553,11 @@ map.on('style.load', function(){
        it must run on cell CHANGE, not on every pixel of mouse travel */
     map.setFilter('cell-hover',['==',['get','idx'], i]);
     map.getCanvas().style.cursor = 'pointer';
-    showInspector(i);
   });
   map.on('mouseleave','cells-fill', function(){
     hoverIdx = -1;
     map.setFilter('cell-hover',['==',['get','idx'],-1]);
     map.getCanvas().style.cursor = '';
-    document.getElementById('inspector').innerHTML = '';
-    const h = document.getElementById('inspectorHint');
-    if (h) h.style.display = '';
   });
   map.on('click','cells-fill', function(e){ openCell(e.features[0].properties.idx, true); });
 
@@ -1584,92 +1601,82 @@ function paintLegend(){
         '<span class="lb">'+b.l+(b.r?'<br>'+b.r:'')+'</span></span>'; }).join('');
 }
 
-/* --- hover inspector -------------------------------------------------- */
-function showInspector(i){
-  const s = slice(), c = DATA.cells[i], isRain = variable === 'rain';
-  const val = fieldOf(s, variable)[i];
-  const keys = KEYS.filter(k => wAt(s, k, 0) !== null && wAt(s, k, 0) !== undefined);
-  const w = keys.map(k => wAt(s, k, i));
-  const cat = binOf(val, binsFor(variable));
-  const el = document.getElementById('inspector');
-  el.innerHTML =
-    '<div class="ih"><span>Cell '+c.id+'</span><span class="num">'+c.elev+' m</span></div>'+
-    '<div class="iv num">'+val.toFixed(1)+
-      '<span style="font-size:14.5px;font-weight:500;color:var(--ink-2)"> '+VARUNIT[variable]+'</span></div>'+
-    '<div class="ic"><span class="sw" style="display:inline-block;background:'+cat.c+
-      ';margin-right:5px"></span>'+cat.l+'</div>'+
-    keys.map(function(k,j){
-      return '<div class="ir"><span class="sw" style="background:'+SERIES[k]+'"></span>'+
-      '<span style="background:var(--rule-soft);border-radius:3px;overflow:hidden">'+
-      '<i style="width:'+Math.round(100*w[j])+'%;background:'+SERIES[k]+'"></i></span>'+
-      '<span class="num" style="color:var(--ink-2)">'+Math.round(100*w[j])+'%</span></div>';
-    }).join('')+
-    '<div class="ih" style="margin-top:9px;padding-top:8px;border-top:1px solid var(--rule)">'+
-      '<span>'+s.conf[i].toFixed(0)+'% confidence</span>'+
-      '<span>'+(isRain ? (100*s.pext[i]).toFixed(0)+'% heavy' : '')+'</span></div>';
-  el.classList.add('on');
-  const h = document.getElementById('inspectorHint');
-  if (h) h.style.display = 'none';
-}
-
 /* --- pinned popup ----------------------------------------------------- */
-function openCell(i, keepView){
+function openCell(i, keepView, searchedName){
   const c = DATA.cells[i];
   pinned = i;
+  weightCell = i;
   if (popup) popup.remove();
+  if (popupWeightChart){ popupWeightChart.destroy(); popupWeightChart = null; }
   popup = new GL.Popup({closeButton:true, maxWidth:'372px', offset:10})
-    .setLngLat([c.lon, c.lat]).setHTML(popupHtml(i)).addTo(map);
-  popup.on('close', function(){ pinned = null; });
+    .setLngLat([c.lon, c.lat]).setHTML(popupHtml(i, searchedName));
+  popup.on('close', function(){ pinned = null; if(popupWeightChart){popupWeightChart.destroy();popupWeightChart=null;} });
+  popup.addTo(map);
+  requestAnimationFrame(function(){
+    renderPopupDonut(i);
+    /* The donut gives the popup its final height. Reposition after layout so
+       MapLibre can keep the full card inside the map viewport. */
+    requestAnimationFrame(function(){
+      if (popup) popup.setLngLat([c.lon,c.lat]);
+    });
+  });
   if (!keepView) map.easeTo({center:[c.lon, c.lat], duration:520});
 }
-function focusCell(i){
-  const c = DATA.cells[i];
-  map.easeTo({center:[c.lon, c.lat], zoom: Math.max(map.getZoom(), 7.6), duration:700});
-  openCell(i, true);
+function nearestPlaceName(c){
+  const places = ((DATA.geo && DATA.geo.places) || []).filter(p=>p.k!=='state' && p.c);
+  if (!places.length) return null;
+  const cosLat = Math.cos(c.lat*Math.PI/180);
+  let nearest = null, best = Infinity;
+  places.forEach(function(p){
+    const dx = (p.c[0]-c.lon)*cosLat, dy = p.c[1]-c.lat;
+    const d = dx*dx+dy*dy;
+    if(d<best){best=d;nearest=p;}
+  });
+  return nearest && nearest.n;
 }
-
-function popupHtml(i){
+function htmlText(value){
+  return String(value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function popupHtml(i, searchedName){
   const s = slice(), c = DATA.cells[i];
-  const isRain = variable === 'rain';
   const val  = fieldOf(s, variable)[i];
-  /* A live run carries no persistence member, so list only the sources this
-     slice actually has rather than assuming the full archive schema. */
-  const keys = ALLK.filter(k => Array.isArray(s['m' + lc(k)]));
-  const pre  = variable === 'rain' ? 'm' : (variable === 'temp' ? 't' : 'w');
-  const srcs = keys.map(k => (s[pre + lc(k)] || s['m' + lc(k)])[i]);
-
-  /* persistence has no weight - it is the reference, not a member */
-  const w    = keys.map(k => wAt(s, k, i));
-  const maxS = Math.max(Math.max.apply(null, srcs), 0.001);
-  const cat  = binOf(val, binsFor(variable));
-
-  const rows = keys.map(function(k,j){
-    return '<div class="srcrow">'+
-      '<span class="swatch" style="background:'+SERIES[k]+'"></span>'+
-      '<span class="nm">'+NAMEOF[k]+'</span>'+
-      '<span class="bar"><i style="width:'+(100*srcs[j]/maxS).toFixed(1)+'%;background:'+SERIES[k]+'"></i></span>'+
-      '<span class="num" style="text-align:right">'+srcs[j].toFixed(1)+'</span>'+
-      '<span class="num" style="text-align:right;color:var(--ink-3)">'+
-        (w[j] === null ? '—' : Math.round(100*w[j])+'%')+'</span>'+
-    '</div>'; }).join('');
+  const placeName = htmlText(searchedName || nearestPlaceName(c) || 'nearest location');
+  const rainAlert = s.rain[i] >= (M.extreme_mm || 40);
+  const heatAlert = s.t2m[i] >= (M.heat_c || 34);
+  const windAlert = s.wind && s.wind[i] >= (M.high_wind_kmh || 40);
+  const hasAlert = rainAlert || heatAlert || windAlert;
+  const alertText = hasAlert
+    ? '<div class="pop-alert" style="border-left:3px solid '+(rainAlert||windAlert?'#d03b3b':'#fab219')+';background:#231f16">⚠️ '+[rainAlert?'Heavy rainfall':null,heatAlert?'Heat wave':null,windAlert?'High wind':null].filter(Boolean).join(' · ')+'</div>'
+    : '<div class="pop-alert" style="color:#9bd9c2">No alert today😌</div>';
 
   return '<div class="pop">'+
-    '<h4>'+VARNAME[variable]+' at cell '+c.id+'</h4>'+
+    '<h4>'+VARNAME[variable]+' at '+placeName+'</h4>'+
+    '<p class="pop-context">Nearest forecast grid point</p>'+
     '<p class="coords num"><span>'+c.lat.toFixed(2)+'°N '+c.lon.toFixed(2)+'°E</span>'+
-      '<span>'+c.elev+' m</span><span>T+'+lead+'</span></p>'+
-    '<div class="big"><b class="num">'+val.toFixed(1)+'</b><span>'+VARUNIT[variable]+' blended</span></div>'+
-    '<p class="cat"><span class="swatch" style="display:inline-block;background:'+cat.c+
-      ';margin-right:6px;vertical-align:1px"></span>'+cat.l+'</p>'+
-    '<div class="srcrow" style="font-size:12px;color:var(--ink-3);margin-bottom:2px">'+
-      '<span></span><span>Source</span><span></span>'+
-      '<span style="text-align:right">'+VARUNIT[variable]+'</span>'+
-      '<span style="text-align:right">weight</span></div>'+
-    rows+
-    '<div class="foot"><span>'+s.conf[i].toFixed(0)+'% confidence</span>'+
-    '<span>'+(100*s.pext[i]).toFixed(0)+'% chance of heavy rain</span></div>'+
-    '<p class="prov">Operational runs from '+keys.filter(k => KEYS.indexOf(k) >= 0).length+
-      ' centres via Open-Meteo. Verified against ERA5 reanalysis.</p>'+
+      '<span>'+c.elev+' m</span></p>'+
+    '<p class="pop-context pop-valid"><span>Valid '+fmtFullDate(s.valid)+'</span>'+
+      '<span>'+forecastRefreshLabel()+'</span></p>'+
+    '<div class="popdonut"><canvas id="cellWeightDonut" aria-label="Model weight donut chart"></canvas></div>'+alertText+
     '</div>';
+}
+
+function renderPopupDonut(i){
+  const canvas = document.getElementById('cellWeightDonut');
+  if(!canvas) return;
+  const sl = slice();
+  const keys = KEYS.filter(k => Array.isArray(sl['w'+lc(k)]) || wAt(sl,k,i)!==null);
+  const vals = keys.map(k => Math.max(0, Number(wAt(sl,k,i)) || 0));
+  const value = Number(fieldOf(sl,variable)[i]);
+  popupWeightChart = new Chart(canvas,{type:'doughnut',data:{labels:keys.map(k=>LABEL(k)),datasets:[{
+    data:vals,backgroundColor:keys.map(k=>SERIES[k]),borderColor:SURFACE,borderWidth:2,hoverOffset:7
+  }]},options:{responsive:true,maintainAspectRatio:false,radius:'92%',cutout:71,plugins:{legend:{display:false},tooltip:{
+    backgroundColor:'#17222b',borderColor:GRID,borderWidth:1,titleColor:'#eef4f8',bodyColor:INK2,
+    callbacks:{title:items=>items.length?items[0].label:'',label:item=>'Weight '+(100*item.parsed).toFixed(1)+'%'}
+  },doughnutCentre:{text:value.toFixed(1)+' '+VARUNIT[variable]}},onHover:(event,elements)=>{
+    canvas.style.cursor=elements.length?'pointer':'';
+  }},plugins:[{id:'doughnutCentre',afterDraw(chart,args,opts){
+    const area=chart.chartArea;if(!area)return;const ctx=chart.ctx;ctx.save();ctx.fillStyle='#eef4f8';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='600 25px "Inter", sans-serif';ctx.fillText(opts.text,(area.left+area.right)/2,(area.top+area.bottom)/2);ctx.restore();
+  }}]});
 }
 
 /* ===================================================================== */
@@ -1806,7 +1813,7 @@ function setVar(v){
 /* ===================================================================== */
 /* weights — 100% stacked bars, one per lead                              */
 /* ===================================================================== */
-Chart.defaults.font.family = "'Archivo Narrow','Archivo',sans-serif";
+Chart.defaults.font.family = "'Inter','Inter',sans-serif";
 Chart.defaults.font.size = 13.5;
 Chart.defaults.color = INK3;
 
@@ -1816,12 +1823,12 @@ let weightChart;
 function weightRowsForRegime(reg){
   const even = {};
   KEYS.forEach(k => { even['w_'+lc(k)] = 1 / KEYS.length; });
-  return [1,2,3,4,5].map(function(L){
+  return [0,1,2,3,4,5].map(function(L){
     /* A live run carries the exact per-variable vector it blended with, so
        prefer that: it is the only source that differs between rainfall and
        temperature, and the difference is the point. The trained regime table
        is rainfall-only and stays the fallback for archive runs. */
-    const sl = run()[String(L)];
+    const sl = run()[String(L)] || run()[String(Math.max(1,L))];
     if (sl && sl.wv){
       const v = sl.wv[WKEY[variable]] || sl.wv.rain;
       if (v){
@@ -1830,7 +1837,7 @@ function weightRowsForRegime(reg){
         return row;
       }
     }
-    return DATA.weights.by_regime_lead.find(x=>x.regime===reg && x.lead_time===L) || even;
+    return DATA.weights.by_regime_lead.find(x=>x.regime===reg && x.lead_time===Math.max(1,L)) || even;
   });
 }
 
@@ -1840,40 +1847,32 @@ function paintWeights(){
   const why = document.getElementById('wWhy');
   if (why) why.textContent = 'for ' + VARNAME[variable].toLowerCase() +
       (variable === 'wind' ? ' · reuses the rainfall mix' : ' · sums to 100%');
-  const last = KEYS.length - 1;
+  const sl = slice();
+  const cellWeights = KEYS.map(k => Math.max(0, Number(wAt(sl, k, weightCell)) || 0));
   const data = {
-    labels:[1,2,3,4,5].map(L=>'T+'+L),
-    datasets: KEYS.map((k,j)=>({
-      label: LABEL(k),
-      data: rows.map(r=>100*(r['w_'+lc(k)] || 0)),
-      backgroundColor: rows.map((_,i)=> (i+1)===lead ? SERIES[k] : SERIES[k]+'59'),
-      borderColor: SURFACE, borderWidth:2, borderSkipped:false,
-      borderRadius: j===last?{topRight:4,bottomRight:4}:(j===0?{topLeft:4,bottomLeft:4}:0)
-    }))
+    labels:KEYS.map(k=>LABEL(k)),
+    datasets:[{data:cellWeights, backgroundColor:KEYS.map(k=>SERIES[k]),
+      borderColor:SURFACE, borderWidth:2, hoverOffset:5}]
   };
   const opts = {
-    indexAxis:'y', responsive:true, maintainAspectRatio:false,
+    responsive:true, maintainAspectRatio:false, cutout:'66%',
     animation:{duration:320},
-    layout:{padding:{right:4}},
-    scales:{
-      x:{stacked:true, max:100, grid:{color:GRID, drawTicks:false},
-         border:{display:false}, ticks:{callback:v=>v+'%', color:INK3, font:{size:10.5}}},
-      y:{stacked:true, grid:{display:false}, border:{color:GRID},
-         ticks:{color:(c)=> (c.index+1)===lead ? '#eef4f8' : INK3,
-                font:{weight:(c)=>(c.index+1)===lead?'700':'500', size:13}}}
-    },
     plugins:{
       legend:{position:'bottom', labels:{boxWidth:8, boxHeight:8, padding:7,
               usePointStyle:true, pointStyle:'rect', color:INK2, font:{size:10.5}}},
       tooltip:{
         backgroundColor:'#17222b', borderColor:GRID, borderWidth:1,
         titleColor:'#eef4f8', bodyColor:INK2, padding:10, displayColors:true,
-        callbacks:{ label:c=> ' '+c.dataset.label+': '+c.parsed.x.toFixed(1)+'%' }
-      }
-    }
+        callbacks:{ label:c=> ' '+c.label+': '+(100*c.parsed).toFixed(1)+'%' }
+      },
+      doughnutCentre:{text:VARNAME[variable]}
+    },
+    onHover:(event,elements)=>{ if(elements.length) weightChart.setActiveElements(elements); }
   };
   if(weightChart){ weightChart.data=data; weightChart.options=opts; weightChart.update(); }
-  else weightChart = new Chart(wctx,{type:'bar',data,options:opts});
+  else weightChart = new Chart(wctx,{type:'doughnut',data,options:opts,plugins:[{id:'doughnutCentre',afterDraw(chart,args,pluginOpts){
+    const {ctx,chartArea}=chart;if(!chartArea)return;ctx.save();ctx.fillStyle='#eef4f8';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='600 13px Inter, sans-serif';ctx.fillText(pluginOpts.text,(chartArea.left+chartArea.right)/2,(chartArea.top+chartArea.bottom)/2);ctx.restore();
+  }}]});
 }
 
 /* ===================================================================== */
@@ -1887,7 +1886,7 @@ let skillChart;
 const leadMarker = {
   id:'leadMarker',
   beforeDatasetsDraw(chart){
-    const x = chart.scales.x.getPixelForValue(lead-1);
+    const x = chart.scales.x.getPixelForValue(Math.max(0,lead-1));
     const {top,bottom} = chart.chartArea;
     const g = chart.ctx;
     g.save();
@@ -1938,7 +1937,7 @@ function paintSkill(){
     id:'endLabels',
     afterDatasetsDraw(chart){
       const g = chart.ctx; g.save();
-      g.font = "600 13px 'Archivo Narrow',sans-serif";
+      g.font = "600 13px 'Inter',sans-serif";
       g.textBaseline='middle';
 
       /* Sources can finish within a few hundredths of a mm of each other
@@ -2171,28 +2170,11 @@ function ensureWeightMap(){
 
     let whoverIdx = -1;
     wmap.on('mousemove','wcells-fill', function(e){
-      const p = e.features[0].properties;
-      if (p.idx === whoverIdx) return;
-      whoverIdx = p.idx;
+      whoverIdx = e.features[0].properties.idx;
       wmap.getCanvas().style.cursor = 'pointer';
-      const el = document.getElementById('winspector');
-      const c = DATA.cells[p.idx];
-      const wh = document.querySelector('#winspectorCard .dockhint');
-      if (wh) wh.style.display = 'none';
-      el.innerHTML =
-        '<div class="ih"><span>Cell '+c.id+'</span><span class="num">T+'+lead+'</span></div>'+
-        '<div class="iv num" style="color:'+SERIES[p.dom]+'">'+NAMEOF[p.dom]+'</div>'+
-        '<div class="ic">leads with '+Math.round(p.domw*100)+'% of the weight</div>'+
-        '<div class="ic">centres disagree by <b style="color:#f0b429">'+p.spread+' mm</b></div>'+
-        '<div class="ih"><span class="num">'+c.lat.toFixed(1)+'°N '+c.lon.toFixed(1)+'°E</span>'+
-        '<span class="num">'+c.elev+' m</span></div>';
-      el.classList.add('on');
     });
     wmap.on('mouseleave','wcells-fill', function(){
       wmap.getCanvas().style.cursor = '';
-      document.getElementById('winspector').innerHTML = '';
-      const wh2 = document.querySelector('#winspectorCard .dockhint');
-      if (wh2) wh2.style.display = '';
     });
 
     wmapReady = true;
@@ -2331,21 +2313,21 @@ function paintExtremes(){
   [rain, heat, wind].forEach(a => a.sort((x,y) => y.score - x.score));
 
   document.getElementById('xRain').innerHTML = mk(rain.slice(0,60),
-    'No cell above the heavy-rain threshold at T+'+lead+'.');
+    'No alert today😌');
   document.getElementById('xHeat').innerHTML = mk(heat.slice(0,60),
-    'No cell running hot against its seasonal normal at T+'+lead+'.');
+    'No alert today😌');
   document.getElementById('xWind').innerHTML = mk(wind.slice(0,60),
-    s.wind ? 'No cell near the high-wind threshold at T+'+lead+'.'
+    s.wind ? 'No alert today😌'
            : 'Wind is not in this dataset yet. Re-run the fetch and training steps to populate it.');
 
   document.getElementById('xRainWhy').textContent =
-    'Classifier probability of a '+M_.extreme_mm+' mm breach above 25%, at T+'+lead+'.';
+    'Classifier probability of a '+M_.extreme_mm+' mm breach above 25%, at '+leadName(lead)+'.';
   document.getElementById('xHeatWhy').textContent = climOK
-    ? '1.5 °C or more above the local seasonal normal, at T+'+lead+'.'
+    ? '1.5 °C or more above the local seasonal normal, at '+leadName(lead)+'.'
     : 'Blended 2 m mean at or near '+(M_.heat_c || 34)+' °C, at T+'+lead+
       '. A live run has no seasonal normal to compare against.';
   document.getElementById('xWindWhy').textContent =
-    'Daily maximum 10 m wind near or above '+(M_.high_wind_kmh || 40)+' km/h, at T+'+lead+'.';
+    'Daily maximum 10 m wind near or above '+(M_.high_wind_kmh || 40)+' km/h, at '+leadName(lead)+'.';
 
   document.querySelectorAll('#pane-extremes .alert').forEach(function(b){
     b.addEventListener('click', function(){ showPane('forecast'); focusCell(+b.dataset.i); });
@@ -2629,8 +2611,7 @@ function choose(p){
      Anything smaller resolves to ONE cell - frame that cell and mark it,
      rather than dropping the viewer at zoom 7 to hunt for a 28 km box. */
   const single = p.k !== 'state';
-  const idx = single ? cellAt(p.c[0], p.c[1]) : -1;
-  focusCell(idx);
+  const idx = cellAt(p.c[0], p.c[1]);
 
   [map, wmap].forEach(function(m){
     if (!m) return;
@@ -2644,12 +2625,12 @@ function choose(p){
       m.easeTo({center: p.c, zoom: 7.2, duration: 900});
     }
   });
-  /* Deliberately NOT openCell() here. A map popup anchors at the cell
-     centre, so it lands on top of the very box the search just framed and
-     outlined. The dock readout carries the same figures and sits beside
-     the map, leaving the highlighted cell visible. Clicking it still
-     opens the popup for anyone who wants it. */
-  if (single && idx >= 0) setTimeout(function(){ showInspector(idx); }, 950);
+  /* Resolve the searched place to its nearest forecast grid cell, then open
+     the same location card used by a map click after the map finishes moving. */
+  if (idx >= 0){
+    if (activePane !== 'forecast') showPane('forecast');
+    setTimeout(function(){ openCell(idx, true, p.n); }, 1050);
+  }
   refreshArea();
 }
 
