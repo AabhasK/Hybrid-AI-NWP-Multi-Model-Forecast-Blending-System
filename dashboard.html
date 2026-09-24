@@ -44,6 +44,8 @@
   --critical: #d03b3b;
 
   --focus: #ffd426;
+  --active-button: #3C597D;
+  --active-button-ink: #f4f7fb;
 }
 
 *{box-sizing:border-box}
@@ -67,22 +69,24 @@ body{
 /* ====================== run strip ====================================== */
 .runbar{
   position:relative;isolation:isolate;
-  display:flex;align-items:center;gap:34px;flex-wrap:wrap;
-  padding:22px 0 20px;border-bottom:1px solid rgba(164,171,238,.17);
+  display:flex;align-items:center;gap:24px;flex-wrap:wrap;
+  padding:18px 0 17px;border-bottom:1px solid rgba(164,171,238,.17);
 }
 .runbar::before{content:"";position:absolute;z-index:-1;top:0;bottom:0;left:50%;width:100vw;
   transform:translateX(-50%);background:#192430}
-.brand{min-width:0;flex:1 1 360px}
+.brand{min-width:0;flex:0 0 auto}
 .brand h1{
   font-family:"Inter",sans-serif;
   font-size:34px;font-weight:600;letter-spacing:-.012em;margin:0;line-height:1;
 }
 .brand p{margin:5px 0 0;color:var(--ink-3);font-size:14px;max-width:46ch}
-.runmeta{display:flex;gap:26px;margin-left:auto;flex-wrap:wrap}
-.runmeta div{min-width:88px}
-.runmeta dt{font-size:12.5px;color:var(--ink-3);letter-spacing:.02em;margin:0}
-.runmeta dd{margin:1px 0 0;font-size:16px;font-weight:600}
-.runmeta dd.stale{color:var(--focus)}
+.header-controls{display:flex;align-items:center;gap:14px;margin-left:auto;padding:5px 13px 5px 5px;
+  background:#202d3a;border:1px solid #34495c;border-radius:14px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.035)}
+.console-clock{display:flex;flex-direction:column;justify-content:center;min-width:91px;
+  padding:1px 0 1px 14px;border-left:1px solid #405365;line-height:1.25}
+.console-clock span{color:#aab8c6;font-size:11.5px;white-space:nowrap}
+.console-clock time{color:#f0f4f7;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
 .pill{
   display:inline-flex;align-items:center;gap:7px;
   padding:3px 11px 3px 8px;border-radius:999px;font-size:14px;font-weight:600;
@@ -126,15 +130,15 @@ body{
   gap:12px;min-width:0;width:100%}
 .stn{
   min-width:0;min-height:184px;padding:16px 17px 14px;text-align:left;
-  background:linear-gradient(155deg,#303563,#25294f);border:1px solid #414775;
+  background:linear-gradient(155deg,#394c60,#33465a);border:1px solid #53677b;
   border-radius:20px;color:var(--ink);font-family:"Inter",sans-serif;cursor:pointer;
   display:flex;flex-direction:column;transition:transform .18s,border-color .18s,background .18s,box-shadow .18s
 }
-.stn[aria-pressed="true"]{background:linear-gradient(155deg,#464a7b,#343862);
-  border-color:var(--focus);box-shadow:0 0 0 1px rgba(255,212,38,.12),0 8px 20px rgba(8,10,30,.18)}
+.stn[aria-pressed="true"]{background:linear-gradient(155deg,#3C597D,#334c6a);border-color:#6f89a5;
+  box-shadow:0 0 0 1px rgba(60,89,125,.3),0 8px 20px rgba(8,10,30,.18)}
 .stn:hover{transform:translateY(-2px);border-color:#8d93c2}
 .fc-date{font-size:13px;font-weight:600;color:var(--ink-2)}
-.stn[aria-pressed="true"] .fc-date{color:var(--focus)}
+.stn[aria-pressed="true"] .fc-date{color:var(--active-button-ink)}
 .fc-main{display:flex;align-items:center;gap:13px;margin:15px 0 12px}
 .fc-icon{display:grid;place-items:center;width:54px;height:54px;flex:none;border-radius:50%;
   background:linear-gradient(145deg,#ffd94c,#ff9b22);font-size:28px;line-height:1;
@@ -212,8 +216,8 @@ body{
      compositor to re-rasterise the backdrop every map frame, which is
      what made the panels flicker. A solid translucent fill costs
      nothing and looks the same over a dark map. */
-  background:rgba(31,35,75,.97);
-  border:1px solid rgba(202,207,255,.16);border-radius:15px;
+  background:rgba(51,70,90,.97);
+  border:1px solid rgba(153,174,194,.24);border-radius:15px;
   box-shadow:0 10px 32px rgba(0,0,0,.45);
   display:flex;flex-direction:column;min-height:0;overflow:hidden;
   /* fixed-content cards must not be squeezed when the stage is short; the
@@ -279,7 +283,7 @@ body{
   align-items:baseline;gap:8px;font-size:14.5px;
 }
 #placeResults li .sub{color:var(--ink-3);font-size:13px;margin-left:auto}
-#placeResults li[aria-selected="true"]{background:var(--rule)}
+#placeResults li[aria-selected="true"]{background:var(--active-button);color:var(--active-button-ink)}
 #placeResults li:hover{background:var(--rule-soft)}
 #placeResults .none{color:var(--ink-3);cursor:default;font-size:14px}
 .areachip{
@@ -288,18 +292,17 @@ body{
   background:#231f16;border:1px solid #4a4128;color:#f0d79a;
 }
 
-/* ====================== tabs ========================================== */
+/* ====================== header navigation ============================= */
 .tabs{
-  display:flex;gap:5px;margin-top:16px;padding:5px;width:max-content;max-width:100%;
-  background:rgba(36,40,83,.82);border:1px solid rgba(164,171,238,.13);border-radius:15px;
+  display:flex;align-items:center;gap:3px;flex:0 0 auto;max-width:100%;padding:0;
 }
 .tabs button{
-  background:none;border:0;border-radius:10px;color:var(--ink-3);cursor:pointer;padding:9px 16px;
-  font-family:"Inter",sans-serif;font-size:16px;font-weight:600;
+  background:none;border:0;border-radius:8px;color:#aab8c6;cursor:pointer;padding:8px 12px;
+  font-family:"Inter",sans-serif;font-size:13.5px;font-weight:600;white-space:nowrap;
   transition:color .15s,background-color .15s,transform .15s;
 }
-.tabs button:hover{color:var(--ink-2)}
-.tabs button[aria-selected="true"]{color:#292b4d;background:var(--focus);box-shadow:0 3px 12px rgba(255,212,38,.15)}
+.tabs button:hover{color:#f0f4f7;background:rgba(255,255,255,.055)}
+.tabs button[aria-selected="true"]{color:var(--active-button-ink);background:var(--active-button);box-shadow:0 2px 8px rgba(0,0,0,.2)}
 .pane[hidden]{display:none}
 
 /* ====================== panel grids per pane ========================== */
@@ -330,8 +333,8 @@ body{
 .p-rel{grid-area:rel}
 
 .panel{
-  background:linear-gradient(155deg,rgba(39,43,89,.97),rgba(31,35,73,.97));
-  border:1px solid rgba(164,171,238,.16);border-radius:18px;overflow:hidden;
+  background:linear-gradient(155deg,#283b4b,#223442);
+  border:1px solid #53677b;border-radius:18px;overflow:hidden;
   box-shadow:0 10px 30px rgba(5,7,25,.13);
   display:flex;flex-direction:column;min-width:0;
 }
@@ -349,6 +352,23 @@ body{
 .p-body{padding:14px 16px;flex:1;min-height:0}
 .p-body.flush{padding:0}
 
+/* The three information-heavy panes use a deeper card surface, brighter
+   supporting text, and one shared inset/footer tone. Forecast stays as-is. */
+#pane-weights,#pane-verify,#pane-extremes{--ink-3:#b2c0cd}
+#pane-weights .dockcard,#pane-verify .panel,#pane-extremes .panel{
+  background:linear-gradient(155deg,#283b4b,#223442);
+  border-color:#536b80;
+}
+#pane-weights .dockcard{background:#243746}
+#pane-verify .panel .p-body,#pane-extremes .panel .p-body,
+#pane-verify .tabletoggle,#pane-weights .stage > .legend{
+  background:#1f303e;
+}
+#pane-verify .panel .p-head,#pane-extremes .panel .p-head,
+#pane-verify .tabletoggle,#pane-weights .stage > .legend{
+  border-color:#53677b;
+}
+
 /* segmented control */
 .seg{display:flex;margin-left:auto;border:1px solid var(--rule);border-radius:3px;overflow:hidden}
 .seg button{
@@ -357,11 +377,11 @@ body{
   padding:5px 12px;transition:background-color .18s,color .18s;
 }
 .seg button + button{border-left:1px solid var(--rule)}
-.seg button[aria-pressed="true"]{background:var(--raised);color:var(--ink)}
-.variable-tabs{margin-left:auto;padding:3px;border-radius:12px;border-color:#424878;background:#20244b}
-.variable-tabs button{min-width:104px;padding:7px 15px;border-radius:9px;color:#a9afd2}
+.seg button[aria-pressed="true"]{background:var(--active-button);color:var(--active-button-ink)}
+.variable-tabs{margin-left:auto;padding:3px;border-radius:12px;border-color:#415972;background:#26394c}
+.variable-tabs button{min-width:104px;padding:7px 15px;border-radius:9px;color:#b3c0cc}
 .variable-tabs button + button{border-left:0}
-.variable-tabs button[aria-pressed="true"]{background:var(--focus);color:#292b4d}
+.variable-tabs button[aria-pressed="true"]{background:var(--active-button);color:var(--active-button-ink)}
 .variable-tabs button:hover:not([aria-pressed="true"]){background:#30355f;color:var(--ink)}
 .locate{display:inline-flex;align-items:center;justify-content:center;gap:7px;flex:none;
   height:36px;padding:0 12px;background:var(--raised);border:1px solid var(--rule);
@@ -455,6 +475,9 @@ body{
 
 /* Source links are visible and active without an expandable panel. */
 @media (max-width:820px){
+  .runbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:15px;align-items:center}
+  .brand{grid-column:1;grid-row:1}
+  .header-controls{grid-column:1/-1;grid-row:2;justify-self:start;margin-left:0;max-width:100%}
   .rail-head{align-items:flex-start;flex-direction:column}
   .rail-tools{justify-content:flex-start;width:100%;flex-wrap:wrap}
   .rail-tools .finder{flex:1;min-width:0}
@@ -572,11 +595,15 @@ table.dt tr.hl td{color:#fff;font-weight:600}
   .dock.hidden{display:none}
   .dockcard.grow{min-height:220px}
   .docktoggle{display:none!important}
-  .runmeta{margin-left:0;gap:18px}
   #map{min-height:380px}
   .brand h1{font-size:23px}
 }
 @media (max-width:520px){
+  .runbar{grid-template-columns:1fr}
+  .brand,.header-controls{grid-column:1;grid-row:auto}
+  .header-controls{width:100%;gap:9px;padding-right:9px;overflow-x:auto}
+  .tabs{flex:0 0 auto}
+  .tabs button{padding:8px 7px;font-size:11.5px}
   .variable-tabs{margin-left:0;width:100%}
   .variable-tabs button{flex:1;min-width:0;padding:7px 8px;font-size:13px}
 }
@@ -591,24 +618,17 @@ table.dt tr.hl td{color:#fff;font-weight:600}
       <h1>Blend Desk</h1>
       <p class="pitch">Blends five weather models into local daily guidance.</p>
     </div>
-    <dl class="runmeta">
-      <div>
-        <dt>Region</dt>
-        <dd class="cond" id="mRegion">—</dd>
+    <div class="header-controls">
+      <nav class="tabs" role="tablist" aria-label="Forecast sections">
+        <button role="tab" id="tab-forecast" aria-selected="true" data-pane="forecast">Forecast</button>
+        <button role="tab" id="tab-weights" aria-selected="false" data-pane="weights">Model weights</button>
+        <button role="tab" id="tab-verify" aria-selected="false" data-pane="verify">Model comparisons</button>
+        <button role="tab" id="tab-extremes" aria-selected="false" data-pane="extremes">Extremes</button>
+      </nav>
+      <div class="console-clock" aria-label="Console time">
+        <span>Console time</span><time id="mClock">—</time>
       </div>
-      <div>
-        <dt>Run issued</dt>
-        <dd class="cond num" id="mIssued">—</dd>
-      </div>
-      <div>
-        <dt>Diagnosed spell</dt>
-        <dd><span class="pill normal" id="mRegime"><span class="dot"></span>—</span></dd>
-      </div>
-      <div>
-        <dt>Console time</dt>
-        <dd class="cond num" id="mClock">—</dd>
-      </div>
-    </dl>
+    </div>
   </header>
 
   <!-- ======================= six-day outlook =========================== -->
@@ -647,14 +667,6 @@ table.dt tr.hl td{color:#fff;font-weight:600}
 
   <!-- ===================== plain-language summary ====================== -->
   <p class="nowline" id="nowLine"></p>
-
-  <!-- ============================== tabs =============================== -->
-  <nav class="tabs" role="tablist" aria-label="Sections">
-    <button role="tab" id="tab-forecast" aria-selected="true"  data-pane="forecast">Forecast</button>
-    <button role="tab" id="tab-weights"  aria-selected="false" data-pane="weights">Model weights</button>
-    <button role="tab" id="tab-verify"   aria-selected="false" data-pane="verify">Model comparisons</button>
-    <button role="tab" id="tab-extremes" aria-selected="false" data-pane="extremes">Extremes</button>
-  </nav>
 
   <!-- ============================= panels ============================== -->
   <div class="pane" id="pane-forecast" role="tabpanel" aria-labelledby="tab-forecast">
@@ -869,8 +881,12 @@ function wAt(s, k, i){
 }
 const VARNAME = {rain:'Rainfall', temp:'2 m temperature', wind:'Peak 10 m wind'};
 const VARUNIT = {rain:'mm', temp:'°C', wind:'km/h'};
+/* Existing forecast chart colours stay intact; the verification chart gets
+   its own higher-contrast axis and grid palette on the darker card. */
 const INK2   = '#aaa59a', INK3 = '#7a7568';
 const GRID   = '#2d2b25', SURFACE = '#171613';
+const VERIFY_INK2 = '#c1ccd7', VERIFY_INK3 = '#b2c0cd';
+const VERIFY_GRID = 'rgba(193,204,215,.24)', VERIFY_SURFACE = '#243442';
 
 /* IMD operational daily-rainfall classes. A forecaster reads rain in these
    bands, so the map is binned to them rather than to a smooth ramp. */
@@ -971,7 +987,6 @@ const singles  = overall.filter(r=>r.key && r.key !== 'F');
 const bestSingle = Math.min(...singles.map(r=>r.rmse));
 const clf50 = DATA.metrics.classifier.find(r=>Math.abs(r.threshold-0.4)<1e-6) || DATA.metrics.classifier[0];
 
-document.getElementById('mRegion').textContent = M.region.split(',')[0];
 document.getElementById('fNcells').textContent = M.n_cells;
 document.getElementById('fRegion').textContent = M.region;
 document.getElementById('fSeason').textContent = M.season;
@@ -1063,7 +1078,7 @@ function setLead(L){
   if(L===lead) return;
   lead = L;
   paintRail(); paintMap(); paintWeights(); paintSkill(); paintMatrix();
-  paintRunMeta(); paintWeightMap(); paintNowLine();
+  paintWeightMap(); paintNowLine();
   if (activePane === 'extremes') paintExtremes();
 }
 
@@ -1081,31 +1096,9 @@ runSel.value = runKey;
 runSel.addEventListener('change', ()=>{
   runKey = runSel.value;
   buildRail(); paintMap(); paintWeights(); paintMatrix();
-  paintRunMeta(); paintWeightMap(); paintNowLine();
+  paintWeightMap(); paintNowLine();
   if (activePane === 'extremes') paintExtremes();
 });
-
-function paintRunMeta(){
-  /* A run issued before today makes T+1 land on a date that has already
-     started, which reads as a broken forecast horizon. Say how old the run
-     is rather than letting the reader work it out from the dates. */
-  const issued = new Date(runKey + 'T00:00:00');
-  const today  = new Date(); today.setHours(0,0,0,0);
-  const ageDays = Math.round((today - issued) / 86400000);
-  const age = ageDays <= 0 ? '' : ageDays === 1 ? ' · yesterday'
-            : ' · ' + ageDays + ' days old';
-  const issEl = document.getElementById('mIssued');
-  issEl.textContent = fmtDate(runKey) + ' 00Z' + age;
-  issEl.className = 'cond num' + (ageDays >= 1 ? ' stale' : '');
-  issEl.title = ageDays >= 1
-    ? 'This is not today’s run, so T+1 is a date that has already begun. '
-      + 'Re-run run_daily.py to refresh.'
-    : '';
-  const rg = REGIME_COPY[slice().regime];
-  const el = document.getElementById('mRegime');
-  el.className = 'pill '+rg.cls;
-  el.innerHTML = '<span class="dot"></span>'+rg.label;
-}
 
 /* ===================================================================== */
 /* map                                                                    */
@@ -1908,7 +1901,7 @@ function paintSkill(){
     borderWidth:width, borderDash:dash||[], tension:.32,
     pointRadius: rows.map(r=>r.lead_time===lead?5.5:3.5),
     pointHoverRadius:7, pointBackgroundColor:color,
-    pointBorderColor:SURFACE, pointBorderWidth:2
+    pointBorderColor:VERIFY_SURFACE, pointBorderWidth:2
   });
   const data = {
     labels: rows.map(r=>'T+'+r.lead_time),
@@ -1920,20 +1913,20 @@ function paintSkill(){
   const opts = {
     responsive:true, maintainAspectRatio:false, animation:{duration:320},
     interaction:{mode:'index', intersect:false},
-    layout:{padding:{right:74,top:6}},
+    layout:{padding:{right:116,top:6}},
     scales:{
-      y:{ title:{display:true,text:'RMSE  (mm / day)',color:INK3,font:{size:11.5}},
-          grid:{color:GRID,drawTicks:false}, border:{display:false},
-          ticks:{color:INK3}, beginAtZero:true },
-      x:{ grid:{display:false}, border:{color:GRID},
-          ticks:{color:(c)=>(c.index+1)===lead?'#eef4f8':INK3,
+      y:{ title:{display:true,text:'RMSE  (mm / day)',color:VERIFY_INK3,font:{size:11.5}},
+          grid:{color:VERIFY_GRID,drawTicks:false}, border:{display:false},
+          ticks:{color:VERIFY_INK3}, beginAtZero:true },
+      x:{ grid:{display:false}, border:{color:VERIFY_GRID},
+          ticks:{color:(c)=>(c.index+1)===lead?'#eef4f8':VERIFY_INK3,
                  font:{weight:(c)=>(c.index+1)===lead?'700':'500',size:13}} }
     },
     plugins:{
       legend:{position:'bottom', labels:{boxWidth:22, boxHeight:2, padding:13,
-              color:INK2, font:{size:11.5}}},
-      tooltip:{backgroundColor:'#17222b',borderColor:GRID,borderWidth:1,
-               titleColor:'#eef4f8',bodyColor:INK2,padding:10,
+              color:VERIFY_INK2, font:{size:11.5}}},
+      tooltip:{backgroundColor:'#17222b',borderColor:VERIFY_GRID,borderWidth:1,
+               titleColor:'#eef4f8',bodyColor:VERIFY_INK2,padding:10,
                callbacks:{label:c=>' '+c.dataset.label+': '+c.parsed.y.toFixed(2)+' mm'}}
     }
   };
@@ -1962,7 +1955,13 @@ function paintSkill(){
       const overflow = items.length && items[items.length-1].y - chart.chartArea.bottom;
       if(overflow > 0) items.forEach(it => it.y -= overflow);
 
-      items.forEach(it=>{ g.fillStyle = it.c; g.fillText(it.text, it.x+10, it.y); });
+      items.forEach(it=>{
+        const textWidth = g.measureText(it.text).width;
+        const x = Math.min(it.x+10, chart.width-textWidth-9);
+        g.lineJoin='round';g.strokeStyle=VERIFY_SURFACE;g.lineWidth=3;
+        g.strokeText(it.text,x,it.y);
+        g.fillStyle=it.c;g.fillText(it.text,x,it.y);
+      });
       g.restore();
     }
   };
@@ -2771,7 +2770,7 @@ document.querySelector('.tabs').addEventListener('keydown', function(e){
   if (e.key === 'ArrowLeft'){ showPane(PANES[(i-1+PANES.length) % PANES.length]); document.getElementById('tab-'+activePane).focus(); }
 });
 
-buildRail(); paintRunMeta(); paintMap(); paintWeights();
+buildRail(); paintMap(); paintWeights();
 paintSkill(); paintMatrix();
 showPane('forecast');
 paintNowLine(); paintTabHint();
