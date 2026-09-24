@@ -15,20 +15,16 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
 :root{
-  /* --- surfaces: warm ink and charcoal.
-         Deliberately NOT the blue-slate every dark dashboard reaches for.
-         The base is the paper of a printed bulletin; the only saturated
-         things on the page are the weather layers themselves, which is what
-         makes the teal rain and amber heat read as data rather than decor. */
-  --plane:      #100f0d;
-  --surface:    #171613;
-  --raised:     #1f1e19;
-  --rule:       #2d2b25;
-  --rule-soft:  #22201b;
+  /* Deep indigo surfaces pair with the yellow focus accent used by weather cards. */
+  --plane:      #171a3b;
+  --surface:    #20244b;
+  --raised:     #2b2f58;
+  --rule:       #3b406f;
+  --rule-soft:  #30345f;
 
-  --ink:        #f2efe8;
-  --ink-2:      #aaa59a;
-  --ink-3:      #7a7568;
+  --ink:        #f3f4ff;
+  --ink-2:      #c1c5df;
+  --ink-3:      #9298bd;
 
   /* --- categorical series: validated for CVD on #121a21 (worst adj dE 9.4).
          Five blend members; persistence is a reference, not a series, so it
@@ -47,7 +43,7 @@
   --serious:  #ec835a;
   --critical: #d03b3b;
 
-  --focus: #f0b429;
+  --focus: #ffd426;
 }
 
 *{box-sizing:border-box}
@@ -112,24 +108,42 @@ body{
 .verdict{margin:13px 0 0;font-size:14px;color:var(--ink-2);line-height:1.6}
 .verdict b{color:var(--ink);font-weight:600}
 
-/* ====================== forecast date buttons and place finder ========= */
-.rail{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:22px;
-  padding:14px 0 10px}
+/* ====================== forecast cards and place finder ================ */
+.rail{padding:16px 0 12px}
+.rail-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:11px}
+.rail-heading h2{font-family:"Inter",sans-serif;font-size:17px;font-weight:600;margin:0}
+.rail-heading p{font-size:12.5px;color:var(--ink-3);margin:2px 0 0}
 .rail-tools{display:flex;align-items:center;justify-content:flex-end;gap:10px}
 .track{
-  display:flex;align-items:center;gap:8px;min-width:0;overflow-x:auto;
+  display:flex;align-items:center;min-width:0;overflow-x:auto;
   scrollbar-width:none
 }
 .track::-webkit-scrollbar{display:none}
-.stations{display:flex;align-items:center;gap:8px;min-width:max-content}
+.stations{display:flex;align-items:stretch;gap:10px;min-width:max-content}
 .stn{
-  flex:0 0 auto;min-width:80px;height:40px;padding:0 15px;
-  background:var(--raised);border:1px solid var(--rule);border-radius:999px;
-  color:var(--ink-2);font-family:"Inter",sans-serif;font-size:13.5px;font-weight:500;
-  cursor:pointer;transition:background-color .18s,border-color .18s,color .18s
+  flex:0 0 174px;min-height:170px;padding:14px 15px 13px;text-align:left;
+  background:linear-gradient(155deg,#2d315d,#25294f);border:1px solid #3c416f;
+  border-radius:20px;color:var(--ink);font-family:"Inter",sans-serif;cursor:pointer;
+  display:flex;flex-direction:column;transition:transform .18s,border-color .18s,background .18s,box-shadow .18s
 }
-.stn[aria-pressed="true"]{color:var(--ink);background:#29261e;border-color:var(--focus);font-weight:600}
-.stn:hover{border-color:var(--ink-3);color:var(--ink)}
+.stn[aria-pressed="true"]{background:linear-gradient(155deg,#464a7b,#343862);
+  border-color:var(--focus);box-shadow:0 0 0 1px rgba(255,212,38,.12),0 8px 20px rgba(8,10,30,.18)}
+.stn:hover{transform:translateY(-2px);border-color:#8d93c2}
+.fc-date{font-size:13px;font-weight:600;color:var(--ink-2)}
+.stn[aria-pressed="true"] .fc-date{color:var(--focus)}
+.fc-main{display:flex;align-items:center;gap:11px;margin:12px 0 9px}
+.fc-icon{display:grid;place-items:center;width:54px;height:54px;flex:none;border-radius:50%;
+  background:linear-gradient(145deg,#ffd94c,#ff9b22);font-size:28px;line-height:1;
+  box-shadow:inset 0 -3px 8px rgba(130,73,0,.12)}
+.fc-icon.rain{background:linear-gradient(145deg,#83d5ff,#638cf3)}
+.fc-icon.cloud{background:linear-gradient(145deg,#bcd8ff,#8099cb)}
+.fc-icon.wind{background:linear-gradient(145deg,#b9e7dd,#68b4a5)}
+.fc-temp{font-size:27px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
+.fc-temp small{display:block;color:var(--ink-3);font-size:11px;font-weight:500;margin-top:5px}
+.fc-condition{font-size:12px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fc-values{display:flex;justify-content:space-between;gap:8px;border-top:1px solid rgba(202,207,255,.12);
+  padding-top:8px;margin-top:auto;font-size:11.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.fc-values span{white-space:nowrap}
 
 /* ====================== panels ========================================= */
 .brand .pitch{margin:6px 0 0;color:var(--ink-2);font-size:15px;line-height:1.45;max-width:52ch}
@@ -328,6 +342,20 @@ body{
 }
 .seg button + button{border-left:1px solid var(--rule)}
 .seg button[aria-pressed="true"]{background:var(--raised);color:var(--ink)}
+.variable-tabs{margin-left:auto;padding:3px;border-radius:12px;border-color:#424878;background:#20244b}
+.variable-tabs button{min-width:104px;padding:7px 15px;border-radius:9px;color:#a9afd2}
+.variable-tabs button + button{border-left:0}
+.variable-tabs button[aria-pressed="true"]{background:var(--focus);color:#292b4d}
+.variable-tabs button:hover:not([aria-pressed="true"]){background:#30355f;color:var(--ink)}
+.locate{display:inline-flex;align-items:center;justify-content:center;gap:7px;flex:none;
+  height:36px;padding:0 12px;background:var(--raised);border:1px solid var(--rule);
+  border-radius:999px;color:var(--ink-2);font:500 13px "Inter",sans-serif;cursor:pointer;
+  transition:background .16s,border-color .16s,color .16s}
+.locate svg{width:16px;height:16px;flex:none}
+.locate:hover:not(:disabled){background:#363b6b;border-color:#777eae;color:var(--ink)}
+.locate:disabled{opacity:.62;cursor:wait}
+.location-status{max-width:175px;color:var(--ink-3);font-size:11.5px;line-height:1.25}
+.location-status.error{color:#ffc0a8}
 
 /* ====================== map ============================================ */
 /* the map panel is the tall one; let the canvas absorb whatever height the
@@ -452,8 +480,8 @@ body{
 .srctext b{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
 @media (max-width:720px){ .srclist{grid-template-columns:1fr} }
 @media (max-width:820px){
-  .rail{grid-template-columns:1fr;gap:10px}
-  .rail-tools{justify-content:stretch}
+  .rail-head{align-items:flex-start;flex-direction:column}
+  .rail-tools{justify-content:flex-start;width:100%;flex-wrap:wrap}
   .rail-tools .finder{flex:1;min-width:0}
   .rail-tools .seg{flex:none}
 }
@@ -532,6 +560,10 @@ table.dt tr.hl td{color:#fff;font-weight:600}
     "nte nte nte nte nte nte nte nte nte nte nte nte"}
 }
 @media (max-width:820px){
+  .rail-head{align-items:flex-start;flex-direction:column}
+  .rail-tools{justify-content:flex-start;width:100%;flex-wrap:wrap}
+  .rail-tools .finder{flex:1;min-width:0}
+  .rail-tools .seg{flex:none}
   .wrap{padding:0 16px 40px}
   .grid{grid-template-columns:1fr!important;grid-template-areas:none!important}
   .grid > section{grid-area:auto!important}
@@ -545,6 +577,10 @@ table.dt tr.hl td{color:#fff;font-weight:600}
   .runmeta{margin-left:0;gap:18px}
   #map{min-height:380px}
   .brand h1{font-size:23px}
+}
+@media (max-width:520px){
+  .variable-tabs{margin-left:0;width:100%}
+  .variable-tabs button{flex:1;min-width:0;padding:7px 8px;font-size:13px}
 }
 </style>
 </head>
@@ -587,12 +623,17 @@ table.dt tr.hl td{color:#fff;font-weight:600}
     <div class="srcbody"><ul class="srclist" id="srcList"></ul></div>
   </details>
 
-  <!-- ======================== date timeline ============================ -->
+  <!-- ======================= six-day outlook =========================== -->
   <section class="rail">
-    <div class="track" id="track" role="group" aria-label="Forecast dates">
-      <div class="stations" id="stations"></div>
-    </div>
-    <div class="rail-tools">
+    <div class="rail-head">
+      <div class="rail-heading"><h2>6-day outlook</h2><p id="outlookArea">India blended average</p></div>
+      <div class="rail-tools">
+      <button class="locate" id="locateMe" type="button" title="Use your current location">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/>
+        </svg><span>My location</span>
+      </button>
+      <span class="location-status" id="locationStatus" role="status" aria-live="polite"></span>
       <div class="finder">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
              stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>
@@ -609,6 +650,10 @@ table.dt tr.hl td{color:#fff;font-weight:600}
                 font-family:'Inter',sans-serif;font-size:14px;
                 font-weight:600;padding:5px 10px;cursor:pointer"></select>
       </div>
+      </div>
+    </div>
+    <div class="track" id="track" role="group" aria-label="Six-day blended forecast">
+      <div class="stations" id="stations"></div>
     </div>
   </section>
 
@@ -629,7 +674,7 @@ table.dt tr.hl td{color:#fff;font-weight:600}
       <div class="stagehead">
         <h3>Blended field</h3>
         <p class="why">Hover to read a cell, click to pin it.</p>
-        <div class="seg" role="group" aria-label="Variable">
+        <div class="seg variable-tabs" role="group" aria-label="Variable">
           <button id="vRain" aria-pressed="true">Rainfall</button>
           <button id="vTemp" aria-pressed="false">Temperature</button>
           <button id="vWind" aria-pressed="false">Wind</button>
@@ -967,8 +1012,7 @@ function buildRail(){
     b.className='stn'; b.type='button';
     b.dataset.lead = L;
     b.setAttribute('aria-pressed', String(L===lead));
-    b.textContent = L===0 && runKey===latestRun ? 'Today' : fmtDate(run()[String(L)].valid);
-    b.setAttribute('aria-label',(L===0?'Today':'Lead time '+L+' day'+(L>1?'s':''))+', valid '+run()[String(L)].valid);
+    b.setAttribute('aria-label',(L===0 && runKey===latestRun?'Today':'Forecast for '+fmtDate(run()[String(L)].valid)));
     b.addEventListener('click',()=>setLead(L));
     stationsEl.appendChild(b);
   }
@@ -978,6 +1022,50 @@ function paintRail(){
   [...stationsEl.children].forEach(b=>{
     const on = Number(b.dataset.lead)===lead;
     b.setAttribute('aria-pressed', String(on));
+  });
+  paintForecastCards();
+}
+
+function paintForecastCards(){
+  if (!stationsEl.children.length) return;
+  const todayParts = Object.fromEntries(new Intl.DateTimeFormat('en-GB',{
+    timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'
+  }).formatToParts(new Date()).map(p=>[p.type,p.value]));
+  const todayIST = todayParts.year+'-'+todayParts.month+'-'+todayParts.day;
+  const indices = area ? areaCells() : pinned !== null ? [pinned] : null;
+  const average = values => {
+    if (!Array.isArray(values)) return null;
+    const picked = indices ? indices.map(i=>values[i]) : values;
+    const valid = picked.filter(v=>v!==null && v!==undefined && Number.isFinite(Number(v))).map(Number);
+    return valid.length ? valid.reduce((a,b)=>a+b,0)/valid.length : null;
+  };
+  const areaLabel = document.getElementById('outlookArea');
+  if (areaLabel){
+    areaLabel.textContent = area ? area.n+(area.k==='state'?' area mean':' forecast')
+      : pinned !== null ? (nearestPlaceName(DATA.cells[pinned]) || 'Selected point')+' · grid point'
+      : 'India blended average';
+  }
+
+  [...stationsEl.children].forEach(button=>{
+    const L = Number(button.dataset.lead), s = run()[String(L)];
+    const rain = average(s.rain), temp = average(s.t2m), wind = average(s.wind);
+    const iconClass = rain !== null && rain >= 2.5 ? 'rain'
+      : rain !== null && rain >= 0.2 ? 'cloud'
+      : wind !== null && wind >= (M.high_wind_kmh || 40) ? 'wind' : 'sun';
+    const icon = iconClass==='rain'?'🌧️':iconClass==='cloud'?'🌦️':iconClass==='wind'?'🌬️':'☀️';
+    const condition = iconClass==='rain'?'Rain likely':iconClass==='cloud'?'Light rain'
+      :iconClass==='wind'?'Windy':(temp!==null&&temp>=(M.heat_c||34)?'Hot and dry':'Mostly dry');
+    const dateLabel = s.valid===todayIST ? 'Today' : fmtDate(s.valid);
+    const tempLabel = temp===null?'—':Math.round(temp)+'°';
+    const rainLabel = rain===null?'—':rain.toFixed(1)+' mm';
+    const windLabel = wind===null?'—':Math.round(wind)+' km/h';
+    button.innerHTML = '<span class="fc-date">'+dateLabel+'</span>'+
+      '<span class="fc-main"><span class="fc-icon '+iconClass+'" aria-hidden="true">'+icon+'</span>'+
+      '<span><span class="fc-temp">'+tempLabel+'<small>T2m mean</small></span></span></span>'+
+      '<span class="fc-condition">'+condition+'</span>'+
+      '<span class="fc-values"><span>💧 '+rainLabel+'</span><span>💨 '+windLabel+'</span></span>';
+    button.setAttribute('aria-label',dateLabel+': mean temperature '+tempLabel+
+      ', rainfall '+rainLabel+', wind '+windLabel+', '+condition);
   });
 }
 
@@ -1347,6 +1435,7 @@ let mapReady = false;
 const showGrid = false, showIso = true;
 let pinned = null, popup = null, popupWeightChart = null;
 let wmap = null, wmapReady = false, shareChart = null;
+let userLocationMarker = null;
 let weightCell = 0;
 
 /* If the vector style cannot be reached, fall back to an inline style with
@@ -1547,6 +1636,7 @@ function openCell(i, keepView, searchedName){
   const c = DATA.cells[i];
   pinned = i;
   weightCell = i;
+  paintForecastCards();
   if (!keepView) map.easeTo({center:[c.lon,c.lat], duration:520});
   attachCellPopup(i, searchedName, null, null, false);
 }
@@ -1559,7 +1649,7 @@ function attachCellPopup(i, searchedName, anchor, maxHeight, fitted){
   if (anchor) options.anchor = anchor;
   popup = new GL.Popup(options)
     .setLngLat([c.lon, c.lat]).setHTML(popupHtml(i, searchedName));
-  popup.on('close', function(){ pinned = null; if(popupWeightChart){popupWeightChart.destroy();popupWeightChart=null;} });
+  popup.on('close', function(){ pinned = null; paintForecastCards(); if(popupWeightChart){popupWeightChart.destroy();popupWeightChart=null;} });
   popup.addTo(map);
   const content = popup.getElement().querySelector('.maplibregl-popup-content,.mapboxgl-popup-content');
   if (maxHeight && content){ content.style.maxHeight = maxHeight+'px'; content.style.overflowY='auto'; }
@@ -2385,6 +2475,63 @@ let hi = -1;                           // highlighted row in the result list
 const $search  = document.getElementById('placeSearch');
 const $results = document.getElementById('placeResults');
 const $clear   = document.getElementById('placeClear');
+const $locate  = document.getElementById('locateMe');
+const $locationStatus = document.getElementById('locationStatus');
+
+function locationMessage(message, isError){
+  $locationStatus.textContent = message;
+  $locationStatus.classList.toggle('error', !!isError);
+}
+
+function locateUser(){
+  if (!navigator.geolocation){
+    locationMessage('Location is not available in this browser.', true);
+    return;
+  }
+  if (!window.isSecureContext){
+    locationMessage('Current location requires HTTPS or localhost.', true);
+    return;
+  }
+  $locate.disabled = true;
+  locationMessage('Finding your location…', false);
+  navigator.geolocation.getCurrentPosition(function(position){
+    const lon = position.coords.longitude, lat = position.coords.latitude;
+    const coords = [lon, lat], idx = cellAt(lon, lat);
+    if (idx < 0 || Math.abs(DATA.cells[idx].lon-lon) > 0.75 ||
+        Math.abs(DATA.cells[idx].lat-lat) > 0.75){
+      locationMessage('This forecast currently covers India only.', true);
+      $locate.disabled = false;
+      return;
+    }
+    area = {k:'point', n:'My location', c:coords};
+    $search.value = 'My location';
+    $results.hidden = true;
+    $clear.hidden = false;
+    $search.setAttribute('aria-expanded','false');
+    if (activePane !== 'forecast') showPane('forecast');
+    [map,wmap].forEach(function(m){
+      if (!m) return;
+      drawAreaOutline(m);
+      m.easeTo({center:coords,zoom:7.5,duration:900});
+    });
+    if (userLocationMarker) userLocationMarker.setLngLat(coords);
+    else userLocationMarker = new GL.Marker({color:'#ffd426'}).setLngLat(coords).addTo(map);
+    if (idx >= 0){
+      focusCell(idx);
+      openCell(idx,true,'Your location');
+    }
+    refreshArea();
+    locationMessage('Showing the nearest forecast grid point.', false);
+    $locate.disabled = false;
+  }, function(error){
+    const message = error.code===1 ? 'Location permission was denied. Check browser settings.'
+      : error.code===3 ? 'Location request timed out. Try again.'
+      : 'Could not determine your location. Try again.';
+    locationMessage(message, true);
+    $locate.disabled = false;
+  }, {enableHighAccuracy:false,timeout:12000,maximumAge:300000});
+}
+$locate.addEventListener('click',locateUser);
 
 function searchPlaces(q){
   q = q.trim().toLowerCase();
@@ -2547,6 +2694,8 @@ function drawAreaOutline(m){
 
 function choose(p){
   if (!p) return;
+  if (userLocationMarker){ userLocationMarker.remove(); userLocationMarker = null; }
+  locationMessage('', false);
   area = p;
   $search.value = p.n + (p.k === 'district' && p.s ? ', ' + p.s : '');
   $results.hidden = true;
@@ -2582,6 +2731,8 @@ function choose(p){
 
 function clearArea(){
   area = null;
+  if (userLocationMarker){ userLocationMarker.remove(); userLocationMarker = null; }
+  locationMessage('', false);
   focusCell(-1);
   $search.value = '';
   $clear.hidden = true;
@@ -2596,6 +2747,7 @@ function clearArea(){
 }
 
 function refreshArea(){
+  paintForecastCards();
   const chip = document.getElementById('areaChip');
   if (chip) chip.remove();
   if (area){
