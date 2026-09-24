@@ -1110,7 +1110,7 @@ runSel.addEventListener('change', ()=>{
    GL JS: same API, same style spec, so every layer below is written
    once and runs unchanged on either engine.
 --------------------------------------------------------------------- */
-const MAPBOX_TOKEN = '';
+const MAPBOX_TOKEN = 'pk.eyJ1IjoiYWFiaGFzMTIzIiwiYSI6ImNtdThybno0YjB5ZXAyeHM5YmcwZHUzcXkifQ.OVyyDDvW303p2pX54esftg';
 
 const USE_MAPBOX = /^pk\./.test(MAPBOX_TOKEN) && typeof mapboxgl !== 'undefined';
 const GL = USE_MAPBOX ? mapboxgl : maplibregl;
