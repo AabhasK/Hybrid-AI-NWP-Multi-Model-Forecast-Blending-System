@@ -15,16 +15,16 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
 :root{
-  /* Deep indigo surfaces pair with the yellow focus accent used by weather cards. */
-  --plane:      #171a3b;
-  --surface:    #20244b;
-  --raised:     #2b2f58;
-  --rule:       #3b406f;
-  --rule-soft:  #30345f;
+  /* Slate-blue base with indigo forecast surfaces and a warm focus accent. */
+  --plane:      #2B3B4F;
+  --surface:    #33465b;
+  --raised:     #3b4e63;
+  --rule:       #52657a;
+  --rule-soft:  #42566c;
 
   --ink:        #f3f4ff;
-  --ink-2:      #c1c5df;
-  --ink-3:      #9298bd;
+  --ink-2:      #c1ccd7;
+  --ink-3:      #a0afbd;
 
   /* --- categorical series: validated for CVD on #121a21 (worst adj dE 9.4).
          Five blend members; persistence is a reference, not a series, so it
@@ -49,7 +49,7 @@
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{
-  background:var(--plane);
+  background:linear-gradient(180deg,#192430 0,#223141 190px,var(--plane) 390px,var(--plane) 100%);
   color:var(--ink);
   font-family:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
   font-feature-settings:"tnum" 1, "cv05" 1;
@@ -66,9 +66,12 @@ body{
 
 /* ====================== run strip ====================================== */
 .runbar{
+  position:relative;isolation:isolate;
   display:flex;align-items:center;gap:34px;flex-wrap:wrap;
-  padding:18px 0;border-bottom:1px solid var(--rule);
+  padding:22px 0 20px;border-bottom:1px solid rgba(164,171,238,.17);
 }
+.runbar::before{content:"";position:absolute;z-index:-1;top:0;bottom:0;left:50%;width:100vw;
+  transform:translateX(-50%);background:#192430}
 .brand{min-width:0;flex:1 1 360px}
 .brand h1{
   font-family:"Inter",sans-serif;
@@ -115,14 +118,15 @@ body{
 .rail-heading p{font-size:12.5px;color:var(--ink-3);margin:2px 0 0}
 .rail-tools{display:flex;align-items:center;justify-content:flex-end;gap:10px}
 .track{
-  display:flex;align-items:center;min-width:0;overflow-x:auto;
+  display:flex;align-items:center;min-width:0;overflow-x:visible;
   scrollbar-width:none
 }
 .track::-webkit-scrollbar{display:none}
-.stations{display:flex;align-items:stretch;gap:10px;min-width:max-content}
+.stations{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));align-items:stretch;
+  gap:12px;min-width:0;width:100%}
 .stn{
-  flex:0 0 174px;min-height:170px;padding:14px 15px 13px;text-align:left;
-  background:linear-gradient(155deg,#2d315d,#25294f);border:1px solid #3c416f;
+  min-width:0;min-height:184px;padding:16px 17px 14px;text-align:left;
+  background:linear-gradient(155deg,#303563,#25294f);border:1px solid #414775;
   border-radius:20px;color:var(--ink);font-family:"Inter",sans-serif;cursor:pointer;
   display:flex;flex-direction:column;transition:transform .18s,border-color .18s,background .18s,box-shadow .18s
 }
@@ -131,7 +135,7 @@ body{
 .stn:hover{transform:translateY(-2px);border-color:#8d93c2}
 .fc-date{font-size:13px;font-weight:600;color:var(--ink-2)}
 .stn[aria-pressed="true"] .fc-date{color:var(--focus)}
-.fc-main{display:flex;align-items:center;gap:11px;margin:12px 0 9px}
+.fc-main{display:flex;align-items:center;gap:13px;margin:15px 0 12px}
 .fc-icon{display:grid;place-items:center;width:54px;height:54px;flex:none;border-radius:50%;
   background:linear-gradient(145deg,#ffd94c,#ff9b22);font-size:28px;line-height:1;
   box-shadow:inset 0 -3px 8px rgba(130,73,0,.12)}
@@ -140,10 +144,20 @@ body{
 .fc-icon.wind{background:linear-gradient(145deg,#b9e7dd,#68b4a5)}
 .fc-temp{font-size:27px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
 .fc-temp small{display:block;color:var(--ink-3);font-size:11px;font-weight:500;margin-top:5px}
-.fc-condition{font-size:12px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fc-condition{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fc-condition::before{content:"";width:7px;height:7px;border-radius:50%;background:#87c8ff;flex:none}
+.fc-condition.cloud::before{background:#b6c9ef}
+.fc-condition.wind::before{background:#71d2b5}
+.fc-condition.sun::before{background:#ffd43b}
 .fc-values{display:flex;justify-content:space-between;gap:8px;border-top:1px solid rgba(202,207,255,.12);
   padding-top:8px;margin-top:auto;font-size:11.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
 .fc-values span{white-space:nowrap}
+@media(max-width:1100px){
+  .track{overflow-x:auto;scroll-snap-type:x mandatory;padding:1px 1px 8px}
+  .stations{display:flex;width:max-content;min-width:100%;gap:10px}
+  .stn{flex:0 0 190px;scroll-snap-align:start}
+}
 
 /* ====================== panels ========================================= */
 .brand .pitch{margin:6px 0 0;color:var(--ink-2);font-size:15px;line-height:1.45;max-width:52ch}
@@ -151,13 +165,13 @@ body{
 
 /* one sentence that says what is on screen right now, in words */
 .nowline{
-  margin:12px 0 0;padding:11px 14px;border-radius:3px;
-  background:linear-gradient(90deg, rgba(240,180,41,.09), rgba(240,180,41,0) 62%);
-  border:1px solid var(--rule);border-left:3px solid #f0b429;
+  margin:12px 0 0;padding:12px 16px;border-radius:14px;
+  background:linear-gradient(100deg,rgba(255,212,38,.08),rgba(39,43,89,.4) 52%,rgba(39,43,89,0));
+  border:1px solid rgba(164,171,238,.16);border-left:3px solid var(--focus);
   font-size:15.5px;color:var(--ink-2);line-height:1.5;
 }
 .nowline b{color:var(--ink);font-weight:600}
-.nowline .lead{color:#f0b429}
+.nowline .lead{color:var(--focus)}
 .tabhint{margin:9px 0 0;font-size:14px;color:var(--ink-3)}
 
 /* ====================== the map stage =================================
@@ -177,8 +191,8 @@ body{
   position:relative;
   height:620px;   /* replaced at runtime by sizeStage() */
   min-height:380px;
-  border:1px solid var(--rule);border-radius:3px;overflow:hidden;
-  background:#12110f;
+  border:1px solid rgba(164,171,238,.22);border-radius:18px;overflow:hidden;
+  background:#11152e;box-shadow:0 18px 48px rgba(4,6,24,.22);
 }
 #map,#wmap{position:absolute;inset:0;width:100%;height:100%}
 
@@ -198,8 +212,8 @@ body{
      compositor to re-rasterise the backdrop every map frame, which is
      what made the panels flicker. A solid translucent fill costs
      nothing and looks the same over a dark map. */
-  background:rgba(19,18,15,.96);
-  border:1px solid rgba(255,255,255,.09);border-radius:4px;
+  background:rgba(31,35,75,.97);
+  border:1px solid rgba(202,207,255,.16);border-radius:15px;
   box-shadow:0 10px 32px rgba(0,0,0,.45);
   display:flex;flex-direction:column;min-height:0;overflow:hidden;
   /* fixed-content cards must not be squeezed when the stage is short; the
@@ -221,8 +235,8 @@ body{
 .dockscroll{overflow-y:auto;padding:12px 13px}
 .docktoggle{
   position:absolute;right:12px;top:12px;z-index:7;width:28px;height:28px;
-  border-radius:3px;border:1px solid rgba(255,255,255,.12);
-  background:rgba(19,18,15,.92);color:var(--ink-2);cursor:pointer;
+  border-radius:9px;border:1px solid rgba(202,207,255,.2);
+  background:rgba(31,35,75,.95);color:var(--ink-2);cursor:pointer;
   font-size:15.5px;line-height:1;display:none;
 }
 .docktoggle.show{display:block}
@@ -276,16 +290,16 @@ body{
 
 /* ====================== tabs ========================================== */
 .tabs{
-  display:flex;gap:2px;margin-top:14px;border-bottom:1px solid var(--rule);
+  display:flex;gap:5px;margin-top:16px;padding:5px;width:max-content;max-width:100%;
+  background:rgba(36,40,83,.82);border:1px solid rgba(164,171,238,.13);border-radius:15px;
 }
 .tabs button{
-  background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;
-  color:var(--ink-3);cursor:pointer;padding:9px 16px;
+  background:none;border:0;border-radius:10px;color:var(--ink-3);cursor:pointer;padding:9px 16px;
   font-family:"Inter",sans-serif;font-size:16px;font-weight:600;
-  transition:color .15s,border-color .15s;
+  transition:color .15s,background-color .15s,transform .15s;
 }
 .tabs button:hover{color:var(--ink-2)}
-.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:#f0b429}
+.tabs button[aria-selected="true"]{color:#292b4d;background:var(--focus);box-shadow:0 3px 12px rgba(255,212,38,.15)}
 .pane[hidden]{display:none}
 
 /* ====================== panel grids per pane ========================== */
@@ -316,7 +330,9 @@ body{
 .p-rel{grid-area:rel}
 
 .panel{
-  background:var(--surface);border:1px solid var(--rule);
+  background:linear-gradient(155deg,rgba(39,43,89,.97),rgba(31,35,73,.97));
+  border:1px solid rgba(164,171,238,.16);border-radius:18px;overflow:hidden;
+  box-shadow:0 10px 30px rgba(5,7,25,.13);
   display:flex;flex-direction:column;min-width:0;
 }
 /* The chart is the primary artefact; it should not sit in the same container
@@ -400,8 +416,8 @@ body{
 /* hover inspector - reads the field without needing a click */
 .inspector{
   position:absolute;right:14px;top:14px;z-index:5;width:212px;pointer-events:none;
-  background:rgba(19,18,15,.95);
-  border:1px solid var(--rule);border-radius:3px;padding:11px 13px;
+  background:rgba(31,35,75,.96);
+  border:1px solid rgba(202,207,255,.16);border-radius:14px;padding:11px 13px;
   opacity:0;transition:opacity .18s;
 }
 .inspector.on{opacity:1}
@@ -414,7 +430,12 @@ body{
 .mapnote{font-size:12.5px;color:var(--ink-3);margin-left:14px;white-space:nowrap}
 
 .pop h4{margin:0;font-family:inherit;font-size:18px;font-weight:650;line-height:1.35}
-.pop-alert{margin:0;padding:9px 11px;font-size:17px;font-weight:600;line-height:1.35;border-radius:8px}
+.pop-alert{margin:0;padding:9px 11px;font-size:16px;font-weight:600;line-height:1.35;border-radius:8px;
+  border-left:3px solid #d03b3b;background:rgba(208,59,59,.12);color:#ffe5df}
+.pop-alert.sev-warning{border-left-color:var(--warning);background:rgba(250,178,25,.12);color:#ffe6a6}
+.pop-alert.sev-serious{border-left-color:var(--serious);background:rgba(236,131,90,.13);color:#ffd0bb}
+.pop-alert.sev-critical{border-left-color:var(--critical);background:rgba(208,59,59,.15);color:#ffc3c3}
+.pop-alert.clear{border:0;background:rgba(84,179,145,.1);color:#9bd9c2}
 .pop .coords{display:flex;gap:14px;color:var(--ink-3);font-size:13px;margin:0;line-height:1.4}
 .pop .big{display:flex;align-items:baseline;gap:7px;margin-bottom:2px}
 .pop .big b{font-family:"Inter",sans-serif;font-size:34px;font-weight:600;line-height:1}
@@ -432,53 +453,7 @@ body{
 .pop .bar i{position:absolute;left:0;top:0;bottom:0;border-radius:3px}
 .pop .foot{margin-top:11px;padding-top:9px;border-top:1px solid var(--rule);display:flex;justify-content:space-between;font-size:13.5px;color:var(--ink-2)}
 
-/* ---- verifiable sources strip ---------------------------------------- */
-.sources{border:1px solid var(--rule);border-radius:12px;background:var(--raised);
-  margin:0 0 16px}
-.srcsum{display:flex;align-items:center;gap:13px;flex-wrap:wrap;
-  padding:9px 14px;cursor:pointer;list-style:none;-webkit-user-select:none;user-select:none}
-.srcsum::-webkit-details-marker{display:none}
-.srcsum::marker{content:""}
-.srcsum:hover{background:var(--rule-soft)}
-.srcsum:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
-.sources[open] .srcsum{border-bottom:1px solid var(--rule)}
-.srctitle{font-family:"Inter",sans-serif;font-size:14.5px;font-weight:600;
-  letter-spacing:.01em;flex:0 0 auto}
-/* Collapsed, the row still names every centre. The trust signal must not
-   depend on the reader thinking to open the panel. */
-.srcchips{display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex:1 1 auto;min-width:0}
-.sources[open] .srcchips{display:none}
-.srcchip{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-2);
-  background:var(--plane);border:1px solid var(--rule);border-radius:999px;
-  padding:2px 7px 2px 4px;white-space:nowrap}
-.srcchip img{width:15px;height:15px;object-fit:contain;display:block}
-.srcchip .dot{width:8px;height:8px;border-radius:50%;display:block;flex:0 0 auto}
-.srcchip.ref{color:var(--ink-3);padding:2px 7px}
-.srcchip .mg{font-family:"Inter",sans-serif;font-size:8.5px;font-weight:700;
-  color:var(--ink-3);min-width:15px;text-align:center;letter-spacing:.02em}
-.srcmore{display:inline-flex;align-items:center;gap:6px;color:var(--ink-3);font-size:12.5px;
-  flex:0 0 auto;margin-left:auto}
-.srcmore .chev{display:inline-block;transition:transform .18s;font-size:16px;line-height:1}
-.sources[open] .srcmore .chev{transform:rotate(90deg)}
-.srcbody{padding:13px 16px 15px}
-.srclist{list-style:none;margin:0;padding:0;display:grid;gap:10px;
-  grid-template-columns:repeat(auto-fit,minmax(236px,1fr))}
-.srcitem{display:flex;gap:10px;align-items:flex-start;min-width:0}
-.srcitem.ref{opacity:.72}
-.srclogo{flex:0 0 34px;height:34px;border-radius:3px;background:var(--plane);
-  border:1px solid var(--rule);display:flex;align-items:center;justify-content:center;
-  overflow:hidden}
-.srclogo img{max-width:100%;max-height:100%;object-fit:contain;display:block}
-/* until a real logo is supplied the slot carries a monogram, so the strip
-   never renders as a row of broken images */
-.srclogo span{font-family:"Inter",sans-serif;font-size:11.5px;font-weight:700;
-  color:var(--ink-3);letter-spacing:.02em}
-.srctext{min-width:0}
-.srctext b{display:block;font-size:14px;font-weight:600;line-height:1.25}
-.srctext b a{color:inherit;text-decoration:none;border-bottom:1px solid var(--rule)}
-.srctext b a:hover{border-bottom-color:var(--focus);color:var(--focus)}
-.srctext b{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
-@media (max-width:720px){ .srclist{grid-template-columns:1fr} }
+/* Source links are visible and active without an expandable panel. */
 @media (max-width:820px){
   .rail-head{align-items:flex-start;flex-direction:column}
   .rail-tools{justify-content:flex-start;width:100%;flex-wrap:wrap}
@@ -510,6 +485,11 @@ body{
 .alert .sub{display:block;font-size:13px;color:var(--ink-3);margin-top:2px}
 .alert .pct{display:block;font-family:"Inter",sans-serif;font-size:21px;font-weight:600;text-align:right;line-height:1}
 .alert .pctl{display:block;font-size:11.5px;color:var(--ink-3);text-align:right;margin-top:2px}
+.level-tag{display:inline-block;margin:4px 0 0;padding:2px 7px;border:1px solid currentColor;
+  border-radius:999px;font-size:10.5px;line-height:1.2;font-weight:600;letter-spacing:.02em}
+.level-tag.sev-warning{color:#ffd77a;background:rgba(255,215,122,.07)}
+.level-tag.sev-serious{color:#ffbc9c;background:rgba(255,188,156,.07)}
+.level-tag.sev-critical{color:#ff9b9b;background:rgba(255,155,155,.07)}
 .sev-critical .ttl{color:#ff9b9b}
 .sev-serious  .ttl{color:#ffbc9c}
 .sev-warning  .ttl{color:#ffd77a}
@@ -539,13 +519,31 @@ table.dt th:first-child,table.dt td:first-child{text-align:left}
 table.dt th{color:var(--ink-3);font-weight:500;font-size:12.5px}
 table.dt tr.hl td{color:#fff;font-weight:600}
 
-/* ====================== footer ========================================= */
+/* ====================== footer / source links ========================== */
 .foot{
-  margin-top:26px;padding-top:18px;border-top:1px solid var(--rule);
-  display:flex;gap:34px;flex-wrap:wrap;font-size:13.5px;color:var(--ink-3);
+  margin-top:28px;padding:18px 20px;border:1px solid rgba(164,171,238,.17);
+  border-radius:18px;background:linear-gradient(115deg,rgba(37,41,83,.9),rgba(27,30,65,.78));
+  display:grid;grid-template-columns:minmax(220px,.9fr) minmax(0,1.7fr);align-items:center;gap:24px;
+  font-size:13px;color:var(--ink-3);box-shadow:0 12px 36px rgba(5,7,25,.12);
 }
 .foot p{margin:0;max-width:62ch;line-height:1.65}
 .foot b{color:var(--ink-2);font-weight:600}
+.sourcebar{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;gap:12px;
+  padding-left:22px;border-left:1px solid rgba(164,171,238,.2)}
+.sourcelabel{padding-top:7px;color:var(--ink-2);font-weight:600;font-size:13px;white-space:nowrap}
+.source-links{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.source-link{display:inline-flex;align-items:center;gap:7px;padding:7px 11px;
+  border:1px solid rgba(164,171,238,.2);border-radius:999px;background:rgba(20,23,55,.66);
+  color:var(--ink-2);font-size:12.5px;line-height:1.2;text-decoration:none;white-space:nowrap;
+  transition:transform .15s,border-color .15s,color .15s,background .15s}
+.source-link:hover{transform:translateY(-1px);border-color:var(--focus);background:rgba(48,52,102,.92);color:var(--ink)}
+.source-link img{width:18px;height:18px;object-fit:contain;display:block}
+.source-link .dot{width:9px;height:9px;border-radius:50%;display:block;flex:none}
+.source-link.reference{color:#b8c0e8}
+@media (max-width:900px){
+  .foot{grid-template-columns:1fr;gap:14px;padding:16px}
+  .sourcebar{grid-template-columns:1fr;gap:8px;padding:12px 0 0;border-left:0;border-top:1px solid rgba(164,171,238,.2)}
+}
 
 .chartbox{position:relative;height:250px}
 .chartbox.tall{height:288px}
@@ -612,16 +610,6 @@ table.dt tr.hl td{color:#fff;font-weight:600}
       </div>
     </dl>
   </header>
-
-  <!-- ====================== verifiable sources ========================= -->
-  <details class="sources" id="sourcesBox">
-    <summary class="srcsum">
-      <span class="srctitle">Forecast sources</span>
-      <span class="srcchips" id="srcChips"></span>
-      <span class="srcmore"><span class="srcmoretext">Details</span><span class="chev">›</span></span>
-    </summary>
-    <div class="srcbody"><ul class="srclist" id="srcList"></ul></div>
-  </details>
 
   <!-- ======================= six-day outlook =========================== -->
   <section class="rail">
@@ -824,14 +812,10 @@ table.dt tr.hl td{color:#fff;font-weight:600}
       <span id="fRegion">—</span>. Weights were learned offline from archived
       forecasts verified against ERA5 reanalysis.
     </p>
-    <p>
-      <b>Forecast sources.</b> Archived operational output from five centres at
-      real lead times — ECMWF IFS, ECMWF AIFS, NOAA GFS, DWD ICON and
-      Environment Canada GEM — retrieved from the Open-Meteo Previous Runs API.
-      Nothing is perturbed, simulated or reconstructed. Truth is ERA5 reanalysis;
-      persistence is carried as a skill reference and is not blended.
-      Provenance and caveats: DATA_NOTE.md.
-    </p>
+    <div class="sourcebar">
+      <span class="sourcelabel">Forecast sources</span>
+      <nav class="source-links" id="srcChips" aria-label="Forecast source documentation"></nav>
+    </div>
   </footer>
 </div>
 
@@ -942,6 +926,12 @@ const REGIME_COPY = {
 const fmtDate = s => {
   const d = new Date(s+'T00:00:00Z');
   return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',timeZone:'UTC'});
+};
+const todayISOIST = () => {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-GB',{
+    timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'
+  }).formatToParts(new Date()).map(p=>[p.type,p.value]));
+  return parts.year+'-'+parts.month+'-'+parts.day;
 };
 const fmtFullDate = s => new Date(s+'T00:00:00Z').toLocaleDateString('en-GB',{
   day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'
@@ -1061,8 +1051,8 @@ function paintForecastCards(){
     const windLabel = wind===null?'—':Math.round(wind)+' km/h';
     button.innerHTML = '<span class="fc-date">'+dateLabel+'</span>'+
       '<span class="fc-main"><span class="fc-icon '+iconClass+'" aria-hidden="true">'+icon+'</span>'+
-      '<span><span class="fc-temp">'+tempLabel+'<small>T2m mean</small></span></span></span>'+
-      '<span class="fc-condition">'+condition+'</span>'+
+      '<span><span class="fc-temp">'+tempLabel+'<small>mean temperature</small></span></span></span>'+
+      '<span class="fc-condition '+iconClass+'">'+condition+'</span>'+
       '<span class="fc-values"><span>💧 '+rainLabel+'</span><span>💨 '+windLabel+'</span></span>';
     button.setAttribute('aria-label',dateLabel+': mean temperature '+tempLabel+
       ', rainfall '+rainLabel+', wind '+windLabel+', '+condition);
@@ -1691,13 +1681,27 @@ function popupHtml(i, searchedName){
   const s = slice(), c = DATA.cells[i];
   const val  = fieldOf(s, variable)[i];
   const placeName = htmlText(searchedName || nearestPlaceName(c) || 'nearest location');
-  const rainAlert = s.rain[i] >= (M.extreme_mm || 40);
-  const heatAlert = s.t2m[i] >= (M.heat_c || 34);
-  const windAlert = s.wind && s.wind[i] >= (M.high_wind_kmh || 40);
-  const hasAlert = rainAlert || heatAlert || windAlert;
-  const alertText = hasAlert
-    ? '<div class="pop-alert" style="border-left:3px solid '+(rainAlert||windAlert?'#d03b3b':'#fab219')+';background:#231f16">⚠️ '+[rainAlert?'Heavy rainfall':null,heatAlert?'Heat wave':null,windAlert?'High wind':null].filter(Boolean).join(' · ')+'</div>'
-    : '<div class="pop-alert" style="color:#9bd9c2">No alert today😌</div>';
+  const alerts = [];
+  const rain = Number(s.rain[i]);
+  const temp = Number(s.t2m[i]);
+  const wind = s.wind && Number(s.wind[i]);
+  /* Match the map's IMD rainfall bands so intermediate heavy-rain risk is
+     visible instead of jumping straight from clear to a single "heavy" flag. */
+  if (rain >= 35.6){
+    const label = rain >= 244.5 ? 'Extremely heavy rainfall'
+      : rain >= 124.5 ? 'Very heavy rainfall'
+      : rain >= 64.5 ? 'Heavy rainfall' : 'Rather heavy rain · advisory';
+    const severity = rain >= 124.5 ? 'critical' : rain >= 64.5 ? 'serious' : 'warning';
+    alerts.push({severity, label:label+' ('+rain.toFixed(1)+' mm)'});
+  }
+  const heatLimit = M.heat_c || 34;
+  if (temp >= heatLimit) alerts.push({severity:temp >= heatLimit+3?'critical':'serious',label:'Heat wave signal ('+temp.toFixed(1)+' °C)'});
+  const windLimit = M.high_wind_kmh || 40;
+  if (wind && wind >= windLimit) alerts.push({severity:wind >= windLimit+12?'critical':'serious',label:'High wind ('+wind.toFixed(0)+' km/h)'});
+  const alertText = alerts.length
+    ? alerts.map(a=>'<div class="pop-alert sev-'+a.severity+'">⚠️ '+a.label+'</div>').join('')
+    : '<div class="pop-alert clear">'+(s.valid===todayISOIST()
+      ? 'No alert today😌' : 'No alert for '+fmtDate(s.valid)+'😌')+'</div>';
 
   return '<div class="pop">'+
     '<h4>'+VARNAME[variable]+' at '+placeName+'</h4>'+
@@ -1771,56 +1775,21 @@ function logoFor(slug){
 }
 
 (function buildSources(){
-  const ul = document.getElementById('srcList');
-  if (!ul) return;
-  function slot(key, alt){
-    const src = logoFor(key);
-    return '<span class="srclogo">' + (src
-      ? '<img src="'+src+'" alt="'+alt+'">'
-      : '<span>'+(MONO[key] || '—')+'</span>') + '</span>';
-  }
-  const items = DATA.meta.sources.map(function(src){
-    const m = SRCMETA[src.name] || {logo:null, url:null};
-    const nm = m.url ? '<a href="'+m.url+'" target="_blank" rel="noopener">'+src.name+'</a>'
-                     : src.name;
-    return '<li class="srcitem'+(src.blend === false ? ' ref' : '')+'">'+
-      slot(m.logo, src.name)+
-      '<span class="srctext"><b>'+nm+'</b></span></li>';
-  });
-  /* the verification target belongs on this list too - every score on the
-     Verification tab is measured against it */
-  items.push('<li class="srcitem ref">'+slot('openmeteo','Open-Meteo')+
-    '<span class="srctext"><b><a href="https://open-meteo.com/en/docs/previous-runs-api"'+
-    ' target="_blank" rel="noopener">Open-Meteo</a></b></span></li>');
-  items.push('<li class="srcitem ref">'+slot('copernicus','ERA5')+
-    '<span class="srctext"><b>ERA5</b></span></li>');
-  ul.innerHTML = items.join('');
-
-  /* The collapsed row carries the same names, so a judge who never opens the
-     panel still sees who the forecast came from. */
   const chips = document.getElementById('srcChips');
-  if (chips){
-    chips.innerHTML = DATA.meta.sources.filter(x => x.blend !== false).map(function(src){
-      const m = SRCMETA[src.name] || {logo:null};
-      /* a monogram here would just repeat the name ("NOAA  NOAA GFS"), so
-         without a logo the chip carries the source's map colour instead */
-      const lg = logoFor(m.logo);
-      const mark = lg
-        ? '<img src="'+lg+'" alt="">'
-        : '<i class="dot" style="background:'+(SERIES[src.key]||'var(--ink-3)')+'"></i>';
-      return '<span class="srcchip">'+mark+src.name+'</span>';
-    }).join('') +
-    '<span class="srcchip ref" title="Verification truth">verified vs ERA5</span>';
-  }
-
-  /* remember whether the reader left it open; per browser, never shared */
-  const box = document.getElementById('sourcesBox');
-  if (box){
-    try { if (localStorage.getItem('bd.sources') === 'open') box.open = true; } catch(e){}
-    box.addEventListener('toggle', function(){
-      try { localStorage.setItem('bd.sources', box.open ? 'open' : 'shut'); } catch(e){}
-    });
-  }
+  if (!chips) return;
+  const docs = DATA.meta.sources.filter(x => x.blend !== false).map(function(src){
+    const m = SRCMETA[src.name] || {logo:null, url:null};
+    const lg = logoFor(m.logo);
+    const mark = lg
+      ? '<img src="'+lg+'" alt="">'
+      : '<i class="dot" style="background:'+(SERIES[src.key]||'var(--ink-3)')+'"></i>';
+    return '<a class="source-link" href="'+m.url+'" target="_blank" rel="noopener noreferrer"'+
+      ' aria-label="'+src.name+' model documentation" title="Open '+src.name+' documentation">'+
+      mark+src.name+'</a>';
+  });
+  docs.push('<a class="source-link reference" href="https://www.ecmwf.int/en/forecasts/dataset/ecmwf-reanalysis-v5"'+
+    ' target="_blank" rel="noopener noreferrer" title="Open ERA5 reanalysis information">verified vs ERA5</a>');
+  chips.innerHTML = docs.join('');
 })();
 
 /* --- controls --------------------------------------------------------- */
@@ -2308,9 +2277,10 @@ function paintExtremes(){
   const M_ = M;
   const mk = (items, empty) => items.length
     ? items.map(function(it){
+        const level = it.sev==='critical'?'Warning':it.sev==='serious'?'Watch':'Advisory';
         return '<button class="alert sev-'+it.sev+'" data-i="'+it.i+'">'+
           '<span style="color:var(--'+it.sev+')">'+it.icon+'</span>'+
-          '<span><span class="ttl">'+it.ttl+'</span><span class="sub">'+it.sub+'</span></span>'+
+          '<span><span class="ttl">'+it.ttl+'</span><span class="level-tag sev-'+it.sev+'">'+level+'</span><span class="sub">'+it.sub+'</span></span>'+
           '<span><span class="pct num">'+it.pct+'</span><span class="pctl">'+it.pctl+'</span></span>'+
         '</button>'; }).join('')
     : '<p class="empty">'+empty+'</p>';
@@ -2348,12 +2318,11 @@ function paintExtremes(){
   });
   [rain, heat, wind].forEach(a => a.sort((x,y) => y.score - x.score));
 
-  document.getElementById('xRain').innerHTML = mk(rain.slice(0,60),
-    'No alert today😌');
-  document.getElementById('xHeat').innerHTML = mk(heat.slice(0,60),
-    'No alert today😌');
+  const noAlert = s.valid===todayISOIST() ? 'No alert today😌' : 'No alert for '+fmtDate(s.valid)+'😌';
+  document.getElementById('xRain').innerHTML = mk(rain.slice(0,60), noAlert);
+  document.getElementById('xHeat').innerHTML = mk(heat.slice(0,60), noAlert);
   document.getElementById('xWind').innerHTML = mk(wind.slice(0,60),
-    s.wind ? 'No alert today😌'
+    s.wind ? noAlert
            : 'Wind is not in this dataset yet. Re-run the fetch and training steps to populate it.');
 
   document.getElementById('xRainWhy').textContent =
