@@ -1116,18 +1116,21 @@ const USE_MAPBOX = /^pk\./.test(MAPBOX_TOKEN) && typeof mapboxgl !== 'undefined'
 const GL = USE_MAPBOX ? mapboxgl : maplibregl;
 if (USE_MAPBOX) mapboxgl.accessToken = MAPBOX_TOKEN;
 
-/* The dock floats over the right of the stage, so fitting to the raw
-   container centres the country underneath it and shrinks it. Padding the
-   fit by the dock width puts India in the space actually visible. */
+/* Reserve room for the dock only on maps where it is actually visible.
+   Forecast hides its dock, so India should be centred in the full map area. */
 const DOCK_W = 344;
-function fitPad(){
+function fitPad(containerId){
   const wide = window.innerWidth > 900;
-  return {top: 26, bottom: 26, left: 26, right: wide ? DOCK_W + 34 : 26};
+  const dock = document.getElementById(containerId === 'wmap' ? 'wdock' : 'dock');
+  const dockVisible = wide && dock && getComputedStyle(dock).display !== 'none' &&
+    !dock.classList.contains('hidden');
+  return {top: 26, bottom: 26, left: 26, right: dockVisible ? DOCK_W + 34 : 26};
 }
 function fitIndia(m){
   if (!m) return;
+  const pad = fitPad(m.getContainer().id);
   m.fitBounds([[LON_W - HALF, LAT_S - HALF], [LON_E + HALF, LAT_N + HALF]],
-              {padding: fitPad(), duration: 0});
+              {padding: pad, duration: 0});
 }
 
 /* Make the stage take whatever screen is left under the header, so the map
@@ -1150,13 +1153,13 @@ function sizeStage(){
    cropping it. */
 function fillIndia(m, duration){
   if (!m) return;
+  const pad = fitPad(m.getContainer().id);
   m.fitBounds([[LON_W - HALF, LAT_S - HALF], [LON_E + HALF, LAT_N + HALF]],
-              {padding: fitPad(), duration: 0});
+              {padding: pad, duration: 0});
   try {
     const a = m.project([LON_W - HALF, LAT_N + HALF]);
     const b = m.project([LON_E + HALF, LAT_S - HALF]);
     const wpx = Math.abs(b.x - a.x);
-    const pad = fitPad();
     const freeW = m.getContainer().clientWidth - pad.left - pad.right;
     if (wpx > 40 && freeW > wpx){
       const extra = Math.min(0.75, 0.5 * Math.log2(freeW / wpx));
@@ -1183,7 +1186,7 @@ const map = new GL.Map({
   container: 'map',
   style: BASE_STYLE,
   bounds: [[LON_W - HALF, LAT_S - HALF], [LON_E + HALF, LAT_N + HALF]],
-  fitBoundsOptions: {padding: fitPad()},
+  fitBoundsOptions: {padding: fitPad('map')},
   /* The map fills the viewport, so a bare wheel event over it would zoom
      instead of scrolling the page - and scrolling in and out re-fetches
      tiles and repaints the canvas, which reads as the page reloading.
@@ -2140,7 +2143,7 @@ function ensureWeightMap(){
   wmap = new GL.Map({
     container:'wmap', style: BASE_STYLE,
     bounds:[[LON_W - HALF, LAT_S - HALF],[LON_E + HALF, LAT_N + HALF]],
-    fitBoundsOptions:{padding:fitPad()}, scrollZoom:true,
+    fitBoundsOptions:{padding:fitPad('wmap')}, scrollZoom:true,
     cooperativeGestures:true, attributionControl:false
   });
   wmap.addControl(new GL.NavigationControl({showCompass:false}), 'bottom-right');
@@ -2617,10 +2620,9 @@ function focusCell(idx){
 function zoomToCell(m, idx, duration){
   if (!m || idx < 0) return;
   const c = DATA.cells[idx];
-  /* Centring the cell in the raw container puts it under the dock on the
-     right and the popup below, so the one thing the search just found is
-     the one thing covered. Pad around the furniture instead. */
-  const base = fitPad();
+  /* Keep the target visible beside any open dock, without reserving space
+     for a dock on the forecast map where it is hidden. */
+  const base = fitPad(m.getContainer().id);
   const wide = window.innerWidth > 900;
   m.fitBounds([[c.lon - HALF, c.lat - HALF], [c.lon + HALF, c.lat + HALF]], {
     padding: {top: base.top + 70, right: base.right + 70,
