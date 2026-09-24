@@ -19,66 +19,41 @@ The screen shows the combined forecast *and* which model it leaned on.
 
 ## Top of the page — always visible
 
-### Header strip
+### Header
 
-| Field | Meaning |
-|---|---|
-| **Region** | Area in view. Always *India* unless you search a state or district. |
-| **Run issued** | The date and hour the forecast run started. `00Z` = midnight UTC, the standard issue time. If it reads **"· yesterday"** in amber, you are looking at an old run — re-run `run_daily.py`. |
-| **Diagnosed spell** | The monsoon situation the system detected: **active** (widespread rain), **break** (a lull), or **normal**. Important: this is read from the *forecasts*, never from what actually happened — otherwise the system would be using the answer to make the prediction. |
-| **Console time** | Local clock. Cosmetic. |
+**Blend Desk** and a one-line description on the left. On the right, the four
+tabs — **Forecast · Model weights · Model comparisons · Extremes** — and the
+console clock in IST.
 
-### Forecast sources (collapsed bar)
+### 6-day outlook
 
-Click **Details** to expand. Collapsed it names all five model streams; expanded
-it gives each one's full name, the institution behind it, and a link to that
-institution's own documentation.
+Six cards, **Today** through **+5 days**, each with the date it is valid for.
+**This is the master control** — click a card and every map, chart and number
+below moves to that day. It replaced the older horizon slider.
 
-| Shown as | Full name | Who runs it | Type |
-|---|---|---|---|
-| ECMWF IFS | Integrated Forecasting System | European Centre for Medium-Range Weather Forecasts | physics |
-| ECMWF AIFS | Artificial Intelligence Forecasting System | ECMWF | **machine learning** |
-| NOAA GFS | Global Forecast System | NOAA, USA | physics |
-| DWD ICON | Icosahedral Nonhydrostatic model | Deutscher Wetterdienst, Germany | physics |
-| EC GEM | Global Environmental Multiscale model | Environment and Climate Change Canada | physics |
+Each card shows an icon, the mean temperature, a rain descriptor, and rainfall
+and wind. These are **national averages across all 4,645 cells** — see
+`docs/UI_AUDIT.md` item 5 for why that matters.
 
-**AIFS is the AI half**, and it is the reason this counts as a *hybrid
-AI–NWP* system: a real operational neural forecasting system, not something we
-trained. Everything else in the list is physics. The panel says so in words —
-*Artificial Intelligence Forecasting System* — rather than with a badge.
-`IFS` and `AIFS` differ by a single letter, so every chart labels them
-`(physics)` and `(AI)` to keep them apart.
+Today has no archived skill of its own, so it uses the T+1 weights.
 
-Also listed when expanded:
-- **Persistence** — "tomorrow will be like today". Never blended. It exists
-  only as the zero mark for the skill score: beating it is the minimum bar.
-- **ERA5** — the Copernicus/ECMWF reanalysis used as *truth*. Every score on
-  the Verification tab is measured against this.
+> **If the first card shows a date before today, the run is stale.** The page
+> no longer flags this itself — check it before any demo.
 
-### Forecast horizon (the rail)
+### My location, search, run selector
 
-Six stops, **T** (today) through **T+5**, each with the date it is valid for.
-Today has no archived skill of its own, so it uses the T+1 weights. **This is the
-master control — every map, chart and number below follows it.** Drag it or
-click a stop.
+**My location** centres the map on the viewer. **Search** takes any state or
+district: the map zooms and outlines it, and the panels narrow to it. The
+**Run** menu picks which day's issue you are looking at.
 
-The coloured bar fills to the selected stop, and its colour is the model
-currently carrying the most weight at that range. Watch it change colour as
-you drag: that *is* the product.
+### The sentence below the cards
 
-> **If T shows a date before today, the run is stale.** The first stop should
-> always be today. Check the amber note on *Run issued*.
-
-### Search box
-
-Type any state or district. The map zooms and outlines it, and everything
-below narrows to that area. Clear it to return to India.
-
-### The sentence below the rail
-
-Plain English summary of the selected lead: the date, the diagnosed spell,
-which model is being trusted most and by how much, and how many cells are
-flagged for heavy rain, heat and high wind. **Read this aloud in the demo.**
+Plain English summary of the selected day: the date, the diagnosed monsoon
+spell (active, break or normal — read from the *forecasts*, never from what
+actually happened), which model the blend trusts most and by how much, and how
+many cells are flagged for heavy rain, heat and high wind. **It changes with
+the variable** — on Temperature it names a different model. Read it aloud in
+the demo.
 
 ---
 
@@ -98,14 +73,13 @@ Colour bands for rainfall follow **IMD's operational classes** (*light*,
 *moderate*, *rather heavy*, *heavy*, *very heavy*, *extremely heavy*), so a
 forecaster reads them without a key.
 
-**Cell readout** (right). Hover any cell. Shows the blended value, and beneath
-it **what each of the five models said for that exact cell** and the weight
-each was given. This is the answer to "why should I believe this number".
+**Click any cell** to open its breakdown: the place name, the grid point, when
+it is valid, and a **donut showing how the five models were weighted there**,
+with the blended value in the centre and any active alert beneath.
 
-**Who is driving this forecast** (right). One bar per lead time, each split by
-model, summing to 100%. Long bar = that model is trusted at that range.
-Notice the bars change shape as the range extends — models that are good at
-day 1 are not always good at day 5, and that is the thing being exploited.
+**Switch Rainfall → Temperature and click the same cell again** — the donut
+changes from mostly orange (ECMWF AIFS) to mostly blue (ECMWF IFS). That flip is
+the whole argument for blending, shown on one location.
 
 **Legend** (bottom). The colour scale with its numeric bands.
 
@@ -137,7 +111,7 @@ regime*.
 
 ---
 
-## Tab 3 — Verification
+## Tab 3 — Model comparisons
 ### *Satisfies: "improved forecast skill"*
 
 **How each source scored.** Ranked table, rainfall RMSE in mm/day, **lower is
@@ -192,8 +166,9 @@ Each entry names the cell, where it is, and the severity.
 **This forecast** — the run, how many cells, the area, and that the weights
 were learned offline from archived forecasts verified against ERA5.
 
-**Forecast sources** — the five streams, the retrieval route, and the
-statement that nothing is perturbed, simulated or reconstructed.
+**Forecast sources** — the five model streams as logo chips, plus
+*verified vs ERA5*. This is where the sources live now; there is no longer a
+separate sources panel at the top of the page.
 
 ---
 
@@ -226,14 +201,7 @@ product actually computes. Persisting it is the next improvement.
 
 ---
 
-## 90-second demo order
+## Demo order
 
-1. Read the sentence under the rail aloud.
-2. Open **Forecast sources** → five real institutions. "Nothing is simulated."
-3. Drag the rail T+1 → T+5. Weight bars shift. **This is the product.**
-4. Hover a cell → what all five said, and the weight each got.
-5. Search "Kerala" → it zooms and narrows.
-6. **Model weights → Where models disagree.** "Where they agree, any model
-   will do. Where they diverge, the choice of model *is* the forecast."
-7. **Verification** → 33% better than IFS, and ahead of a plain average. Then
-   the caveat, in that order.
+See **`docs/DEMO_SCRIPT.md`** — the single canonical script, kept in one place
+so it cannot drift from this guide.

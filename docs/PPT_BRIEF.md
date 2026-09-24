@@ -247,70 +247,79 @@ say plainly that persisting the booster is the next improvement.
 
 ## Visual assets
 
-In `docs/assets/`, captured at device resolution from the live product.
-**Recapture before submission** — the UI has changed since these were taken
-(larger type, a new sources panel).
+In `docs/assets/`. **Captured 24 Sep 2026 at 1920×1080 from the current build**
+— use these, not anything older. Every map is live data from that day's run.
 
 | File | Shows | Best used on |
 |---|---|---|
-| `01-forecast.png` | Blended rainfall over all India, floating panels, live summary line | Slide 2 — the hero |
-| `02-disagreement.png` | **Where the five streams disagree**, per cell | Slide 2 or 3 — most persuasive single image |
-| `03-verification.png` | Ranked scorecard + error-vs-lead-time chart | Slide 5 |
-| `04-extremes.png` | Heavy rain / heat / high wind columns | Slide 5 |
-| `05-terrain-3d.png` | 3D terrain with the field draped over it | Slide 2 — visually striking |
+| `01-overview.png` | Full landing view: 6-day outlook cards, plain-English summary line, map below | Title or slide 2 — "this is the product" |
+| `02-forecast-rainfall.png` | Blended rainfall over all India, IMD colour classes, sources in the footer | Slide 2 — the hero |
+| `03a-cell-rainfall.png` | One cell (Malkangiri, Odisha) clicked on **Rainfall**: donut is mostly **orange = ECMWF AIFS** | Slide 3 or 5 — **use as a pair with 03b** |
+| `03b-cell-temperature.png` | The **same cell** on **Temperature**: donut flips to mostly **blue = ECMWF IFS**; summary line reads "trusts ECMWF IFS most" | Slide 3 or 5 — **use as a pair with 03a** |
+| `04-reliability-map.png` | Which model leads in each cell — mostly AIFS, with IFS across the Himalayan belt and Punjab, GFS/GEM pockets | Slide 3 — the "model weight map" the PS asks for |
+| `05-disagreement.png` | **Where the five models disagree**, per cell | Slide 2 — the problem, in one picture |
+| `06-model-comparisons.png` | Ranked scorecard + verdict sentence | Slide 5 — results |
+| `07-extremes.png` | Heavy rain / heat / high wind alert columns | Slide 5 — disaster-management impact |
 
-**If you use only one image, use `02-disagreement.png`** with the caption
-*"Where the models disagree, the choice of model is the whole forecast."* It
-makes the argument for the product in one picture.
+**The strongest single visual is the 03a / 03b pair, side by side.** Same place,
+same day — the donut changes colour when you change the variable. Caption:
+*"Rainfall: the AI model leads. Temperature: the physics model leads. No single
+model is best at everything."* That answers "why not just use AIFS?" before a
+judge can ask it.
+
+**The best "why this matters" image is `05-disagreement.png`**, captioned
+*"Where the models disagree, the choice of model is the whole forecast."*
+
+**Crop, don't shrink.** Each screenshot is a full 1920×1080 viewport. Crop to
+the map or the panel that makes the point; a full-page screenshot scaled into a
+slide makes every label unreadable.
+
+Also usable: `assets/logos/` — ECMWF, NOAA, DWD, EC GEM, Copernicus, Open-Meteo.
 
 ---
 
 ## Design direction
 
-Match the product so the deck and the demo read as one thing.
+Match the product so the deck and the live demo read as one thing.
 
-- **Type:** Archivo (body), Archivo Narrow (headings, data labels).
-  Both are on Google Fonts. The product was trialled with other families and
-  deliberately returned to Archivo — do not substitute.
-- **Background:** warm ink `#100f0d`; panels `#171613`
-- **Ink:** `#f2efe8` primary, `#aaa59a` secondary, `#7d776c` tertiary
-- **Accent:** `#f0b429` (amber) — sparingly, for the one number per slide that
-  matters, and for the **AI** badge on ECMWF AIFS
-- **Source colours — keep these exact, they match the app:**
+- **Type: Inter** (400 / 500 / 600 / 700), on Google Fonts. The product uses it
+  throughout; use one family, vary weight rather than adding a second face.
+- **Background:** navy slate `#263749`; panels `#33465b`; raised `#3b4e63`
+- **Rules / dividers:** `#52657a`
+- **Ink:** `#f3f4ff` primary, `#c1ccd7` secondary, `#a0afbd` tertiary
+- **Accent:** `#ffd426` — for the **one** number per slide that matters. If two
+  things on a slide are yellow, neither is emphasised.
+- **Source colours — keep these exact, they are the product's key and appear on
+  every chart:**
   ECMWF IFS `#3987e5` · ECMWF AIFS `#d95926` · NOAA GFS `#199e70` ·
   DWD ICON `#9085e9` · EC GEM `#c98500` · Persistence `#64788c`
-- Let the map screenshots carry the colour; keep slide furniture quiet
-- Tabular figures for all numbers
-- **Type sizes were increased across the product** because the original set was
-  too small to read in a demo. Keep deck body text ≥ 18pt for the same reason.
+- **Hazard colours:** watch `#fab219`, serious `#ec835a`, critical `#d03b3b`
+- Let the screenshots carry the colour; keep slide furniture quiet
+- Tabular figures for all numbers; body text ≥ 18 pt — it must read on a projector
 
-**Institutional logos.** The team is supplying ECMWF, NOAA, DWD, ECCC and
-Copernicus marks (see `assets/logos/README.md`). Use them on slide 2 beside the
-source table — a row of real institutional logos is the fastest trust signal in
-the deck. Also needed for the title slide: MoES / NCMRWF, SIH 2026, and the
-team's college mark.
+**Logos — all supplied, in `assets/logos/`:** ECMWF (covers IFS and AIFS), NOAA,
+DWD, Environment Canada, Copernicus, Open-Meteo. Put the five model logos on the
+sources slide — a row of real institutional marks is the fastest trust signal in
+the deck. **Still needed from the team:** MoES / NCMRWF, SIH 2026 and the college
+mark, for the title slide only.
 
 ---
 
-## Demo script — 90 seconds
+## The live demo
 
-1. **Open on the Forecast tab.** Read the summary line aloud: *"Forecast for 23
-   September, three days ahead over India. The blend trusts ECMWF AIFS most, at
-   63% of the weight."* Read the live sentence off the screen — the counts
-   change daily.
-2. **Open the Forecast sources panel.** One click shows all five streams with
-   full names and institutions. *"Nothing here is simulated."*
-3. **Drag the horizon rail T+1 → T+5.** The weight bars shift as the horizon
-   extends. *This is the product in one gesture.* Rehearse it.
-4. **Click a cell.** Show what each stream said and the weight each was given.
-5. **Search a state** — type "Kerala". It zooms, outlines the state, and the
-   watch list narrows to it.
-6. **Model weights tab → "Where models disagree".** *"Where they agree, any
-   model will do. Where they diverge — here, and here — the choice of model is
-   the whole forecast. That is what we are solving."*
-7. **Verification tab.** Say the 29%-vs-IFS number, then that the blend also
-   beats the strongest single model and a plain average of all five.
+**The canonical script is `docs/DEMO_SCRIPT.md`** — keep one copy, so the deck
+and the demo never drift apart. For slide planning, the live beats are:
 
+1. **Forecast tab** — the plain-English summary line and the 6-day outlook cards
+2. **Click a day card** — the map and summary move to that date
+3. **Click a cell, then switch Rainfall → Temperature** — the donut flips from
+   orange (AIFS) to blue (IFS). *This is the product in one gesture.*
+4. **Search a state** — the map zooms and outlines it
+5. **Model weights → Where models disagree**
+6. **Model comparisons** — the scorecard
+
+The deck should carry the problem, the architecture and the numbers; the demo
+should carry only what a slide cannot — things *moving*.
 ---
 
 ## Anticipated questions

@@ -11,11 +11,13 @@ recording — `run_daily.py` changes the forecast figures daily.
 
 ## Before you start
 
-- Run `python run_daily.py --publish` that morning. If *Run issued* shows
-  **"· yesterday"** in amber, the run is stale — fix it before recording.
-- Open `dashboard.html` fresh. Collapse **Forecast sources** so the page
-  starts compact.
-- Start on the **Forecast** tab, **Rainfall**, lead **T+3**.
+- Run `python run_daily.py --publish` that morning. The first outlook card
+  must read **Today** with today's date — if it shows an earlier date, the run
+  is stale; re-run before recording. (The page no longer flags this itself.)
+- Open `dashboard.html` fresh, scrolled to the top.
+- Start on the **Forecast** tab, **Rainfall**, with the **Today** card selected.
+- **Pre-pick your demo cell** — somewhere with real rain that day. Find it before
+  recording, not live.
 - Full screen. Hide bookmarks. 1920×1080.
 
 ---
@@ -31,14 +33,14 @@ recording — `run_daily.py` changes the forecast figures daily.
 > **Blend Desk measures which model to trust, and combines five of them into
 > one national forecast.**
 
-*Click **Details** on the Forecast sources bar.*
+*Scroll to the footer and point at the **Forecast sources** row of logos.*
 
 > **Five real operational models, from four national weather centres. ECMWF's
 > physics model and their AI model, NOAA, the German service, and Environment
 > Canada. Nothing here is simulated — these are archived operational runs,
 > verified against ERA5 reanalysis.**
 
-*Collapse it again.*
+*Scroll back up.*
 
 ---
 
@@ -56,17 +58,15 @@ recording — `run_daily.py` changes the forecast figures daily.
 >
 > *(The cell counts change every run — read whatever is on screen.)*
 
-*Drag the horizon rail slowly from T (today) to T+5. Watch the weight bars on the
-right change shape.*
+*Click through the outlook cards, Today → 29 Sept. The map and the summary
+line move with each one.*
 
-> **One run, walked out day by day. The mix shifts as the range extends —
-> a model that's good tomorrow isn't always good on day five.**
+> **One run, walked out day by day, six days from today.**
 
-*Hover one cell in the heavy-rain area over the north.*
+*Click your pre-picked cell.*
 
-> **Every cell shows what each of the five models said, and how much weight
-> each one got. That's the difference between a number and a forecast you can
-> argue with.**
+> **Every cell opens a breakdown: the blended value, and the donut shows how the
+> five models were weighted there.**
 
 ---
 
@@ -74,17 +74,18 @@ right change shape.*
 
 **This is the most important 30 seconds. Do not rush it.**
 
-*Still on Forecast. Click **Temperature**.*
+*With that cell's popup still open, click **Temperature**, then click the same
+cell again.*
 
-> **Now watch the weights.**
+> **Now watch the donut.**
 
-*Point at the "Who is driving this forecast" chart — it flips from orange to
-blue.*
+*It flips from mostly orange to mostly blue. Point at the summary line too — it
+now reads "trusts ECMWF IFS most".*
 
 > **For rainfall, ECMWF's AI model carries most of the weight and their physics
 > model gets almost none. Switch to temperature and it inverts — the physics
 > model takes the lead and the AI model drops behind it.** (Read the exact
-> percentages off the chart; they move with the run.)
+> percentage off the summary line; it moves with the run.)
 >
 > **The best rainfall model is one of the worst temperature models. That's
 > measured, not assumed. It's why you can't just pick a favourite and use it
@@ -99,7 +100,7 @@ blue.*
 
 ## 1:20 — 1:45 · Does it actually work
 
-*Click **Verification** tab.*
+*Click the **Model comparisons** tab.*
 
 > **Everything is scored out of sample, on contiguous time blocks — never a
 > random split, because neighbouring days leak into each other.**

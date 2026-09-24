@@ -156,4 +156,7 @@ measurement that settled it, including the bugs) and **`DATA_NOTE.md`**.
 | `docs/DATA_SOURCES.md` | Every source, live-probe status, rate limits |
 | `docs/DEMO_SCRIPT.md` | Two-minute demo, timed and scripted |
 | `docs/DASHBOARD_GUIDE.md` | What every element on screen means |
+| `docs/PPT_BRIEF.md` | Slide-by-slide content, numbers and design system for the deck |
+| `docs/DESIGN_PROMPT.md` | Copy-paste prompt for the slide-building agent |
+| `docs/UI_AUDIT.md` | Current UI issues, ranked |
 | `02_synth_models.py`, `01_fetch_era5.py` | Superseded synthetic pipeline, kept as fallback |
