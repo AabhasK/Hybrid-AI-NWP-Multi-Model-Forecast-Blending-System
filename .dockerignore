@@ -1,0 +1,13 @@
+.git
+.env
+.venv
+__pycache__
+*.py[cod]
+*.log
+data/_era5_raw.json
+data/_india_raw.geojson
+data/_india_states.geojson
+data/_india_districts.geojson
+data/_real_raw
+data/_imd
+data/_live_raw

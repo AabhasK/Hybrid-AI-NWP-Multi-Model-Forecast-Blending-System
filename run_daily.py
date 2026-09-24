@@ -9,8 +9,8 @@ that were learned offline, and writes a dated product.
   python run_daily.py              # blend today's runs
   python run_daily.py --publish    # also refresh the dashboard payload
 
-Schedule it with Task Scheduler, cron, or the supplied macOS LaunchAgent
-(ops/com.hybridai.nwp-dashboard-refresh.plist; refreshes every three hours).
+For a shared deployment, run it with the server-side Docker Compose setup
+described in README.md. The server refreshes every three hours by default.
 
 WHY THE WEIGHTS ARE APPLIED, NOT REFITTED
 -----------------------------------------
@@ -224,10 +224,10 @@ def blend(df, weights):
             sel = (df.lead_time == lead).values
             if not sel.any():
                 continue
-        # Lead zero has no trained skill estimate; use the nearest trained
-        # horizon (T+1) weights for today's forecast.
-        wlead = str(max(1, lead))
-        wset = weights.get(wlead, {}).get(var if var in weights.get(wlead, {}) else "rain", {})
+            # Lead zero has no trained skill estimate; use the nearest trained
+            # horizon (T+1) weights for today's forecast.
+            wlead = str(max(1, lead))
+            wset = weights.get(wlead, {}).get(var if var in weights.get(wlead, {}) else "rain", {})
             for reg in df.regime[sel].unique():
                 m = sel & (df.regime == reg).values
                 w = np.array(wset.get(reg) or wset.get("_all") or
@@ -324,7 +324,7 @@ def main():
     if args.publish:
         print("\nrefreshing dashboard payload ...")
         for step in ("export_dashboard_data.py", "build_dashboard.py"):
-            subprocess.run([sys.executable, str(ROOT / step)], check=False)
+            subprocess.run([sys.executable, str(ROOT / step)], check=True)
 
 
 if __name__ == "__main__":

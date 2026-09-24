@@ -20,15 +20,15 @@
          The base is the paper of a printed bulletin; the only saturated
          things on the page are the weather layers themselves, which is what
          makes the teal rain and amber heat read as data rather than decor. */
-  --plane:      #100f0d;
-  --surface:    #171613;
-  --raised:     #1f1e19;
-  --rule:       #2d2b25;
-  --rule-soft:  #22201b;
+  --plane:      #171a3b;
+  --surface:    #20244b;
+  --raised:     #2b2f58;
+  --rule:       #3b406f;
+  --rule-soft:  #30345f;
 
-  --ink:        #f2efe8;
-  --ink-2:      #aaa59a;
-  --ink-3:      #7a7568;
+  --ink:        #f3f4ff;
+  --ink-2:      #c1c5df;
+  --ink-3:      #9298bd;
 
   /* --- categorical series: validated for CVD on #121a21 (worst adj dE 9.4).
          Five blend members; persistence is a reference, not a series, so it
@@ -47,7 +47,7 @@
   --serious:  #ec835a;
   --critical: #d03b3b;
 
-  --focus: #f0b429;
+  --focus: #ffd426;
 }
 
 *{box-sizing:border-box}
@@ -112,47 +112,46 @@ body{
 .verdict{margin:13px 0 0;font-size:14px;color:var(--ink-2);line-height:1.6}
 .verdict b{color:var(--ink);font-weight:600}
 
-/* ====================== horizon rail (the hero control) ================= */
-.rail{
-  padding:13px 0 2px;
-}
-.rail-head{display:flex;align-items:center;gap:14px;margin-bottom:11px;flex-wrap:wrap}
-.rail-head h2{font-family:"Inter",sans-serif;font-size:18px;font-weight:600;margin:0}
-.rail-head span{color:var(--ink-3);font-size:14px}
+/* ====================== forecast cards and place finder ================ */
+.rail{padding:16px 0 12px}
+.rail-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:11px}
+.rail-heading h2{font-family:"Inter",sans-serif;font-size:17px;font-weight:600;margin:0}
+.rail-heading p{font-size:12.5px;color:var(--ink-3);margin:2px 0 0}
+.rail-tools{display:flex;align-items:center;justify-content:flex-end;gap:10px}
 .track{
-  position:relative;height:56px;cursor:pointer;
-  touch-action:none;user-select:none;
+  display:flex;align-items:center;min-width:0;overflow-x:auto;
+  scrollbar-width:none
 }
-.track::before{
-  content:"";position:absolute;left:0;right:0;top:11px;height:1px;background:var(--rule);
-}
-.fill{
-  position:absolute;left:0;top:10px;height:3px;background:var(--m-a);
-  border-radius:2px;transition:width .34s cubic-bezier(.4,0,.2,1),background-color .34s;
-}
-.stations{position:absolute;inset:0;display:flex}
+.track::-webkit-scrollbar{display:none}
+.stations{display:flex;align-items:stretch;gap:10px;min-width:max-content}
 .stn{
-  flex:1;position:relative;background:none;border:0;padding:0;cursor:pointer;
-  color:var(--ink-3);font-family:"Inter",sans-serif;
-  display:flex;flex-direction:column;align-items:center;gap:0;
+  flex:0 0 174px;min-height:170px;padding:14px 15px 13px;text-align:left;
+  background:linear-gradient(155deg,#2d315d,#25294f);border:1px solid #3c416f;
+  border-radius:20px;color:var(--ink);font-family:"Inter",sans-serif;cursor:pointer;
+  display:flex;flex-direction:column;transition:transform .18s,border-color .18s,background .18s,box-shadow .18s
 }
-.stn .knob{
-  /* flex:0 0 11px, not height:11px - the stations are column flex items, so
-     height is the MAIN axis and the default flex-shrink squashed these into
-     3.5px ellipses. */
-  flex:0 0 11px;width:11px;height:11px;border-radius:50%;background:var(--plane);
-  border:1px solid var(--rule);margin-top:6px;
-  transition:transform .22s,background-color .22s,border-color .22s;
-}
-.stn .lead{font-size:16px;font-weight:600;margin-top:8px;letter-spacing:.01em}
-.stn .vd{font-size:12.5px;margin-top:0}
-.stn[aria-checked="true"]{color:var(--ink)}
-.stn[aria-checked="true"] .knob{transform:scale(1.55);background:var(--m-a);border-color:var(--m-a)}
-.stn:hover .knob{border-color:var(--ink-3)}
+.stn[aria-pressed="true"]{background:linear-gradient(155deg,#464a7b,#343862);
+  border-color:var(--focus);box-shadow:0 0 0 1px rgba(255,212,38,.12),0 8px 20px rgba(8,10,30,.18)}
+.stn:hover{transform:translateY(-2px);border-color:#8d93c2}
+.fc-date{font-size:13px;font-weight:600;color:var(--ink-2)}
+.stn[aria-pressed="true"] .fc-date{color:var(--focus)}
+.fc-main{display:flex;align-items:center;gap:11px;margin:12px 0 9px}
+.fc-icon{display:grid;place-items:center;width:54px;height:54px;flex:none;border-radius:50%;
+  background:linear-gradient(145deg,#ffd94c,#ff9b22);font-size:28px;line-height:1;
+  box-shadow:inset 0 -3px 8px rgba(130,73,0,.12)}
+.fc-icon.rain{background:linear-gradient(145deg,#83d5ff,#638cf3)}
+.fc-icon.cloud{background:linear-gradient(145deg,#bcd8ff,#8099cb)}
+.fc-icon.wind{background:linear-gradient(145deg,#b9e7dd,#68b4a5)}
+.fc-temp{font-size:27px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
+.fc-temp small{display:block;color:var(--ink-3);font-size:11px;font-weight:500;margin-top:5px}
+.fc-condition{font-size:12px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fc-values{display:flex;justify-content:space-between;gap:8px;border-top:1px solid rgba(202,207,255,.12);
+  padding-top:8px;margin-top:auto;font-size:11.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.fc-values span{white-space:nowrap}
 
 /* ====================== panels ========================================= */
 .brand .pitch{margin:6px 0 0;color:var(--ink-2);font-size:15px;line-height:1.45;max-width:52ch}
-.rail-head .seg{border-radius:999px}
+.rail-tools .seg{border-radius:999px}
 
 /* one sentence that says what is on screen right now, in words */
 .nowline{
@@ -362,7 +361,7 @@ body{
   max-height:min(70vh,560px);overflow-y:auto
 }
 .mapboxgl-popup-content .pop,.maplibregl-popup-content .pop{min-width:270px}
-.popdonut{height:220px;position:relative;margin:0}
+.popdonut{height:220px;flex:0 0 220px;position:relative;margin:0}
 .pop{display:flex;flex-direction:column;gap:8px}
 .pop-context{margin:0;color:var(--ink-3);font-size:12.5px;line-height:1.4}
 .pop-valid{display:flex;flex-wrap:wrap;gap:0 10px}
@@ -452,7 +451,6 @@ body{
 .srcmore .chev{display:inline-block;transition:transform .18s;font-size:16px;line-height:1}
 .sources[open] .srcmore .chev{transform:rotate(90deg)}
 .srcbody{padding:13px 16px 15px}
-.srcnote{margin:0 0 13px;color:var(--ink-3);font-size:13px;max-width:84ch;line-height:1.45}
 .srclist{list-style:none;margin:0;padding:0;display:grid;gap:10px;
   grid-template-columns:repeat(auto-fit,minmax(236px,1fr))}
 .srcitem{display:flex;gap:10px;align-items:flex-start;min-width:0}
@@ -467,12 +465,16 @@ body{
   color:var(--ink-3);letter-spacing:.02em}
 .srctext{min-width:0}
 .srctext b{display:block;font-size:14px;font-weight:600;line-height:1.25}
-.srctext .exp{display:block;font-size:12.5px;color:var(--ink-2);line-height:1.3;margin-top:1px}
 .srctext b a{color:inherit;text-decoration:none;border-bottom:1px solid var(--rule)}
 .srctext b a:hover{border-bottom-color:var(--focus);color:var(--focus)}
-.srctext .org{display:block;font-size:11.5px;color:var(--ink-3);line-height:1.3;margin-top:1px}
 .srctext b{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
 @media (max-width:720px){ .srclist{grid-template-columns:1fr} }
+@media (max-width:820px){
+  .rail{grid-template-columns:1fr;gap:10px}
+  .rail-tools{justify-content:stretch}
+  .rail-tools .finder{flex:1;min-width:0}
+  .rail-tools .seg{flex:none}
+}
 
 /* legend */
 .legend{display:flex;align-items:center;gap:0;padding:9px 16px;border-top:1px solid var(--rule-soft);flex-wrap:wrap}
@@ -548,6 +550,10 @@ table.dt tr.hl td{color:#fff;font-weight:600}
     "nte nte nte nte nte nte nte nte nte nte nte nte"}
 }
 @media (max-width:820px){
+  .rail-head{align-items:flex-start;flex-direction:column}
+  .rail-tools{justify-content:flex-start;width:100%;flex-wrap:wrap}
+  .rail-tools .finder{flex:1;min-width:0}
+  .rail-tools .seg{flex:none}
   .wrap{padding:0 16px 40px}
   .grid{grid-template-columns:1fr!important;grid-template-areas:none!important}
   .grid > section{grid-area:auto!important}
@@ -600,21 +606,15 @@ table.dt tr.hl td{color:#fff;font-weight:600}
       <span class="srcchips" id="srcChips"></span>
       <span class="srcmore"><span class="srcmoretext">Details</span><span class="chev">›</span></span>
     </summary>
-    <div class="srcbody">
-      <p class="srcnote">Five model streams from four national meteorological centres,
-         retrieved at real lead times from published archives. Nothing is simulated,
-         and every source below is independently checkable &mdash; each name links to
-         the operator&rsquo;s own documentation.</p>
-      <ul class="srclist" id="srcList"></ul>
-    </div>
+    <div class="srcbody"><ul class="srclist" id="srcList"></ul></div>
   </details>
 
-  <!-- ========================== horizon rail =========================== -->
+  <!-- ======================= six-day outlook =========================== -->
   <section class="rail">
     <div class="rail-head">
-      <h2>Forecast horizon</h2>
-      <span>One run, walked out day by day. Everything below follows this control.</span>
-      <div class="finder" style="margin-left:auto">
+      <div class="rail-heading"><h2>6-day outlook</h2><p id="outlookArea">India blended average</p></div>
+      <div class="rail-tools">
+      <div class="finder">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
              stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>
         <input id="placeSearch" type="text" autocomplete="off" spellcheck="false"
@@ -630,9 +630,9 @@ table.dt tr.hl td{color:#fff;font-weight:600}
                 font-family:'Inter',sans-serif;font-size:14px;
                 font-weight:600;padding:5px 10px;cursor:pointer"></select>
       </div>
+      </div>
     </div>
-    <div class="track" id="track" role="radiogroup" aria-label="Forecast lead time in days">
-      <div class="fill" id="railFill"></div>
+    <div class="track" id="track" role="group" aria-label="Six-day blended forecast">
       <div class="stations" id="stations"></div>
     </div>
   </section>
@@ -982,63 +982,69 @@ setInterval(function(){ window.location.reload(); }, 3 * 60 * 60 * 1000);
 /* horizon rail                                                           */
 /* ===================================================================== */
 const stationsEl = document.getElementById('stations');
-const railFill   = document.getElementById('railFill');
 
 function buildRail(){
   stationsEl.innerHTML = '';
   const leads = Object.keys(run()).map(Number).sort((a,b)=>a-b);
+  const latestRun = DATA.issue_dates[DATA.issue_dates.length-1];
   for(const L of leads){
     const b = document.createElement('button');
     b.className='stn'; b.type='button';
     b.dataset.lead = L;
-    b.setAttribute('role','radio');
-    b.setAttribute('aria-checked', String(L===lead));
-    b.tabIndex = L===lead ? 0 : -1;
-    b.innerHTML = '<span class="knob"></span><span class="lead">'+leadName(L)+'</span>'+
-                  '<span class="vd num">'+fmtDate(run()[String(L)].valid)+'</span>';
-    b.setAttribute('aria-label',(L===0?'Today':'Lead time '+L+' day'+(L>1?'s':''))+', valid '+run()[String(L)].valid);
+    b.setAttribute('aria-pressed', String(L===lead));
+    b.setAttribute('aria-label',(L===0 && runKey===latestRun?'Today':'Forecast for '+fmtDate(run()[String(L)].valid)));
     b.addEventListener('click',()=>setLead(L));
     stationsEl.appendChild(b);
   }
   paintRail();
 }
 function paintRail(){
-  [...stationsEl.children].forEach((b,i)=>{
+  [...stationsEl.children].forEach(b=>{
     const on = Number(b.dataset.lead)===lead;
-    b.setAttribute('aria-checked', String(on));
-    b.tabIndex = on ? 0 : -1;
+    b.setAttribute('aria-pressed', String(on));
   });
-  const leadIndex = [...stationsEl.children].findIndex(b=>Number(b.dataset.lead)===lead);
-  const markerPosition = (leadIndex + 0.5) / Math.max(1, stationsEl.children.length);
-  railFill.style.width = (markerPosition * 100)+'%';
-  const leadWeights = DATA.weights.cell_lead[String(lead)] || DATA.weights.cell_lead[String(Math.max(1,lead))];
-  const dom = leadWeights.dom;
-  const tally = {}; dom.forEach(d=>tally[d]=(tally[d]||0)+1);
-  const top = Object.keys(tally).sort((a,b)=>tally[b]-tally[a])[0];
-  railFill.style.backgroundColor = SERIES[top] || SERIES.A;
+  paintForecastCards();
 }
 
-/* pointer drag along the track, so the control feels continuous */
-const track = document.getElementById('track');
-function leadFromX(clientX){
-  const r = track.getBoundingClientRect();
-  const max = Math.max(1, Object.keys(run()).length - 1);
-  return Math.min(max, Math.max(0, Math.round(((clientX-r.left)/r.width)*max)));
+function paintForecastCards(){
+  if (!stationsEl.children.length) return;
+  const latestRun = DATA.issue_dates[DATA.issue_dates.length-1];
+  const indices = area ? areaCells() : pinned !== null ? [pinned] : null;
+  const average = values => {
+    if (!Array.isArray(values)) return null;
+    const picked = indices ? indices.map(i=>values[i]) : values;
+    const valid = picked.filter(v=>Number.isFinite(Number(v))).map(Number);
+    return valid.length ? valid.reduce((a,b)=>a+b,0)/valid.length : null;
+  };
+  const areaLabel = document.getElementById('outlookArea');
+  if (areaLabel){
+    areaLabel.textContent = area ? area.n+(area.k==='state'?' area mean':' forecast')
+      : pinned !== null ? (nearestPlaceName(DATA.cells[pinned]) || 'Selected point')+' · grid point'
+      : 'India blended average';
+  }
+
+  [...stationsEl.children].forEach(button=>{
+    const L = Number(button.dataset.lead), s = run()[String(L)];
+    const rain = average(s.rain), temp = average(s.t2m), wind = average(s.wind);
+    const iconClass = rain !== null && rain >= 2.5 ? 'rain'
+      : rain !== null && rain >= 0.2 ? 'cloud'
+      : wind !== null && wind >= (M.high_wind_kmh || 40) ? 'wind' : 'sun';
+    const icon = iconClass==='rain'?'🌧️':iconClass==='cloud'?'🌦️':iconClass==='wind'?'🌬️':'☀️';
+    const condition = iconClass==='rain'?'Rain likely':iconClass==='cloud'?'Light rain'
+      :iconClass==='wind'?'Windy':(temp!==null&&temp>=(M.heat_c||34)?'Hot and dry':'Mostly dry');
+    const dateLabel = L===0 && runKey===latestRun ? 'Today' : fmtDate(s.valid);
+    const tempLabel = temp===null?'—':Math.round(temp)+'°';
+    const rainLabel = rain===null?'—':rain.toFixed(1)+' mm';
+    const windLabel = wind===null?'—':Math.round(wind)+' km/h';
+    button.innerHTML = '<span class="fc-date">'+dateLabel+'</span>'+ 
+      '<span class="fc-main"><span class="fc-icon '+iconClass+'" aria-hidden="true">'+icon+'</span>'+ 
+      '<span><span class="fc-temp">'+tempLabel+'<small>T2m mean</small></span></span></span>'+ 
+      '<span class="fc-condition">'+condition+'</span>'+ 
+      '<span class="fc-values"><span>💧 '+rainLabel+'</span><span>💨 '+windLabel+'</span></span>';
+    button.setAttribute('aria-label',dateLabel+': mean temperature '+tempLabel+
+      ', rainfall '+rainLabel+', wind '+windLabel+', '+condition);
+  });
 }
-let dragging=false;
-track.addEventListener('pointerdown', e=>{
-  if(e.target.closest('.stn')) return;
-  dragging=true; track.setPointerCapture(e.pointerId); setLead(leadFromX(e.clientX));
-});
-track.addEventListener('pointermove', e=>{ if(dragging) setLead(leadFromX(e.clientX)); });
-track.addEventListener('pointerup',   ()=>{dragging=false});
-track.addEventListener('keydown', e=>{
-  if(e.key==='ArrowRight'||e.key==='ArrowUp'){ setLead(Math.min(5,lead+1)); focusStn(); e.preventDefault(); }
-  if(e.key==='ArrowLeft' ||e.key==='ArrowDown'){ setLead(Math.max(0,lead-1)); focusStn(); e.preventDefault(); }
-  if(e.key==='Home'){ setLead(0); focusStn(); e.preventDefault(); }
-  if(e.key==='End'){ setLead(5); focusStn(); e.preventDefault(); }
-});
-const focusStn = ()=> [...stationsEl.children].find(b=>+b.dataset.lead===lead)?.focus();
 
 function setLead(L){
   if(L===lead) return;
@@ -1606,21 +1612,40 @@ function openCell(i, keepView, searchedName){
   const c = DATA.cells[i];
   pinned = i;
   weightCell = i;
+  if (!keepView) map.easeTo({center:[c.lon,c.lat], duration:520});
+  attachCellPopup(i, searchedName, null, null, false);
+}
+function attachCellPopup(i, searchedName, anchor, maxHeight, fitted){
+  const c = DATA.cells[i];
+  pinned = i;
   if (popup) popup.remove();
   if (popupWeightChart){ popupWeightChart.destroy(); popupWeightChart = null; }
-  popup = new GL.Popup({closeButton:true, maxWidth:'372px', offset:10})
+  const options = {closeButton:true, maxWidth:'372px', offset:10};
+  if (anchor) options.anchor = anchor;
+  popup = new GL.Popup(options)
     .setLngLat([c.lon, c.lat]).setHTML(popupHtml(i, searchedName));
   popup.on('close', function(){ pinned = null; if(popupWeightChart){popupWeightChart.destroy();popupWeightChart=null;} });
   popup.addTo(map);
+  const content = popup.getElement().querySelector('.maplibregl-popup-content,.mapboxgl-popup-content');
+  if (maxHeight && content){ content.style.maxHeight = maxHeight+'px'; content.style.overflowY='auto'; }
   requestAnimationFrame(function(){
     renderPopupDonut(i);
-    /* The donut gives the popup its final height. Reposition after layout so
-       MapLibre can keep the full card inside the map viewport. */
     requestAnimationFrame(function(){
-      if (popup) popup.setLngLat([c.lon,c.lat]);
+      if (!popup) return;
+      if (!fitted){
+        const point=map.project([c.lon,c.lat]), bounds=map.getContainer().getBoundingClientRect();
+        const above=Math.max(0,point.y-12), below=Math.max(0,bounds.height-point.y-12);
+        const placeBelow=below>=above;
+        const available=Math.max(140,Math.max(above,below));
+        const limit=Math.max(140,Math.min(560,window.innerHeight*.7,available));
+        const horizontal=point.x<200?'-left':point.x>bounds.width-200?'-right':'';
+        attachCellPopup(i,searchedName,(placeBelow?'top':'bottom')+horizontal,limit,true);
+        return;
+      }
+      if (content) content.style.maxHeight=maxHeight+'px';
+      popup.setLngLat([c.lon,c.lat]);
     });
   });
-  if (!keepView) map.easeTo({center:[c.lon, c.lat], duration:520});
 }
 function nearestPlaceName(c){
   const places = ((DATA.geo && DATA.geo.places) || []).filter(p=>p.k!=='state' && p.c);
@@ -1686,27 +1711,19 @@ function renderPopupDonut(i){
    page stays a single file. Any that are missing fall back to a monogram. */
 const LOGOS = /*__LOGOS__*/{};
 
-/* "IFS" and "AIFS" mean nothing to a judge who does not work in NWP.
-   Expand every acronym and name the institution behind it, with a link, so
-   each source is checkable rather than asserted. */
+/* Keep the source list compact: names link to operator documentation. */
 const SRCMETA = {
-  'ECMWF IFS':  {exp:'Integrated Forecasting System', logo:'ecmwf',
-                 org:'European Centre for Medium-Range Weather Forecasts',
+  'ECMWF IFS':  {logo:'ecmwf',
                  url:'https://www.ecmwf.int/en/forecasts/documentation-and-support'},
-  'ECMWF AIFS': {exp:'Artificial Intelligence Forecasting System', logo:'ecmwf',
-                 org:'European Centre for Medium-Range Weather Forecasts',
+  'ECMWF AIFS': {logo:'ecmwf',
                  url:'https://www.ecmwf.int/en/about/media-centre/news/2025/ecmwf-launches-aifs-single-operational'},
-  'NOAA GFS':   {exp:'Global Forecast System', logo:'noaa',
-                 org:'National Oceanic and Atmospheric Administration, USA',
+  'NOAA GFS':   {logo:'noaa',
                  url:'https://www.ncei.noaa.gov/products/weather-climate-models/global-forecast'},
-  'DWD ICON':   {exp:'Icosahedral Nonhydrostatic model', logo:'dwd',
-                 org:'Deutscher Wetterdienst, Germany',
+  'DWD ICON':   {logo:'dwd',
                  url:'https://www.dwd.de/EN/research/weatherforecasting/num_modelling/num_modelling.html'},
-  'EC GEM':     {exp:'Global Environmental Multiscale model', logo:'eccc',
-                 org:'Environment and Climate Change Canada',
+  'EC GEM':     {logo:'eccc',
                  url:'https://eccc-msc.github.io/open-data/msc-data/nwp_gem-global/readme_gemglobal_en/'},
-  'Persistence':{exp:'Yesterday repeated', logo:null,
-                 org:'Skill reference only, never blended', url:null}
+  'Persistence':{logo:null, url:null}
 };
 const MONO = {ecmwf:'ECMWF', noaa:'NOAA', dwd:'DWD', eccc:'ECCC', copernicus:'C3S',
               openmeteo:'OM'};
@@ -1738,26 +1755,20 @@ function logoFor(slug){
       : '<span>'+(MONO[key] || '—')+'</span>') + '</span>';
   }
   const items = DATA.meta.sources.map(function(src){
-    const m = SRCMETA[src.name] || {exp:src.sub||'', org:'', logo:null, url:null};
+    const m = SRCMETA[src.name] || {logo:null, url:null};
     const nm = m.url ? '<a href="'+m.url+'" target="_blank" rel="noopener">'+src.name+'</a>'
                      : src.name;
     return '<li class="srcitem'+(src.blend === false ? ' ref' : '')+'">'+
-      slot(m.logo, m.org || src.name)+
-      '<span class="srctext"><b>'+nm+'</b>'+
-      '<span class="exp">'+m.exp+'</span>'+
-      '<span class="org">'+m.org+'</span></span></li>';
+      slot(m.logo, src.name)+
+      '<span class="srctext"><b>'+nm+'</b></span></li>';
   });
   /* the verification target belongs on this list too - every score on the
      Verification tab is measured against it */
   items.push('<li class="srcitem ref">'+slot('openmeteo','Open-Meteo')+
     '<span class="srctext"><b><a href="https://open-meteo.com/en/docs/previous-runs-api"'+
-    ' target="_blank" rel="noopener">Open-Meteo</a></b>'+
-    '<span class="exp">Previous Runs API &mdash; how the archived forecasts are retrieved</span>'+
-    '<span class="org">Delivery route, not a forecast producer</span></span></li>');
-  items.push('<li class="srcitem ref">'+slot('copernicus','Copernicus Climate Change Service')+
-    '<span class="srctext"><b>ERA5</b>'+
-    '<span class="exp">Reanalysis used as verification truth</span>'+
-    '<span class="org">Copernicus Climate Change Service / ECMWF</span></span></li>');
+    ' target="_blank" rel="noopener">Open-Meteo</a></b></span></li>');
+  items.push('<li class="srcitem ref">'+slot('copernicus','ERA5')+
+    '<span class="srctext"><b>ERA5</b></span></li>');
   ul.innerHTML = items.join('');
 
   /* The collapsed row carries the same names, so a judge who never opens the

@@ -6,7 +6,8 @@ Five global weather models disagree about tomorrow. This learns which one to
 trust — for each place, each day ahead and each kind of weather — and blends
 them into a single forecast.
 
-**Open `dashboard.html`.** One self-contained file, no server, no build step.
+**Deploy once on a server.** Users open the shared dashboard URL in a browser; no
+local installation is needed for them.
 
 ---
 
@@ -56,19 +57,33 @@ python build_dashboard.py        # -> dashboard.html
 
 `run_daily.py --publish` does the last three in one step and includes today's
 forecast (T) through T+5. The T blend uses the nearest trained weights, T+1.
-To refresh every three hours on macOS, install the supplied LaunchAgent:
+
+### Deploy as a shared server dashboard
+
+The Docker Compose deployment runs the forecast refresh on the server and
+serves the generated page to every user. It refreshes immediately at startup,
+then every three hours by default. The last successful dashboard stays
+available if a later refresh fails.
 
 ```
-mkdir -p ~/Library/LaunchAgents
-cp ops/com.hybridai.nwp-dashboard-refresh.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.hybridai.nwp-dashboard-refresh.plist
+docker compose up -d --build
 ```
 
-The job updates `data/dashboard_data.json` and rebuilds `dashboard.html`. The
-HTML itself is a snapshot; it changes when this scheduled job runs.
+Open `http://<server-address>:8080`. Set `PORT` in a server-side `.env` file to
+change the published port, or `REFRESH_INTERVAL_SECONDS` to change the refresh
+interval (for example, `3600` for hourly). Keep exactly one refresher service
+instance so two jobs do not run at once. For a public deployment, put the web
+service behind the server's HTTPS reverse proxy and allow its port through the
+server firewall.
 
-Requires `numpy pandas scipy scikit-learn lightgbm pyarrow joblib`.
-On this machine: `C:/Users/khand/anaconda3/python.exe`.
+The server needs outbound access to the forecast data source used by
+`run_daily.py`. To update the application or trained files, redeploy the image
+with `docker compose up -d --build`; the generated dashboard volume is retained.
+Users only need the shared URL. The older macOS LaunchAgent setup is no longer
+used.
+
+The server image installs its runtime dependencies from
+`requirements-runtime.txt`.
 
 ---
 
