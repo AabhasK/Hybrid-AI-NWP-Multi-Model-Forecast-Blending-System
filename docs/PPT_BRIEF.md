@@ -125,7 +125,7 @@ analysis, not a reconstruction.
   today's runs ───► diagnose regime ───► apply weights ───► BLENDED
   from all five      from the forecast      (seconds)        FORECAST
   streams            fields themselves                     4,645 cells
-                                                            0.25° · T+1…T+5
+                                                            0.25° · T…T+5
                                                                 │
                               ┌─────────────────┬───────────────┤
                          weight maps      skill scores     extreme flags
@@ -169,7 +169,7 @@ The weights transfer because they are fitted per regime and lead, not per cell.
 **Feasibility — already built and running:**
 - **All five sources are free and need no API key of any kind.** Verified: the
   system runs on Open-Meteo's public keyless endpoints
-- Live national forecast for all India refreshes in **186 requests**, minutes
+- Live national forecast for all India refreshes in **78 requests**, minutes
 - Dashboard is a **single self-contained HTML file** — no server, no install
 - One scheduled command is the entire operational workflow
 
@@ -211,7 +211,7 @@ Rainfall, mm/day. Lower RMSE and MAE are better; higher skill is better.
 | vs the **equal-weight mean** | **7.9% better** |
 | vs persistence | **skill score 0.399** |
 | Heavy-rainfall flagging | **ROC-AUC 0.947** at a 2.1% base rate |
-| Coverage | **4,645 cells · 0.25° (~28 km) · all India · T+1…T+5** |
+| Coverage | **4,645 cells · 0.25° (~28 km) · all India · today through T+5** |
 
 **Lead the slide with the weights-only blend (8.424).** It is the problem
 statement's actual deliverable, it is what the daily product computes, and it
@@ -337,7 +337,7 @@ team's college mark.
   not compute it
 - ❌ "Five centres" — it is five model streams from **four** institutions
 - ❌ "Real-time" without qualification — it is a **daily** operational run on
-  medium-range forecasts, T+1…T+5
+  medium-range forecasts, today through T+5
 - ❌ That IMD data is integrated — it is not
 - ❌ That a true perturbed ensemble is included — we blend five deterministic
   runs; ECMWF's 51-member ensemble is verified available but not yet weighted

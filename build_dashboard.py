@@ -13,6 +13,7 @@ Run:  python build_dashboard.py
 """
 
 import base64
+import sys
 import json
 import mimetypes
 from pathlib import Path
@@ -44,14 +45,21 @@ def main():
     # The token lives in .env and is injected at build time, so it is never
     # committed with the template. Without one the page uses its MapLibre +
     # OpenFreeMap fallback, which needs no key.
-    if config.is_set("MAPBOX_TOKEN"):
+    #
+    # --public builds WITHOUT it. Use that for any copy that will be committed
+    # or served: a token baked into a file on a public repo can be lifted and
+    # spent by anyone. The server container has no .env, so it always builds
+    # the public way - this makes the local commit path match it.
+    public = "--public" in sys.argv
+    if config.is_set("MAPBOX_TOKEN") and not public:
         if MAPBOX_LINE not in html:
             raise SystemExit("could not find the Mapbox token line to substitute")
         html = html.replace(MAPBOX_LINE,
                             "const MAPBOX_TOKEN = '%s';" % config.MAPBOX_TOKEN)
         basemap = "Mapbox GL (token from .env)"
     else:
-        basemap = "MapLibre GL + OpenFreeMap (no MAPBOX_TOKEN set)"
+        basemap = ("MapLibre GL + OpenFreeMap (--public: token withheld)" if public
+                   else "MapLibre GL + OpenFreeMap (no MAPBOX_TOKEN set)")
 
     # Logos are inlined as data URIs so the page stays one file. Whatever is
     # absent simply falls back to a monogram in the browser, so a missing logo

@@ -153,7 +153,7 @@ hour on the free tier.
 
 | Task | Cost shape | Outcome |
 |---|---|---|
-| Daily live run, 4,645 cells × 7 days | cheap per cell | 186 requests, runs in minutes |
+| Daily live run, 4,645 cells × 6 days (today–T+5) | cheap per cell | 78 requests, runs in minutes |
 | Archive, 286 cells × 120 days × 3 vars × 5 models | expensive | exceeds the hourly quota; the fetcher waits for reset and resumes |
 
 Measured limits, recorded so they are not rediscovered:

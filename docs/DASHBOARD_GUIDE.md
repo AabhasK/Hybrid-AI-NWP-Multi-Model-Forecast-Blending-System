@@ -57,7 +57,8 @@ Also listed when expanded:
 
 ### Forecast horizon (the rail)
 
-Five stops, T+1 to T+5, each with the date it is valid for. **This is the
+Six stops, **T** (today) through **T+5**, each with the date it is valid for.
+Today has no archived skill of its own, so it uses the T+1 weights. **This is the
 master control — every map, chart and number below follows it.** Drag it or
 click a stop.
 
@@ -65,8 +66,8 @@ The coloured bar fills to the selected stop, and its colour is the model
 currently carrying the most weight at that range. Watch it change colour as
 you drag: that *is* the product.
 
-> **If T+1 shows today's date, the run is stale.** A forecast horizon should
-> start tomorrow. Check the amber note on *Run issued*.
+> **If T shows a date before today, the run is stale.** The first stop should
+> always be today. Check the amber note on *Run issued*.
 
 ### Search box
 

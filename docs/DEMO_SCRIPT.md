@@ -56,7 +56,7 @@ recording — `run_daily.py` changes the forecast figures daily.
 >
 > *(The cell counts change every run — read whatever is on screen.)*
 
-*Drag the horizon rail slowly from T+1 to T+5. Watch the weight bars on the
+*Drag the horizon rail slowly from T (today) to T+5. Watch the weight bars on the
 right change shape.*
 
 > **One run, walked out day by day. The mix shifts as the range extends —

@@ -2331,7 +2331,7 @@ function paintExtremes(){
     'Classifier probability of a '+M_.extreme_mm+' mm breach above 25%, at '+leadName(lead)+'.';
   document.getElementById('xHeatWhy').textContent = climOK
     ? '1.5 °C or more above the local seasonal normal, at '+leadName(lead)+'.'
-    : 'Blended 2 m mean at or near '+(M_.heat_c || 34)+' °C, at T+'+lead+
+    : 'Blended 2 m mean at or near '+(M_.heat_c || 34)+' °C, at '+leadName(lead)+
       '. A live run has no seasonal normal to compare against.';
   document.getElementById('xWindWhy').textContent =
     'Daily maximum 10 m wind near or above '+(M_.high_wind_kmh || 40)+' km/h, at '+leadName(lead)+'.';
@@ -2388,8 +2388,11 @@ function paintNowLine(){
   if (windy) flags.push('<b>' + windy + '</b> with high wind');
 
   el.innerHTML =
-    'Forecast for <b>' + fmtDate(s.valid) + '</b>, ' + lead + ' day' + (lead > 1 ? 's' : '') +
-    ' ahead over <b>' + where + '</b>. Conditions are <b>' + reg + '</b>. ' +
+    /* Lead 0 is today's own forecast; "0 day ahead" is not a phrase anyone
+       says, so name it plainly. */
+    'Forecast for <b>' + fmtDate(s.valid) + '</b>, ' +
+    (lead === 0 ? 'today,' : lead + ' day' + (lead > 1 ? 's' : '') + ' ahead') +
+    ' over <b>' + where + '</b>. Conditions are <b>' + reg + '</b>. ' +
     (leadKey
       ? 'Right now the blend trusts <span class="lead"><b>' + NAMEOF[leadKey] + '</b></span> most, at <b>' +
         Math.round(100 * leadW) + '%</b> of the weight. '

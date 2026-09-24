@@ -20,7 +20,7 @@ the gap. Everything marked *met* is reproducible from this repository.
 | Conditioning factor | Status | How |
 |---|---|---|
 | **Historical skill** | **Met** | Weights solved by constrained NNLS against ERA5 verification history |
-| **Forecast lead time** | **Met** | Independent weight vector per lead T+1…T+5; a separate model per lead |
+| **Forecast lead time** | **Met** | Independent weight vector per lead T+1…T+5; a separate model per lead. Today (lead 0) has no archived skill to fit against, so it borrows the T+1 weights |
 | **Region** | **Met** | Weights solved per (grid cell × lead) as well as per regime |
 | **Weather regime** | **Met** | Active / break / normal monsoon, diagnosed from the forecast fields at issue time |
 | **Season** | **Partial** | Season enters the ML correction as a categorical feature, but the NNLS weights are stratified by regime × lead and cell × lead, **not** by season. Closing it is a one-line change to the stratification key; it needs a multi-season archive to be meaningful, and we have 116 days. |
@@ -69,7 +69,7 @@ therefore keys off daily-max 10 m wind, which ERA5 does verify.
 
 ### 4.1 Dynamically blended forecast — **Met**
 Best-combined forecast from five sources over **4,645 cells at 0.25° (~28 km)**
-across all India, for T+1…T+5, refreshed by `run_daily.py` from today's runs.
+across all India, for today through T+5, refreshed by `run_daily.py` from today's runs.
 
 ### 4.2 Model weight maps — **Met**
 Sum-to-one, non-negative weights per **(cell × lead)** and per
