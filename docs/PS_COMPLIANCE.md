@@ -73,9 +73,10 @@ across all India, for today through T+5, refreshed by `run_daily.py` from today'
 
 ### 4.2 Model weight maps — **Met**
 Sum-to-one, non-negative weights per **(cell × lead)** and per
-**(regime × lead)**, rendered as the *Model weights* tab. A second view maps
-**where the centres disagree** per cell, which is live and answers the
-operational question the weight map cannot on a future date.
+**(regime × lead)**, combined in the live product and rendered from the exact
+applied weights in the *Model weights* tab. Rainfall uses a 20% regional share,
+temperature an 80% regional share, and wind uses the run-wide rainfall-trained
+mix. A second view maps **where the centres disagree** per cell.
 
 ### 4.3 Improved forecast skill — **Met, with the honest caveat**
 
@@ -90,14 +91,14 @@ Out-of-sample, contiguous time-block cross-validation:
 | ECMWF AIFS | 8.611 | 4.402 | 0.385 |
 | Persistence *(reference)* | 14.007 | 6.937 | 0.000 |
 | **Equal-weight mean** *(naive baseline)* | 9.142 | 4.457 | 0.347 |
-| **Blend (live product, learned weights)** | **8.424** | **4.282** | **0.399** |
+| **Blend (live product, regional mix)** | **8.326** | **4.186** | **0.406** |
 | + ML correction *(offline only)* | 8.164 | 3.924 | 0.417 |
 
 *Trained on the national archive: 155,584 rows, 286 cells at 1°, 116 days
 (23 May – 15 Sep 2026), verified against ERA5.*
 
 **Beats everything it is measured against.** Against ECMWF IFS — the model a
-forecaster reaches for by default — **29% less error**. Against ECMWF AIFS, the
+forecaster reaches for by default — **30% less error**. Against ECMWF AIFS, the
 strongest single model, **2.2%**. Against the plain equal-weight mean — the
 benchmark most published adaptive schemes fail to clear — **7.9%**.
 

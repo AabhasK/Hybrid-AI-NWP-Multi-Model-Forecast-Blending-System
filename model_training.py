@@ -36,6 +36,8 @@ Run:  python model_training.py
 """
 
 from pathlib import Path
+import subprocess
+import sys
 
 import joblib
 import lightgbm as lgb
@@ -415,11 +417,11 @@ def solve_weights(F, y, penalty=25.0):
     return w / s if s > 1e-9 else np.full(F.shape[1], 1.0 / F.shape[1])
 
 
-def weights_by(df, keys):
+def weights_by(df, keys, variable="rain"):
     rows = []
     for key, g in df.groupby(keys, observed=True):
-        F = np.column_stack([g["model_%s_rain" % m].values for m in BLEND])
-        w = solve_weights(F, g.truth_rain.values)
+        F = np.column_stack([g["model_%s_%s" % (m, variable)].values for m in BLEND])
+        w = solve_weights(F, g["truth_%s" % variable].values)
         rec = dict(zip(keys, key if isinstance(key, tuple) else (key,)))
         for m, wi in zip(BLEND, w):
             rec["w_%s" % m] = round(float(wi), 4)
@@ -584,6 +586,11 @@ def main():
     wmap = weights_by(df, ["cell_id", "lead_time"])
     wmap = wmap.merge(df[["cell_id", "lat", "lon", "elevation_m"]].drop_duplicates("cell_id"),
                       on="cell_id", how="left")
+    temp_valid = df.dropna(subset=["truth_t2m"] + ["model_%s_t2m" % m for m in BLEND])
+    wmap_t2m = weights_by(temp_valid, ["cell_id", "lead_time"], "t2m")
+    wmap_t2m = wmap_t2m.merge(
+        df[["cell_id", "lat", "lon", "elevation_m"]].drop_duplicates("cell_id"),
+        on="cell_id", how="left")
     wreg = weights_by(df, ["regime", "lead_time"])
     wlead = weights_by(df, ["lead_time"])
 
@@ -631,11 +638,14 @@ def main():
     by_regime.to_csv(DATA / "metrics_by_regime.csv", index=False)
     pd.DataFrame(clf_rows).to_csv(DATA / "metrics_extreme_classifier.csv", index=False)
     wmap.to_csv(DATA / "weight_map.csv", index=False)
+    wmap_t2m.to_csv(DATA / "weight_map_t2m.csv", index=False)
     wreg.to_csv(DATA / "weights_by_regime.csv", index=False)
     wlead.to_csv(DATA / "weights_by_lead.csv", index=False)
     imp.to_csv(DATA / "feature_importance.csv", header=["importance"])
     import json as _json
     (DATA / "blend_weight_sets.json").write_text(_json.dumps(weight_sets, indent=1))
+    subprocess.run([sys.executable, str(ROOT / "ops" / "verify_regional_skill.py")],
+                   check=True)
 
     print("\n" + "=" * 66)
     print(" artefacts written to data/ and models/")

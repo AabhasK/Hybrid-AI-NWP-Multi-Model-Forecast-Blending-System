@@ -190,6 +190,7 @@ body{
 .stagehead h3{font-family:"Inter",sans-serif;font-size:19px;font-weight:600;margin:0}
 .stagehead .why{font-size:14px;color:var(--ink-3);margin:0}
 .stagehead .seg{margin-left:auto}
+.stagehead .weight-variable{margin-left:0}
 
 .stagebody{
   position:relative;
@@ -402,7 +403,7 @@ body{
 .mapboxgl-map,.maplibregl-map{font-family:"Inter",sans-serif}
 .mapboxgl-popup-content,.maplibregl-popup-content{
   background:var(--raised);color:var(--ink);border:1px solid var(--rule);
-  border-radius:3px;padding:13px 15px;box-shadow:0 12px 38px rgba(0,0,0,.6);
+  border-radius:8px;padding:13px 15px;box-shadow:0 12px 38px rgba(0,0,0,.6);
   /* never let the popup outgrow a short map and clip its last rows */
   max-height:min(70vh,560px);overflow-y:auto
 }
@@ -411,6 +412,13 @@ body{
 .pop{display:flex;flex-direction:column;gap:8px}
 .pop-context{margin:0;color:var(--ink-3);font-size:12.5px;line-height:1.4}
 .pop-valid{display:flex;flex-wrap:wrap;gap:0 10px}
+.weight-list{display:grid;gap:5px;margin-top:2px}
+.weight-list-label{margin:2px 0 0;color:var(--ink-2);font-size:12px;font-weight:650}
+.weight-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;
+  padding:5px 7px;border-radius:5px;background:rgba(255,255,255,.045);font-size:12px}
+.weight-name{display:flex;align-items:center;gap:7px;min-width:0}
+.weight-dot{width:9px;height:9px;border-radius:50%;flex:none}
+.weight-value{font-variant-numeric:tabular-nums;font-weight:650}
 .popdonut canvas{width:100%!important;height:100%!important}
 #pane-forecast .dock,#pane-forecast .docktoggle{display:none!important}
 #pane-weights #winspectorCard{display:none!important}
@@ -713,10 +721,15 @@ table.dt tr.hl td{color:#fff;font-weight:600}
     <section class="stage">
       <div class="stagehead">
         <h3>Model reliability map</h3>
-        <p class="why">The source earning the largest blend weight in each cell, at the
-          selected lead time. This is the deliverable a forecaster would pin to the wall.</p>
+        <p class="why">Regional reliability and the weights applied to each forecast point.</p>
+        <div class="seg weight-variable" role="group" aria-label="Weight variable">
+          <button id="wRain" aria-pressed="true">Rainfall</button>
+          <button id="wTemp" aria-pressed="false">Temperature</button>
+          <button id="wWind" aria-pressed="false">Wind</button>
+        </div>
         <div class="seg" role="group" aria-label="Weight map view">
-          <button id="wLead" aria-pressed="true">Leading source</button>
+          <button id="wRegional" aria-pressed="true">Regional reliability</button>
+          <button id="wLead" aria-pressed="false">Applied blend</button>
           <button id="wSpread" aria-pressed="false">Where models disagree</button>
         </div>
         <span class="mapnote" id="wmapnote"></span>
@@ -736,8 +749,8 @@ table.dt tr.hl td{color:#fff;font-weight:600}
 
           <div class="dockcard grow">
             <div class="dockhead">
-              <h4>Weights by spell and lead</h4>
-              <span>pale means the sources are close</span>
+              <h4>Selected point across lead times</h4>
+              <span>Click the map to inspect another point</span>
             </div>
             <div class="dockscroll">
               <div class="matrix" id="matrix"></div>
@@ -871,8 +884,10 @@ const SUBOF = Object.fromEntries(DATA.meta.sources.map(s => [s.key, s.sub || '']
    which is what the blender itself does. */
 const WKEY = {rain:'rain', temp:'t2m', wind:'wind'};
 function wAt(s, k, i){
+  const applied = s.wa && s.wa[WKEY[variable]];
+  if (applied && applied[lc(k)]) return applied[lc(k)][i];
   const a = s['w' + lc(k)];
-  if (a) return a[i];                       // archive runs: per-cell arrays
+  if (a && variable === 'rain') return a[i]; // archive rain weights
   if (s.wv){
     const v = s.wv[WKEY[variable]] || s.wv.rain;
     if (v && v[lc(k)] !== undefined) return v[lc(k)];
@@ -1421,6 +1436,7 @@ let mapReady = false;
 const showGrid = false, showIso = true;
 let pinned = null, popup = null, popupWeightChart = null;
 let wmap = null, wmapReady = false, shareChart = null;
+let wPopup = null, wPopupIdx = null;
 let userLocationMarker = null;
 let weightCell = 0;
 
@@ -1605,7 +1621,11 @@ function paintMap(){
   map.setPaintProperty('cells-line','line-opacity', showGrid ? 1 : 0);
   map.setPaintProperty('field','raster-opacity', showGrid ? 0 : 0.82);
   paintLegend();
-  if (pinned !== null && popup) popup.setHTML(popupHtml(pinned));
+  if (pinned !== null && popup){
+    if (popupWeightChart){ popupWeightChart.destroy(); popupWeightChart=null; }
+    popup.setHTML(popupHtml(pinned));
+    requestAnimationFrame(()=>renderPopupDonut(pinned));
+  }
 }
 
 function paintLegend(){
@@ -1622,7 +1642,7 @@ function openCell(i, keepView, searchedName){
   const c = DATA.cells[i];
   pinned = i;
   weightCell = i;
-  paintForecastCards();
+  paintForecastCards(); paintWeights(); paintMatrix(); paintNowLine();
   if (!keepView) map.easeTo({center:[c.lon,c.lat], duration:520});
   attachCellPopup(i, searchedName, null, null, false);
 }
@@ -1791,24 +1811,38 @@ function logoFor(slug){
 /* --- controls --------------------------------------------------------- */
 document.getElementById('vRain').addEventListener('click',function(){ setVar('rain'); });
 document.getElementById('vTemp').addEventListener('click',function(){ setVar('temp'); });
+document.getElementById('wRain').addEventListener('click',function(){ setVar('rain'); });
+document.getElementById('wTemp').addEventListener('click',function(){ setVar('temp'); });
+document.getElementById('wWind').addEventListener('click',function(){ setVar('wind'); });
 (function(){
   const b = document.getElementById('vWind');
   /* wind only appears once the fetch and training steps have been re-run
      with the wind variable; disable rather than break */
-  if (!slice().wind){ b.disabled = true; b.style.opacity = .4; b.title = 'Wind not in this dataset yet'; }
+  if (!slice().wind){
+    [b,document.getElementById('wWind')].forEach(el=>{
+      el.disabled = true; el.style.opacity = .4; el.title = 'Wind not in this dataset yet';
+    });
+  }
   else b.addEventListener('click', function(){ setVar('wind'); });
 })();
 function setVar(v){
   if (v === variable) return;
   variable = v;
   ['rain','temp','wind'].forEach(function(n,i){
-    const el = document.getElementById(['vRain','vTemp','vWind'][i]);
-    if (el) el.setAttribute('aria-pressed', String(v === n));
+    for (const id of [['vRain','wRain'],['vTemp','wTemp'],['vWind','wWind']][i]){
+      const el = document.getElementById(id);
+      if (el) el.setAttribute('aria-pressed', String(v === n));
+    }
   });
-  if (popup){ popup.remove(); popup = null; pinned = null; }
+  const regional = DATA.weights.regional_lead && DATA.weights.regional_lead[WKEY[v]];
+  const regionalButton = document.getElementById('wRegional');
+  regionalButton.disabled = !regional;
+  regionalButton.title = regional ? '' : 'Regional wind weights are not yet trained';
   /* the weight mix is variable-specific, so it must repaint too - this is
      the switch that shows IFS taking over from AIFS on temperature */
-  paintMap(); paintNowLine(); paintWeights();
+  paintMap(); paintNowLine(); paintWeights(); paintMatrix();
+  if (!regional && wmapMode==='regional') setWmapMode('lead');
+  else paintWeightMap();
 }
 
 /* ===================================================================== */
@@ -1821,33 +1855,10 @@ Chart.defaults.color = INK3;
 const wctx = document.getElementById('cWeights');
 let weightChart;
 
-function weightRowsForRegime(reg){
-  const even = {};
-  KEYS.forEach(k => { even['w_'+lc(k)] = 1 / KEYS.length; });
-  return [0,1,2,3,4,5].map(function(L){
-    /* A live run carries the exact per-variable vector it blended with, so
-       prefer that: it is the only source that differs between rainfall and
-       temperature, and the difference is the point. The trained regime table
-       is rainfall-only and stays the fallback for archive runs. */
-    const sl = run()[String(L)] || run()[String(Math.max(1,L))];
-    if (sl && sl.wv){
-      const v = sl.wv[WKEY[variable]] || sl.wv.rain;
-      if (v){
-        const row = {};
-        KEYS.forEach(k => { row['w_'+lc(k)] = v[lc(k)] || 0; });
-        return row;
-      }
-    }
-    return DATA.weights.by_regime_lead.find(x=>x.regime===reg && x.lead_time===Math.max(1,L)) || even;
-  });
-}
-
 function paintWeights(){
-  const reg  = slice().regime;
-  const rows = weightRowsForRegime(reg);
   const why = document.getElementById('wWhy');
-  if (why) why.textContent = 'for ' + VARNAME[variable].toLowerCase() +
-      (variable === 'wind' ? ' · reuses the rainfall mix' : ' · sums to 100%');
+  if (why) why.textContent = VARNAME[variable].toLowerCase() +
+      (variable === 'wind' ? ' · rainfall-trained run-wide weights' : ' · selected grid point');
   const sl = slice();
   const cellWeights = KEYS.map(k => Math.max(0, Number(wAt(sl, k, weightCell)) || 0));
   const data = {
@@ -2017,21 +2028,18 @@ function scopeCells(){
 /* ===================================================================== */
 function paintMatrix(){
   const el = document.getElementById('matrix');
-  const regs = [['active','Active'],['normal','Normal'],['break','Break']];
   let html = '<div></div>' + [1,2,3,4,5].map(L=>'<div class="hd">T+'+L+'</div>').join('');
-  regs.forEach(([key,label])=>{
-    html += '<div class="rh">'+label+'</div>';
-    for(let L=1;L<=5;L++){
-      const r = DATA.weights.by_regime_lead.find(x=>x.regime===key && x.lead_time===L);
-      const dom = r.dominant_model, w = r.dominant_weight;
-      /* tint depth tracks decisiveness: 0.25 (a four-way tie) -> 0.70 */
-      const a = Math.max(.10, Math.min(.62, (w-0.22)*1.35));
-      const on = (L===lead && key===slice().regime);
-      html += '<div class="cellm'+(on?' on':'')+'" style="background:'+hexA(SERIES[dom],a)+'">'+
-              '<b style="color:'+SERIES[dom]+'">'+dom+'</b>'+
-              '<span class="num">'+Math.round(100*w)+'%</span></div>';
-    }
-  });
+  html += '<div class="rh">'+htmlText(nearestPlaceName(DATA.cells[weightCell]) || 'Point')+'</div>';
+  for(let L=1;L<=5;L++){
+    const s = run()[String(L)];
+    if (!s){ html += '<div class="cellm">—</div>'; continue; }
+    const values = KEYS.map(k=>({key:k,weight:Number(wAt(s,k,weightCell)) || 0}));
+    const winner = values.reduce((a,b)=>a.weight>=b.weight?a:b);
+    const a = Math.max(.10, Math.min(.62, (winner.weight-.22)*1.35));
+    html += '<div class="cellm'+(L===lead?' on':'')+'" style="background:'+hexA(SERIES[winner.key],a)+'">'+
+      '<b style="color:'+SERIES[winner.key]+'">'+winner.key+'</b>'+
+      '<span class="num">'+Math.round(100*winner.weight)+'%</span></div>';
+  }
   el.innerHTML = html;
 
   document.getElementById('matLegend').innerHTML = M.sources.filter(x=>x.blend!==false).map(s=>
@@ -2090,7 +2098,6 @@ function paintScore(){
      distrust everything else on the page. */
   const eq  = DATA.metrics.overall.find(r => /Equal-weight/.test(r.source));
   const ifs = DATA.metrics.overall.find(r => /ECMWF IFS/.test(r.source));
-  const h   = DATA.metrics.classifier_headline;
   const members = DATA.metrics.overall.filter(r =>
     r.key && r.key !== 'F' && !/Equal-weight|BLENDED|Linear blend/.test(r.source));
   const best = members.length ? members.reduce((a, b) => a.rmse <= b.rmse ? a : b) : null;
@@ -2121,9 +2128,6 @@ function paintScore(){
     bits.push('Against <b>ECMWF IFS</b> — the model a forecaster would reach for by default — ' +
               'the blend cuts error by <b>' + pct(ifs.rmse, blendRow.rmse) + '%</b>.');
   }
-
-  bits.push('Heavy-rain flagging scores <b>' + h.auc.toFixed(3) + '</b> ROC-AUC at a ' +
-            (100 * h.base_rate).toFixed(1) + '% base rate.');
 
   document.getElementById('verdict').innerHTML = bits.join(' ');
 }
@@ -2183,6 +2187,14 @@ function ensureWeightMap(){
     wmap.on('mouseleave','wcells-fill', function(){
       wmap.getCanvas().style.cursor = '';
     });
+    wmap.on('click','wcells-fill', function(e){
+      if (!e.features || !e.features.length) return;
+      const idx = Number(e.features[0].properties.idx);
+      if (!Number.isInteger(idx) || !DATA.cells[idx]) return;
+      weightCell = idx;
+      paintWeights(); paintMatrix(); paintNowLine();
+      openWeightPopup(idx, e.lngLat);
+    });
 
     wmapReady = true;
     sizeStage();
@@ -2203,25 +2215,42 @@ const SPREAD_BINS = [
   {max:40,  c:'#d6a72f', l:'20–40',r:''},
   {max:1e9, c:'#f5cf62', l:'≥ 40', r:'they diverge'}
 ];
-let wmapMode = 'lead';   // 'lead' | 'spread'
+const TEMP_SPREAD_BINS = [
+  {max:0.5,c:'#2a2620',l:'< 0.5'}, {max:1,c:'#4d4128',l:'0.5–1'},
+  {max:2,c:'#77602c',l:'1–2'}, {max:3,c:'#a8842c',l:'2–3'},
+  {max:5,c:'#d6a72f',l:'3–5'}, {max:1e9,c:'#f5cf62',l:'≥ 5'}
+];
+const WIND_SPREAD_BINS = [
+  {max:2,c:'#2a2620',l:'< 2'}, {max:5,c:'#4d4128',l:'2–5'},
+  {max:10,c:'#77602c',l:'5–10'}, {max:15,c:'#a8842c',l:'10–15'},
+  {max:25,c:'#d6a72f',l:'15–25'}, {max:1e9,c:'#f5cf62',l:'≥ 25'}
+];
+const spreadBins = () => variable==='temp' ? TEMP_SPREAD_BINS :
+  variable==='wind' ? WIND_SPREAD_BINS : SPREAD_BINS;
+let wmapMode = 'regional';   // 'regional' | 'lead' | 'spread'
 
 function cellSpread(s, i){
-  const v = KEYS.map(k => (s['m' + lc(k)] || [])[i]).filter(x => typeof x === 'number');
+  const prefix = variable==='temp' ? 't' : variable==='wind' ? 'u' : 'm';
+  const v = KEYS.map(k => (s[prefix + lc(k)] || [])[i]).filter(x => typeof x === 'number');
   if (v.length < 2) return 0;
   const m = v.reduce((a, b) => a + b, 0) / v.length;
   return Math.sqrt(v.reduce((a, b) => a + (b - m) * (b - m), 0) / v.length);
 }
 
 function weightPolys(){
-  const cl = DATA.weights.cell_lead[String(lead)];
   const s  = slice();
   return {type:'FeatureCollection', features: DATA.cells.map(function(c, i){
-    const dom = cl ? cl.dom[i] : 'A';
-    const w   = cl ? cl.domw[i] : 0.25;
+    const values = KEYS.map(k=>({key:k,weight:Number(wAt(s,k,i)) || 0}));
+    const winner = values.reduce((a,b)=>a.weight>=b.weight?a:b);
+    const regional = DATA.weights.regional_lead &&
+      DATA.weights.regional_lead[WKEY[variable]] &&
+      DATA.weights.regional_lead[WKEY[variable]][String(lead)];
+    const dom = wmapMode==='regional' && regional ? regional.dom[i] : winner.key;
+    const w = wmapMode==='regional' && regional ? regional.domw[i] : winner.weight;
     let col, op, sp = 0;
     if (wmapMode === 'spread'){
       sp  = cellSpread(s, i);
-      col = binOf(sp, SPREAD_BINS).c;
+      col = binOf(sp, spreadBins()).c;
       op  = 0.92;
     } else {
       col = SERIES[dom] || '#5b7186';
@@ -2236,17 +2265,89 @@ function weightPolys(){
   })};
 }
 
+function weightPopupHtml(i){
+  const s = slice(), c = DATA.cells[i];
+  const entries = KEYS.map(k=>{
+    const value = wAt(s,k,i);
+    return {key:k,value:value===null || value===undefined ? NaN : Number(value)};
+  })
+    .filter(x=>Number.isFinite(x.value) && x.value >= 0)
+    .sort((a,b)=>b.value-a.value);
+  const total = entries.reduce((a,x)=>a+x.value,0);
+  const rows = entries.length ? entries.map(x=>'<div class="weight-row"><span class="weight-name">'+
+    '<i class="weight-dot" style="background:'+SERIES[x.key]+'"></i>'+htmlText(NAMEOF[x.key])+
+    '</span><span class="weight-value">'+(total ? (100*x.value/total).toFixed(1) : '0.0')+'%</span></div>').join('')
+    : '<p class="pop-context">No model weights are available for this cell.</p>';
+  const name = htmlText(nearestPlaceName(c) || 'nearest location');
+  const dominant = entries.length ? NAMEOF[entries[0].key] : 'Unavailable';
+  const regional = DATA.weights.regional_lead &&
+    DATA.weights.regional_lead[WKEY[variable]] &&
+    DATA.weights.regional_lead[WKEY[variable]][String(lead)];
+  const localLeader = regional ? NAMEOF[regional.dom[i]] : null;
+  return '<div class="pop weight-pop"><h4>'+VARNAME[variable]+' weights near '+name+'</h4>'+
+    '<p class="pop-context">Applied leader: '+htmlText(dominant)+'</p>'+
+    (localLeader ? '<p class="pop-context">Regional skill leader: '+htmlText(localLeader)+'</p>' : '')+
+    '<p class="coords num"><span>'+c.lat.toFixed(2)+'°N '+c.lon.toFixed(2)+'°E</span><span>'+c.elev+' m</span></p>'+
+    '<p class="pop-context pop-valid"><span>Selected forecast '+fmtFullDate(s.valid)+'</span><span>Lead T+'+lead+'</span></p>'+
+    '<p class="pop-context">'+(variable==='wind'
+      ? 'Wind reuses rainfall-trained lead and spell weights until local wind verification is available.'
+      : 'The percentages below were used for this forecast; regional colours show the local skill component.')+'</p>'+
+    '<p class="weight-list-label">Applied weights · highest first</p>'+
+    '<div class="weight-list">'+rows+'</div></div>';
+}
+
+function attachWeightPopup(i,lngLat,anchor,maxHeight,fitted){
+  wPopupIdx = i;
+  if (wPopup) wPopup.remove();
+  const options = {closeButton:true,closeOnClick:false,maxWidth:'340px',offset:10};
+  if (anchor) options.anchor=anchor;
+  wPopup = new GL.Popup(options)
+    .setLngLat(lngLat).setHTML(weightPopupHtml(i)).addTo(wmap);
+  const thisPopup = wPopup;
+  wPopup.on('close',function(){
+    if (wPopup===thisPopup){wPopup=null;wPopupIdx=null;}
+  });
+  const content=wPopup.getElement().querySelector('.maplibregl-popup-content,.mapboxgl-popup-content');
+  if (maxHeight && content){content.style.maxHeight=maxHeight+'px';content.style.overflowY='auto';}
+  requestAnimationFrame(function(){
+    if (wPopup!==thisPopup) return;
+    if (!fitted){
+      const point=wmap.project(lngLat), bounds=wmap.getContainer().getBoundingClientRect();
+      const above=Math.max(0,point.y-12), below=Math.max(0,bounds.height-point.y-12);
+      const placeBelow=below>=above;
+      const available=Math.max(140,Math.max(above,below));
+      const limit=Math.max(140,Math.min(560,window.innerHeight*.7,available));
+      const horizontal=point.x<200?'-left':point.x>bounds.width-200?'-right':'';
+      attachWeightPopup(i,lngLat,(placeBelow?'top':'bottom')+horizontal,limit,true);
+      return;
+    }
+    if (content) content.style.maxHeight=maxHeight+'px';
+    wPopup.setLngLat(lngLat);
+  });
+}
+
+function openWeightPopup(i,lngLat){ attachWeightPopup(i,[lngLat.lng,lngLat.lat],null,null,false); }
+
+function refreshWeightPopup(){
+  if (!wPopup || wPopupIdx===null) return;
+  const idx=wPopupIdx;
+  const lngLat=wPopup.getLngLat();
+  attachWeightPopup(idx,[lngLat.lng,lngLat.lat],null,null,false);
+}
+
 function paintWeightMap(){
   if (!wmapReady) return;
   wmap.getSource('wcells').setData(weightPolys());
+  refreshWeightPopup();
   const el = document.getElementById('wlegend');
   if (wmapMode === 'spread'){
-    el.innerHTML = '<span class="unit cond">spread between centres, mm</span>' +
-      SPREAD_BINS.map(function(b){
+    el.innerHTML = '<span class="unit cond">spread between centres, '+VARUNIT[variable]+'</span>' +
+      spreadBins().map(function(b){
         return '<span class="lg"><span class="sw" style="background:'+b.c+'"></span>'+
                '<span class="lb">'+b.l+(b.r ? '<br>'+b.r : '')+'</span></span>'; }).join('');
   } else {
-    el.innerHTML = '<span class="unit cond">leading source</span>' +
+    el.innerHTML = '<span class="unit cond">'+(wmapMode==='regional'
+      ? 'regional skill leader' : 'applied blend leader')+'</span>' +
       KEYS.map(function(k){
         return '<span class="lg"><span class="sw" style="background:'+SERIES[k]+'"></span>'+
                '<span class="lb">'+LABEL(k)+'</span></span>'; }).join('');
@@ -2256,14 +2357,17 @@ function paintWeightMap(){
 function setWmapMode(m){
   if (m === wmapMode) return;
   wmapMode = m;
+  document.getElementById('wRegional').setAttribute('aria-pressed', String(m === 'regional'));
   document.getElementById('wLead').setAttribute('aria-pressed', String(m === 'lead'));
   document.getElementById('wSpread').setAttribute('aria-pressed', String(m === 'spread'));
   const why = document.querySelector('#pane-weights .stagehead .why');
   if (why) why.textContent = m === 'spread'
-    ? 'How far apart the five centres are in each cell. Where they agree the choice of model barely matters; where they diverge, it is the whole forecast.'
-    : TAB_HINTS.weights;
+    ? 'How far apart the five centres are in each cell for the selected variable.'
+    : m === 'regional' ? 'Which model scored best locally in archived forecasts.'
+    : 'Which model has the largest weight in the forecast actually shown.';
   paintWeightMap();
 }
+document.getElementById('wRegional').addEventListener('click', function(){ setWmapMode('regional'); });
 document.getElementById('wLead').addEventListener('click', function(){ setWmapMode('lead'); });
 document.getElementById('wSpread').addEventListener('click', function(){ setWmapMode('spread'); });
 
@@ -2328,7 +2432,7 @@ function paintExtremes(){
            : 'Wind is not in this dataset yet. Re-run the fetch and training steps to populate it.');
 
   document.getElementById('xRainWhy').textContent =
-    'Classifier probability of a '+M_.extreme_mm+' mm breach above 25%, at '+leadName(lead)+'.';
+    'Historical chance of a '+M_.extreme_mm+' mm breach for this blended amount, above 25%, at '+leadName(lead)+'.';
   document.getElementById('xHeatWhy').textContent = climOK
     ? '1.5 °C or more above the local seasonal normal, at '+leadName(lead)+'.'
     : 'Blended 2 m mean at or near '+(M_.heat_c || 34)+' °C, at '+leadName(lead)+
@@ -2350,9 +2454,9 @@ function paintExtremes(){
    and how many cells are flagged - and it updates with every control.
 ===================================================================== */
 const TAB_HINTS = {
-  forecast: 'The blended forecast. Colour is the blended value; hover any cell to see what each centre said and how much weight it was given.',
-  weights:  'Which forecasting centre earns the most trust in each place, at this lead time. This is the model reliability map the problem statement asks for.',
-  verify:   'How the blend scores against every individual centre, against a plain equal-weight average, and against persistence. Every figure is out-of-sample.',
+  forecast: 'The blended forecast. Click a grid point to see its forecast and the weights used there.',
+  weights:  'The weights actually applied to the selected forecast variable at each grid point.',
+  verify:   'Historical error for the operational blend and each source, measured on held-out dates.',
   extremes: 'Cells flagged for heavy rainfall, heat stress and high wind at this lead time, ranked by severity.'
 };
 
@@ -2362,14 +2466,14 @@ function paintNowLine(){
   const s = slice();
   const reg = (REGIME_COPY[s.regime] || {}).phrase || s.regime;
 
-  /* who leads, in words */
+  const scope = pinned !== null ? [pinned] :
+    wPopupIdx !== null ? [wPopupIdx] : scopeCells();
+  /* Describe the selected point, or average the weights across the shown area. */
   let leadKey = null, leadW = -1;
   KEYS.forEach(function(k){
-    const w = wAt(s, k, 0);
+    const w = scope.reduce((sum,i)=>sum+(Number(wAt(s,k,i)) || 0),0)/scope.length;
     if (w !== null && w !== undefined && w > leadW){ leadW = w; leadKey = k; }
   });
-
-  const scope = scopeCells();
   const climOK = hasClimatology(s);
   const hotC = M.heat_c || 34;
   let heavy = 0, windy = 0, hot = 0;
@@ -2381,7 +2485,9 @@ function paintNowLine(){
     if (climOK ? (s.t2m[i] - s.ct2m[i]) >= 1.5 : s.t2m[i] >= hotC) hot++;
   });
 
-  const where = area ? area.n : 'India';
+  const where = pinned !== null ? (nearestPlaceName(DATA.cells[pinned]) || 'selected point') :
+    wPopupIdx !== null ? (nearestPlaceName(DATA.cells[wPopupIdx]) || 'selected point') :
+    area ? area.n : 'India';
   const flags = [];
   if (heavy) flags.push('<b>' + heavy + '</b> flagged for heavy rain');
   if (hot)   flags.push('<b>' + hot + '</b> ' + (climOK ? 'running hot' : 'at or above ' + hotC + ' °C'));
@@ -2414,7 +2520,8 @@ function paintTabHint(){
 /* --- collapse the side rail to hand the whole stage to the map -------- */
 function wireDock(btnId, dockId){
   const btn = document.getElementById(btnId), dock = document.getElementById(dockId);
-  if (!btn || !dock) return;
+  if (!btn || !dock || btn.dataset.dockWired === 'true') return;
+  btn.dataset.dockWired = 'true';
   btn.classList.add('show');
   btn.addEventListener('click', function(){
     const hidden = dock.classList.toggle('hidden');
@@ -2752,7 +2859,16 @@ function showPane(name){
     if (pane) pane.hidden = !on;
     if (tab){ tab.setAttribute('aria-selected', String(on)); tab.tabIndex = on ? 0 : -1; }
   });
-  if (name === 'weights'){ ensureWeightMap(); wireDock('wdockToggle', 'wdock'); }
+  if (name === 'weights'){
+    ensureWeightMap();
+    const dock = document.getElementById('wdock');
+    const toggle = document.getElementById('wdockToggle');
+    if (dock && dock.classList.contains('hidden')){
+      dock.classList.remove('hidden');
+      if (toggle){ toggle.setAttribute('aria-expanded','true'); toggle.innerHTML='››'; toggle.title='Hide the side panels'; }
+    }
+    wireDock('wdockToggle', 'wdock');
+  }
   if (name === 'extremes'){ paintExtremes(); }
   paintTabHint();
   /* GL canvases sized while hidden come back 0x0 */

@@ -308,19 +308,16 @@ width, so the country is the subject without being cropped.
 
 ## D17 — The reliability map needed something per-cell to say
 
-**Problem.** A live run uses one weight vector per (regime, lead time), shared
-by every cell, so the "model reliability map" rendered as a single flat colour
-over the whole country. Honest, and useless to look at.
+**Problem.** The map originally used local archive weights while the live
+forecast used one regime/lead vector, so its colours did not describe the
+weights that produced the displayed forecast.
 
-**Decision.** A second view on the same map: **where the centres disagree**,
-measured as the standard deviation of the five members' rainfall in each cell.
-That is genuinely per-cell, available live, and it argues the product's case
-better than the weight map does — where the models agree any of them will do;
-where they diverge, the choice of model *is* the forecast.
-
-Per-cell dominant source returns as soon as the national archive finishes
-training. The disagreement view stays regardless; it answers a different and
-equally operational question.
+**Decision.** The live run now transfers local rainfall and temperature
+weights from the nearest trained cell, blends them with regime weights at
+shares selected on held-out date blocks, and saves the applied vector for
+every live cell. The map, clicked card and forecast card all read that vector.
+Wind keeps its rainfall-trained regime/lead vector until locally verified wind
+weights exist. The disagreement view remains a separate view of member spread.
 
 ---
 

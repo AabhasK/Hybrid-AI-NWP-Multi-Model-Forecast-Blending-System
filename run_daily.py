@@ -16,8 +16,8 @@ WHY THE WEIGHTS ARE APPLIED, NOT REFITTED
 -----------------------------------------
 Weight estimation needs months of verification history and is the slow,
 offline half of the system (model_training.py). The daily routine is the fast
-half: it reads data/blend_weight_sets.json, diagnoses today's weather regime
-from the forecast fields themselves, and combines the live members. That split
+half: it reads the regime and regional weight tables, diagnoses today's weather
+regime from the forecast fields themselves, and combines the live members. That split
 is what makes the thing operational - the morning run takes seconds and never
 depends on verification data that does not exist yet for today.
 """
@@ -64,6 +64,7 @@ VARS = {"rain": "precipitation_sum", "t2m": "temperature_2m_mean",
 BATCH = 60
 ACTIVE_Z, BREAK_Z = 0.50, -0.50
 EXTREME_MM, HIGH_WIND_KMH = 40.0, 40.0
+REGIONAL_SHARE = {"rain": 0.20, "t2m": 0.80, "wind": 0.0}
 
 
 def load_grid():
@@ -86,6 +87,29 @@ def load_weights():
     if not wf.exists():
         raise SystemExit("run model_training.py first - no blend_weight_sets.json")
     return json.loads(wf.read_text())
+
+
+def load_regional_weights(cells):
+    """Transfer verified 1° cell weights to the nearest live grid cell."""
+    maps = {"rain": DATA / "weight_map.csv", "t2m": DATA / "weight_map_t2m.csv"}
+    for path in maps.values():
+        if not path.exists():
+            raise SystemExit("missing %s - rerun model_training.py" % path)
+
+    rain = pd.read_csv(maps["rain"])
+    training = rain.drop_duplicates("cell_id")[["cell_id", "lat", "lon"]]
+    live_xy = np.array([[c["lat"], c["lon"]] for c in cells], dtype=float)
+    train_xy = training[["lat", "lon"]].to_numpy(dtype=float)
+    idx = np.argmin(((live_xy[:, None, :] - train_xy[None, :, :]) ** 2).sum(axis=2), axis=1)
+    nearest = dict(zip([c["id"] for c in cells], training.cell_id.to_numpy()[idx]))
+
+    tables = {}
+    for var, path in maps.items():
+        table = pd.read_csv(path)
+        tables[var] = {(r.cell_id, int(r.lead_time)):
+                       np.array([float(getattr(r, "w_%s" % m)) for m in BLEND])
+                       for r in table.itertuples(index=False)}
+    return nearest, tables
 
 
 def fetch_live(cells):
@@ -215,10 +239,12 @@ def diagnose_regime(df):
     return df.valid_date.map(lab), df.valid_date.map(z)
 
 
-def blend(df, weights):
-    """Apply the learned sum-to-one weights, per variable, lead and regime."""
+def blend(df, weights, regional):
+    """Apply verified local and spell weights; retain the actual row weights."""
+    nearest, tables = regional
     for var in ("rain", "t2m", "wind"):
         out = np.full(len(df), np.nan)
+        applied = np.zeros((len(df), len(BLEND)), dtype=float)
         F = np.column_stack([df["model_%s_%s" % (m, var)].values for m in BLEND])
         for lead in LEADS:
             sel = (df.lead_time == lead).values
@@ -235,6 +261,16 @@ def blend(df, weights):
                 if w.shape[0] != len(BLEND):
                     w = np.full(len(BLEND), 1.0 / len(BLEND))
                 w = w / w.sum()
+                share = REGIONAL_SHARE[var]
+                if share:
+                    local = np.stack([
+                        tables[var].get((nearest.get(c), max(1, lead)), w)
+                        for c in df.loc[m, "cell_id"]
+                    ])
+                    local /= np.maximum(local.sum(axis=1, keepdims=True), 1e-12)
+                    row_weights = (1 - share) * w + share * local
+                else:
+                    row_weights = np.broadcast_to(w, (m.sum(), len(BLEND)))
                 # A single missing member used to poison the whole cell: a
                 # plain dot product returns NaN if any term is NaN, so one
                 # centre dropping a variable blanked the blend there. Mask the
@@ -242,10 +278,15 @@ def blend(df, weights):
                 # is what the documentation always claimed happened.
                 Fm = F[m]
                 ok = ~np.isnan(Fm)
-                den = (ok * w).sum(axis=1)
-                num = np.nansum(np.where(ok, Fm, 0.0) * w, axis=1)
+                den = (ok * row_weights).sum(axis=1)
+                actual = np.divide(np.where(ok, row_weights, 0.0), den[:, None],
+                                   out=np.zeros_like(row_weights), where=den[:, None] > 0)
+                applied[m] = actual
+                num = np.nansum(np.where(ok, Fm, 0.0) * row_weights, axis=1)
                 out[m] = np.where(den > 0, num / np.where(den > 0, den, 1.0), np.nan)
         df["blend_%s" % var] = out
+        for j, source in enumerate(BLEND):
+            df["weight_%s_%s" % (var, source)] = applied[:, j]
     df["blend_rain"] = df.blend_rain.clip(lower=0)
     df["blend_wind"] = df.blend_wind.clip(lower=0)
 
@@ -259,11 +300,14 @@ def blend(df, weights):
 
 def prob_heavy(values):
     """Empirical P(>=40 mm) by blended amount, measured out-of-sample."""
-    cf = DATA / "dashboard_data.json"
+    cf = DATA / "regional_verification.json"
+    if not cf.exists():
+        cf = DATA / "dashboard_data.json"
     edges, ps = None, None
     if cf.exists():
         try:
-            c = json.loads(cf.read_text())["metrics"]["pext_curve"]
+            payload = json.loads(cf.read_text())
+            c = payload.get("pext_curve") or payload["metrics"]["pext_curve"]
             edges, ps = c["edges"], c["p"]
         except Exception:
             pass
@@ -282,6 +326,7 @@ def main():
 
     cells, _ = load_grid()
     weights = load_weights()
+    regional = load_regional_weights(cells)
     issued = date.today()
 
     df = fetch_live(cells)
@@ -293,7 +338,7 @@ def main():
     df = df[df.lead_time.isin(LEADS)].reset_index(drop=True)
 
     df["regime"], df["domain_z"] = diagnose_regime(df)
-    df = blend(df, weights)
+    df = blend(df, weights, regional)
     df["prob_heavy"] = prob_heavy(df.blend_rain.values).round(3)
     df["high_wind"] = (df.blend_wind >= HIGH_WIND_KMH).astype(int)
 

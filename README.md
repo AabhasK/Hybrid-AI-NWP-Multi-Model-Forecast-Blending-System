@@ -49,7 +49,7 @@ python config.py            # shows what is configured and what each key buys
 python 00_build_region.py   # India boundary + the two analysis grids
 python 00b_build_places.py  # searchable gazetteer (34 states, 594 districts)
 python 03_fetch_real_models.py   # archived multi-model forecasts + ERA5 truth
-python model_training.py         # weights, blender, extreme flagger, metrics
+python model_training.py         # weights, held-out skill, calibration, metrics
 python run_daily.py              # today's live blend over India
 python export_dashboard_data.py
 python build_dashboard.py        # -> dashboard.html
@@ -102,14 +102,18 @@ linear blend.
 
 *Online* (`run_daily.py`) applies them. It fetches today's runs, diagnoses the
 weather regime **from the forecast fields themselves**, and combines the
-members. It takes seconds and never waits on verification data that cannot
-exist yet for a future date.
+members. Rainfall uses 80% regime weights and 20% regional weights;
+temperature uses 20% regime weights and 80% regional weights. Those shares
+were selected from four contiguous held-out date blocks. Wind keeps the
+regime/lead mix until locally verified wind weights are trained.
 
 **Two grids, for the same reason.** The archive is priced per cell *per day*,
-so weights are fitted on a coarse 1° grid (286 land cells). The daily run only
-needs the next week, so it runs at 0.25° (4,645 cells, ~28 km) — fine enough
-that a city search lands in a meaningful box. The weights transfer because they
-are fitted per regime and lead, not per cell.
+so regional weights are fitted on a coarse 1° grid (286 land cells). The daily
+run only needs the next week, so it runs at 0.25° (4,645 cells, ~28 km) — fine
+enough that a city search lands in a meaningful box. Each live cell inherits
+regional weights from its nearest training cell. The dashboard map and cards
+read the weights saved with the blended forecast, including any adjustment for
+a missing model value.
 
 ---
 
@@ -117,8 +121,8 @@ are fitted per regime and lead, not per cell.
 
 These are the things we would rather say ourselves than be caught on.
 
-- **The equal-weight mean is a stubborn benchmark.** The blend clears it by
-  7.9% on the national verification set (8.424 vs 9.142 RMSE), but it beat an
+- **The equal-weight mean is a stubborn benchmark.** The operational blend clears it by
+  8.9% on the national verification set (8.326 vs 9.142 RMSE), but it beat an
   earlier regional build, and the dashboard's verdict sentence is computed from
   the table rather than asserted, so it cannot drift from the numbers.
 - **The best-scoring pipeline is not the one that ships.** A boosted correction
@@ -149,6 +153,7 @@ measurement that settled it, including the bugs) and **`DATA_NOTE.md`**.
 | `00b_build_places.py` | Searchable gazetteer of states and districts |
 | `03_fetch_real_models.py` | Archived multi-model forecasts at lead times |
 | `model_training.py` | Weights, blender, extreme flagger, all metrics |
+| `ops/verify_regional_skill.py` | Held-out skill for the operational regional mix |
 | `run_daily.py` | **The operational routine** |
 | `config.py` / `.env.example` | Credentials, all optional, each with a fallback |
 | `imd_client.py` | IMD API client, ready if institutional access appears |

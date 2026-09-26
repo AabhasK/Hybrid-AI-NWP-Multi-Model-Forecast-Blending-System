@@ -26,7 +26,45 @@ import numpy as np
 import pandas as pd
 
 import config
-from sklearn.metrics import average_precision_score, brier_score_loss, roc_auc_score
+try:
+    from sklearn.metrics import average_precision_score, brier_score_loss, roc_auc_score
+except ImportError:
+    def brier_score_loss(truth, probability):
+        return float(np.mean((np.asarray(probability) - np.asarray(truth)) ** 2))
+
+    def roc_auc_score(truth, probability):
+        truth = np.asarray(truth, dtype=bool)
+        probability = np.asarray(probability)
+        order = np.argsort(probability, kind="stable")
+        values = probability[order]
+        ranks = np.empty(len(order), dtype=float)
+        starts = np.r_[0, np.flatnonzero(np.diff(values)) + 1]
+        ends = np.r_[starts[1:], len(values)]
+        for start, end in zip(starts, ends):
+            ranks[order[start:end]] = (start + end + 1) / 2
+        positive = truth.sum()
+        negative = len(truth) - positive
+        return float((ranks[truth].sum() - positive * (positive + 1) / 2) /
+                     (positive * negative))
+
+    def average_precision_score(truth, probability):
+        truth = np.asarray(truth, dtype=bool)
+        probability = np.asarray(probability)
+        order = np.argsort(-probability, kind="stable")
+        labels = truth[order]
+        values = probability[order]
+        ends = np.r_[np.flatnonzero(np.diff(values)), len(values) - 1]
+        positives = np.cumsum(labels)
+        return float(np.sum((positives[ends] / (ends + 1)) *
+                            (np.diff(np.r_[0, positives[ends]]) / positives[-1])))
+
+
+def read_parquet(path):
+    try:
+        return pd.read_parquet(path)
+    except ImportError:
+        import polars as pl
+        return pd.DataFrame(pl.read_parquet(path).to_dict(as_series=False))
 
 ROOT = Path(__file__).parent
 DATA = ROOT / "data"
@@ -58,6 +96,10 @@ def r3(x):
     return [round(float(v), 3) for v in x]
 
 
+def r4(x):
+    return [round(float(v), 4) for v in x]
+
+
 def pick_issue_dates(pred, n):
     """Issue dates spanning all three regimes, biased toward eventful spells."""
     days = pred.drop_duplicates("date")[["date", "regime"]].sort_values("date")
@@ -86,17 +128,15 @@ def pick_issue_dates(pred, n):
     return sorted(set(chosen))[:n]
 
 
-def build_live(wreg_df):
+def build_live():
     """
     Today's live run over the national grid.
 
     run_daily.py fetches every centre's current forecast for all India and
-    applies the learned weights. Per-CELL weights are not available for the
-    national grid until the national archive finishes training, so each cell
-    carries the (regime, lead) weights that were actually used to blend it -
-    which is honest: those are the weights this forecast was made with.
+    applies the learned weights. The saved live product carries the exact
+    weights applied at every cell for rainfall, temperature and wind.
     """
-    live = pd.read_parquet(DATA / "live_blend.parquet")
+    live = read_parquet(DATA / "live_blend.parquet")
     live["valid_date"] = pd.to_datetime(live["valid_date"])
 
     # the same file run_daily.py blends with, so the page cannot disagree
@@ -110,10 +150,6 @@ def build_live(wreg_df):
              .drop_duplicates("cell_id").sort_values(["lat", "lon"]).reset_index(drop=True))
     order = list(cells.cell_id)
 
-    wlook = {}
-    for r in wreg_df.itertuples(index=False):
-        wlook[(str(r.regime), int(r.lead_time))] = r
-
     issued_at = (live.valid_date - pd.to_timedelta(live.lead_time, unit="D")).min()
     issued = issued_at.strftime("%Y-%m-%d")
     by_lead = {}
@@ -122,9 +158,6 @@ def build_live(wreg_df):
         if g.blend_rain.isna().all():
             continue
         regime = str(g.regime.mode().iat[0])
-        trained_lead = max(1, lead)
-        w = wlook.get((regime, trained_lead)) or wlook.get(("normal", trained_lead))
-
         slice_ = {
             "valid": g.valid_date.iloc[0].strftime("%Y-%m-%d"),
             "regime": regime,
@@ -138,16 +171,8 @@ def build_live(wreg_df):
         for m in BLEND:
             slice_["m" + m] = r1(g["model_%s_rain" % m])
             slice_["t" + m] = r1(g["model_%s_t2m" % m])
-        # A live run uses one weight vector per (regime, lead), so it is the
-        # same for every cell. Storing 4,645 identical copies per source would
-        # be most of the payload for no information.
-        slice_["w"] = {m: round(float(getattr(w, "w_%s" % m)) if w else 1.0 / len(BLEND), 3)
-                       for m in BLEND}
-
-        # Per-variable weights. The blender has always applied these - rainfall
-        # and temperature want almost opposite mixes - but only the rainfall
-        # vector reached the page, so the dashboard showed rain weights while
-        # displaying temperature. Ship all three.
+            slice_["u" + m] = r1(g["model_%s_wind" % m])
+        # Keep run-wide vectors as a fallback for older live products.
         wv = {}
         for var in ("rain", "t2m", "wind"):
             byvar = wsets.get(str(max(1, lead)), {})
@@ -157,9 +182,49 @@ def build_live(wreg_df):
                 wv[var] = {m: round(float(vec[i]), 3) for i, m in enumerate(BLEND)}
         if wv:
             slice_["wv"] = wv
+        # These are the weights actually applied to each live forecast row,
+        # including local transfer and any missing-member renormalisation.
+        applied = {}
+        for var in ("rain", "t2m", "wind"):
+            columns = ["weight_%s_%s" % (var, m) for m in BLEND]
+            if all(col in g.columns for col in columns):
+                applied[var] = {m: r4(g["weight_%s_%s" % (var, m)]) for m in BLEND}
+        if applied:
+            slice_["wa"] = applied
         by_lead[str(lead)] = slice_
 
     return cells, order, {issued: by_lead}, issued
+
+
+def regional_leaders(cells, live):
+    """Compact trained-map leaders, separate from the applied live weights."""
+    maps = {"rain": DATA / "weight_map.csv", "t2m": DATA / "weight_map_t2m.csv"}
+    if not maps["rain"].exists():
+        return {}
+    training = pd.read_csv(maps["rain"]).drop_duplicates("cell_id")
+    if live:
+        live_xy = cells[["lat", "lon"]].to_numpy(dtype=float)
+        train_xy = training[["lat", "lon"]].to_numpy(dtype=float)
+        idx = np.argmin(((live_xy[:, None, :] - train_xy[None, :, :]) ** 2).sum(axis=2), axis=1)
+        nearest = training.cell_id.to_numpy()[idx]
+    else:
+        nearest = cells.cell_id.to_numpy()
+
+    result = {}
+    for var, path in maps.items():
+        if not path.exists():
+            continue
+        table = pd.read_csv(path)
+        result[var] = {}
+        for lead in range(6):
+            selected = table[table.lead_time == max(1, lead)].set_index("cell_id")
+            rows = selected.reindex(nearest)
+            result[var][str(lead)] = {
+                "dom": rows.dominant_model.fillna("A").tolist(),
+                "domw": [round(float(w), 4) if pd.notna(w) else .2
+                         for w in rows.dominant_weight],
+            }
+    return result
 
 
 def main():
@@ -171,11 +236,11 @@ def main():
     live_file = DATA / "live_blend.parquet"
     USE_LIVE = live_file.exists()
 
-    pred = pd.read_parquet(DATA / "predictions.parquet")
+    pred = read_parquet(DATA / "predictions.parquet")
     pred["date"] = pd.to_datetime(pred["date"])
 
     if USE_LIVE:
-        cells, order, runs, default_run = build_live(wreg_df)
+        cells, order, runs, default_run = build_live()
         print("LIVE national run %s: %d cells x %d leads"
               % (default_run, len(order), len(runs[default_run])))
     else:
@@ -252,6 +317,27 @@ def main():
         else:
             last = v
 
+    verified_file = DATA / "regional_verification.json"
+    verification_method = None
+    if verified_file.exists():
+        verified = json.loads(verified_file.read_text())
+        verification_method = verified["method"]
+        selected = overall.source == "Linear blend (weights)"
+        for key in ("rmse", "mae", "skill"):
+            overall.loc[selected, key] = verified["overall"][key]
+        for lead, row in verified["by_lead"].items():
+            selected = by_lead_m.lead_time == int(lead)
+            for source_key, target_key in (("rmse", "blend"), ("mae", "mae_blend"),
+                                           ("skill", "skill_blend"), ("gain_pct", "gain_pct")):
+                by_lead_m.loc[selected, target_key] = row[source_key]
+        for regime, row in verified["by_regime"].items():
+            selected = by_reg_m.regime == regime
+            for source_key, target_key in (("rmse", "blend"), ("skill", "skill_blend"),
+                                           ("gain_pct", "gain_pct")):
+                by_reg_m.loc[selected, target_key] = row[source_key]
+        edges = verified["pext_curve"]["edges"] + [10**6]
+        curve = verified["pext_curve"]["p"]
+
     # India outline, simplified by 00_build_region.py. The mask is a world
     # rectangle with the national rings punched out: filling it with the page
     # background clips the forecast raster to the country instead of leaving a
@@ -287,59 +373,6 @@ def main():
             geo["grid_deg"] = g["grid_deg"]
             break
 
-    # Per-cell dominant source - the "model reliability map" the problem
-    # statement asks for.
-    #
-    # Weights are FITTED on the 1-degree training grid but APPLIED on the
-    # 0.25-degree live grid, so each live cell inherits from the training cell
-    # it sits inside. Without this the map fell back to one regime vector per
-    # lead, which painted all 4,645 cells the same colour and made the whole
-    # reliability map look like it carried no information.
-    cell_lead = {}
-    wmap_f = DATA / "weight_map.csv"
-    wmap = pd.read_csv(wmap_f) if wmap_f.exists() else None
-
-    nearest = {}
-    if wmap is not None and USE_LIVE:
-        tc = wmap.drop_duplicates("cell_id")[["cell_id", "lat", "lon"]].reset_index(drop=True)
-        tlat = tc.lat.values[None, :]
-        tlon = tc.lon.values[None, :]
-        clat = cells.lat.values[:, None]
-        clon = cells.lon.values[:, None]
-        # squared degrees is fine here: the grids share a projection and we
-        # only need the containing box, not a true geodesic distance
-        idx = np.argmin((clat - tlat) ** 2 + (clon - tlon) ** 2, axis=1)
-        nearest = dict(zip(cells.cell_id.values, tc.cell_id.values[idx]))
-
-    for lead in range(0, 6):
-        if USE_LIVE:
-            sl = runs[default_run].get(str(lead))
-            if not sl:
-                continue
-            if nearest:
-                sub = wmap[wmap.lead_time == max(1, lead)].set_index("cell_id")
-                doms, domw = [], []
-                for c in order:
-                    t = nearest.get(c)
-                    if t is not None and t in sub.index:
-                        r = sub.loc[t]
-                        doms.append(str(r.dominant_model))
-                        domw.append(round(float(r.dominant_weight), 3))
-                    else:
-                        w = [float(sl["w"][m]) for m in BLEND]
-                        doms.append(BLEND[int(np.argmax(w))].upper())
-                        domw.append(round(float(max(w)), 3))
-            else:
-                w = [float(sl["w"][m]) for m in BLEND]
-                dom = BLEND[int(np.argmax(w))].upper()
-                doms = [dom] * len(order)
-                domw = [round(float(max(w)), 3)] * len(order)
-        else:
-            trained_lead = max(1, lead)
-            doms = [wlook[(c, trained_lead)].dominant_model for c in order]
-            domw = [round(float(wlook[(c, trained_lead)].dominant_weight), 3) for c in order]
-        cell_lead[str(lead)] = {"dom": doms, "domw": domw}
-
     payload = {
         "geo": geo,
         "meta": {
@@ -372,6 +405,7 @@ def main():
         "issue_dates": list(runs.keys()),
         "runs": runs,
         "metrics": {
+            "verification_method": verification_method,
             # `key` is carried explicitly so the dashboard can colour a row by
             # its source rather than parsing a letter out of a display string
             "overall": [
@@ -406,7 +440,7 @@ def main():
                 str(int(lead)): {m: float(share_pct.loc[lead, m]) for m in keys}
                 for lead in share_pct.index
             },
-            "cell_lead": cell_lead,
+            "regional_lead": regional_leaders(cells, USE_LIVE),
         },
     }
 
