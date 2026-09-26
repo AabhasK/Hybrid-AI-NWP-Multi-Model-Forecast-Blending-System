@@ -19,7 +19,7 @@ local installation is needed for them.
 | Model weight maps | **Model weights** tab — which centre leads each cell, plus where the centres disagree |
 | Improved forecast skill | **Verification** tab — scored against every member, a plain equal-weight mean, and persistence |
 | Extreme weather guidance | **Extremes** tab — heavy rainfall, heat stress and high wind |
-| Operational workflow | `run_daily.py` — fetches today's runs and publishes, schedulable |
+| Operational workflow | `ops/server_refresh.py` + Docker Compose — fetch, blend, publish, and serve on a recurring schedule |
 
 ## What is being blended
 
@@ -60,21 +60,30 @@ forecast (T) through T+5. The T blend uses the nearest trained weights, T+1.
 
 ### Deploy as a shared server dashboard
 
-The Docker Compose deployment runs the forecast refresh on the server and
-serves the generated page to every user. It refreshes immediately at startup,
-then every three hours by default. The last successful dashboard stays
-available if a later refresh fails.
+The Docker Compose deployment runs the complete operational cycle on the
+server: fetch live model runs, apply the trained blend, rebuild the dashboard,
+and atomically publish the new page for every user. It runs immediately at
+startup, then every three hours by default. The last successful dashboard
+stays available if a later refresh fails. Each API response is cached for two
+hours to let an interrupted fetch resume; that cache expires before the next
+scheduled run so the dashboard receives fresh forecasts.
 
-```
+```bash
 docker compose up -d --build
 ```
 
 Open `http://<server-address>:8080`. Set `PORT` in a server-side `.env` file to
 change the published port, or `REFRESH_INTERVAL_SECONDS` to change the refresh
-interval (for example, `3600` for hourly). Keep exactly one refresher service
-instance so two jobs do not run at once. For a public deployment, put the web
-service behind the server's HTTPS reverse proxy and allow its port through the
-server firewall.
+interval (for example, `3600` for hourly). Set `LIVE_CACHE_TTL_SECONDS` below
+the refresh interval (for example, `2400` for hourly) so each scheduled run
+retrieves new data while retries can reuse recent batches. Keep exactly one
+refresher service instance so two jobs do not run at once. For a public
+deployment, put the web service behind the server's HTTPS reverse proxy and
+allow its port through the server firewall.
+
+Optional `OPENMETEO_API_KEY` and `MAPBOX_TOKEN` values in the server `.env`
+are passed into the refresher container. No API key is required for the
+default forecast source.
 
 The server needs outbound access to the forecast data source used by
 `run_daily.py`. To update the application or trained files, redeploy the image
@@ -83,7 +92,10 @@ Users only need the shared URL. The older macOS LaunchAgent setup is no longer
 used.
 
 The server image installs its runtime dependencies from
-`requirements-runtime.txt`.
+`requirements-runtime.txt`. It uses the trained artifacts and grid already in
+the project; retraining is an offline maintenance step, not something the
+routine repeats every refresh. `docker compose logs -f refresher` shows fetch,
+blend, and publish progress; `docker compose logs -f web` shows the web server.
 
 ---
 

@@ -35,13 +35,17 @@ def main():
     if initial.exists() and not served.exists():
         shutil.copy2(initial, served)
 
+    next_run = time.monotonic()
     while True:
         try:
             publish()
         except Exception as exc:
             # Keep the last good dashboard online and retry at the next interval.
             print("Dashboard refresh failed: %s" % exc, file=sys.stderr, flush=True)
-        time.sleep(INTERVAL)
+        next_run += INTERVAL
+        # Keep a steady cadence without ever overlapping refresh jobs. If a
+        # long fetch overruns its slot, begin the next run as soon as it ends.
+        time.sleep(max(0, next_run - time.monotonic()))
 
 
 if __name__ == "__main__":

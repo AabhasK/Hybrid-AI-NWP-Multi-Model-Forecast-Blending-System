@@ -25,6 +25,7 @@ depends on verification data that does not exist yet for today.
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import time
@@ -62,6 +63,10 @@ VARS = {"rain": "precipitation_sum", "t2m": "temperature_2m_mean",
 # request cuts the call count for the same data. 60 keeps the URL near 1.5 kB,
 # far inside any practical limit.
 BATCH = 60
+# Cache each batch long enough to resume an interrupted national sweep, but
+# expire it before the next scheduled server refresh. This makes the scheduler
+# fetch a genuinely new run instead of replaying the first run all day.
+CACHE_TTL_SECONDS = max(0, int(os.environ.get("LIVE_CACHE_TTL_SECONDS", "7200")))
 ACTIVE_Z, BREAK_Z = 0.50, -0.50
 EXTREME_MM, HIGH_WIND_KMH = 40.0, 40.0
 REGIONAL_SHARE = {"rain": 0.20, "t2m": 0.80, "wind": 0.0}
@@ -148,7 +153,7 @@ def fetch_live(cells):
                             ",".join(VARS.values()))).encode()).hexdigest()
         cfile = cache_dir / (ckey + ".json")
         payload = None
-        if cfile.exists():
+        if cfile.exists() and time.time() - cfile.stat().st_mtime <= CACHE_TTL_SECONDS:
             try:
                 payload = json.loads(cfile.read_text(encoding="utf-8"))
                 hits += 1
@@ -190,7 +195,7 @@ def fetch_live(cells):
                     raise
                 print("   retry %d (%s)" % (attempt + 1, type(exc).__name__))
                 time.sleep(4 * (attempt + 1))
-        if not cfile.exists():
+        if not from_cache:
             try:
                 cfile.write_text(json.dumps(payload), encoding="utf-8")
             except Exception:

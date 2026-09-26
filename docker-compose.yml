@@ -4,7 +4,10 @@ services:
     restart: unless-stopped
     environment:
       TZ: Asia/Kolkata
+      MAPBOX_TOKEN: ${MAPBOX_TOKEN:-}
+      OPENMETEO_API_KEY: ${OPENMETEO_API_KEY:-}
       REFRESH_INTERVAL_SECONDS: ${REFRESH_INTERVAL_SECONDS:-10800}
+      LIVE_CACHE_TTL_SECONDS: ${LIVE_CACHE_TTL_SECONDS:-7200}
       SITE_DIR: /srv/site
     volumes:
       - dashboard-site:/srv/site
