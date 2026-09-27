@@ -42,6 +42,9 @@ Truth is **ERA5 reanalysis**.
 
 ## Running it
 
+To preview the checked-in dashboard without fetching data or retraining, open
+`dashboard.html` in a browser.
+
 ```bash
 cp .env.example .env        # optional; everything works without any key
 python config.py            # shows what is configured and what each key buys
