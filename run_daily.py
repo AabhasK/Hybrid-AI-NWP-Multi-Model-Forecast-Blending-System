@@ -58,6 +58,15 @@ BLEND = ["a", "b", "c", "d", "e"]
 LEADS = [0, 1, 2, 3, 4, 5]
 VARS = {"rain": "precipitation_sum", "t2m": "temperature_2m_mean",
         "wind": "wind_speed_10m_max"}
+# Daily extremes, blended with the temperature weights. Optional: a missing
+# value here never drops a cell the way a missing VARS value does.
+EXTRA_DAILY = {"tmax": "temperature_2m_max", "tmin": "temperature_2m_min"}
+# Parts of the local (IST) day, as ranges of the hour an hourly value ENDS at.
+# Open-Meteo stamps hourly precipitation with the end of its hour, so the value
+# at 06:00 fell between 05:00 and 06:00 and belongs to the night.
+DAY_PARTS = (("night", range(1, 7)), ("morning", range(7, 13)),
+             ("afternoon", range(13, 19)), ("evening", range(19, 25)))
+TZ = "Asia%2FKolkata"
 # Open-Meteo bills per HTTP request, with a fractional surcharge past ten
 # weather variables rather than per location, so packing more cells into each
 # request cuts the call count for the same data. 60 keeps the URL near 1.5 kB,
@@ -142,15 +151,20 @@ def fetch_live(cells):
         lon = ",".join("%.2f" % c["lon"] for c in batch)
         # Fetch today (T) through T+5 so the dashboard timeline always starts
         # on the current date. T uses the nearest trained weights, T+1.
+        # Days are Indian calendar days (IST), not UTC: "today" and "this
+        # afternoon" have to mean what they mean to someone in India.
+        daily = ",".join(list(VARS.values()) + list(EXTRA_DAILY.values()))
         url = ("%s/v1/forecast?latitude=%s&longitude=%s&daily=%s"
-               "&start_date=%s&end_date=%s&timezone=UTC&models=%s%s"
-               % (host, lat, lon, ",".join(VARS.values()),
+               "&hourly=precipitation&start_date=%s&end_date=%s&timezone=%s&models=%s"
+               % (host, lat, lon, daily,
                   (date.today() + timedelta(days=min(LEADS))).isoformat(),
                   (date.today() + timedelta(days=max(LEADS))).isoformat(),
-                  models, suffix))
+                  TZ, models))
 
-        ckey = hashlib.md5(("%s|%s|%s|%s" % (lat, lon, models,
-                            ",".join(VARS.values()))).encode()).hexdigest()
+        # Key on the request itself (minus any key suffix), so changing what
+        # is fetched can never replay a cached response of a different shape.
+        ckey = hashlib.md5(url.encode()).hexdigest()
+        url = url + suffix
         cfile = cache_dir / (ckey + ".json")
         payload = None
         if cfile.exists() and time.time() - cfile.stat().st_mtime <= CACHE_TTL_SECONDS:
@@ -206,6 +220,8 @@ def fetch_live(cells):
 
         for loc, cell in zip(payload, batch):
             d = loc["daily"]
+            hr = loc.get("hourly") or {}
+            htime = hr.get("time") or []
             for k, t in enumerate(d["time"]):
                 rec = {"cell_id": cell["id"], "lat": cell["lat"], "lon": cell["lon"],
                        "elevation_m": float(loc.get("elevation") or 0.0),
@@ -218,6 +234,11 @@ def fetch_live(cells):
                         if v is None:
                             ok = False
                         rec["model_%s_%s" % (role, vname)] = v
+                    for vname, api in EXTRA_DAILY.items():
+                        col = "%s_%s" % (api, mid)
+                        rec["model_%s_%s" % (role, vname)] = d.get(col, [None] * len(d["time"]))[k]
+                    rec.update(day_parts(hr.get("precipitation_%s" % mid) or [],
+                                         htime, t, rec["model_%s_rain" % role], role))
                 if ok:
                     rows.append(rec)
         print("   batch %d/%d" % (bi + 1, len(batches)), end="\r", flush=True)
@@ -227,6 +248,64 @@ def fetch_live(cells):
     if hits:
         print("   resumed %d/%d batches from cache" % (hits, len(batches)))
     return pd.DataFrame(rows)
+
+
+def day_parts(values, stamps, day, total, role):
+    """
+    Split one model's daily rain total across the four parts of the day.
+
+    The hourly series is used only for WHEN the rain falls. For the ECMWF
+    models it is interpolated from 3- to 6-hourly output and does not sum to
+    their own daily total, so the parts are that model's hourly SHARES scaled
+    to its daily total. Every model's parts therefore add up exactly to its
+    daily figure, and so do the blended parts, because they are combined with
+    the same weights as the daily rain.
+    """
+    out = {}
+    # Hour-ending 1..24 for this day: stamps 01:00-23:00 of the day itself,
+    # plus 00:00 of the NEXT day, which closes this day's last hour.
+    nxt = (date.fromisoformat(day) + timedelta(days=1)).isoformat()
+    hours = {}
+    for v, s in zip(values, stamps):
+        if v is None:
+            continue
+        h = int(s[11:13])
+        if s[:10] == day and h >= 1:
+            hours[h] = float(v)
+        elif s[:10] == nxt and h == 0:
+            hours[24] = float(v)
+    buckets = [sum(hours.get(h, 0.0) for h in rng) for _, rng in DAY_PARTS]
+    got = sum(buckets)
+    for (name, _), b in zip(DAY_PARTS, buckets):
+        if total is None or not hours:
+            share = None
+        elif got > 0:
+            share = total * b / got
+        else:
+            share = total / len(DAY_PARTS)   # a total with no hourly signal
+        out["model_%s_rain_%s" % (role, name)] = share
+    return out
+
+
+def blend_extras(df):
+    """
+    Day range and day parts, blended with the weights ACTUALLY applied to the
+    parent variable in blend(): temperature weights for the extremes, rain
+    weights for the day parts. Reusing the per-row weights, rather than
+    re-deriving them, keeps the parts summing to the blended daily rain.
+    """
+    targets = [(v, "t2m") for v in EXTRA_DAILY] +               [("rain_%s" % name, "rain") for name, _ in DAY_PARTS]
+    for var, parent in targets:
+        F = np.column_stack([df["model_%s_%s" % (m, var)].astype(float).values
+                             for m in BLEND])
+        W = np.column_stack([df["weight_%s_%s" % (parent, m)].values for m in BLEND])
+        ok = ~np.isnan(F)
+        den = (ok * W).sum(axis=1)
+        num = np.nansum(np.where(ok, F, 0.0) * W, axis=1)
+        df["blend_%s" % var] = np.where(den > 0, num / np.where(den > 0, den, 1.0), np.nan)
+    for name, _ in DAY_PARTS:
+        df["blend_rain_%s" % name] = df["blend_rain_%s" % name].clip(lower=0)
+    return df
 
 
 def diagnose_regime(df):
@@ -344,6 +423,7 @@ def main():
 
     df["regime"], df["domain_z"] = diagnose_regime(df)
     df = blend(df, weights, regional)
+    df = blend_extras(df)
     df["prob_heavy"] = prob_heavy(df.blend_rain.values).round(3)
     df["high_wind"] = (df.blend_wind >= HIGH_WIND_KMH).astype(int)
 

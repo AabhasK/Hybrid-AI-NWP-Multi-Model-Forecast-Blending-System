@@ -147,8 +147,10 @@ body{
 .fc-icon.cloud{background:linear-gradient(145deg,#bcd8ff,#8099cb)}
 .fc-icon.wind{background:linear-gradient(145deg,#b9e7dd,#68b4a5)}
 .fc-temp{font-size:27px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
+.fc-temp.range{font-size:23px;white-space:nowrap}
+.fc-temp .fc-dash{color:var(--ink-3);font-weight:400;margin:0 3px}
 .fc-temp small{display:block;color:var(--ink-3);font-size:11px;font-weight:500;margin-top:5px}
-.fc-condition{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-2);
+.fc-condition{display:flex;align-items:center;gap:7px;font-size:12.5px;line-height:1.35;color:var(--ink-2);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fc-condition::before{content:"";width:7px;height:7px;border-radius:50%;background:#87c8ff;flex:none}
 .fc-condition.cloud::before{background:#b6c9ef}
@@ -408,6 +410,18 @@ body{
   max-height:min(70vh,560px);overflow-y:auto
 }
 .mapboxgl-popup-content .pop,.maplibregl-popup-content .pop{min-width:270px}
+.pop-range{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ink-2)}
+.pop-range b{color:var(--ink);font-size:17px;font-weight:600}
+.pop-range-bar{flex:1;height:6px;border-radius:3px;background:linear-gradient(90deg,#5f8296,#efbc52)}
+.pop-when{margin:2px 0 0;font-size:13px;color:var(--ink)}
+.pop-when span{color:var(--ink-3)}
+.pop-parts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.pp{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--ink-3)}
+.pp-bar{width:100%;height:34px;display:flex;align-items:flex-end;background:rgba(202,207,255,.07);border-radius:3px}
+.pp-bar i{display:block;width:100%;min-height:2px;border-radius:3px;background:#4f9fc4}
+.pp.peak .pp-bar i{background:#7fd0f0}
+.pp.peak{color:var(--ink)}
+.pp-mm{font-size:12px;color:var(--ink-2)}
 .popdonut{height:220px;flex:0 0 220px;position:relative;margin:0}
 .pop{display:flex;flex-direction:column;gap:8px}
 .pop-context{margin:0;color:var(--ink-3);font-size:12.5px;line-height:1.4}
@@ -1046,6 +1060,38 @@ function paintRail(){
   paintForecastCards();
 }
 
+/* Day parts, IST, in the order run_daily.py writes them into s.rp. */
+const DAY_PARTS = [
+  {k:'night',     l:'Night',     t:'12–6 am'},
+  {k:'morning',   l:'Morning',   t:'6 am–12 pm'},
+  {k:'afternoon', l:'Afternoon', t:'12–6 pm'},
+  {k:'evening',   l:'Evening',   t:'6 pm–12 am'}
+];
+/* When most of a day's rain falls, from four part totals. Returns null when
+   there is too little rain for timing to mean anything. */
+function rainTiming(parts){
+  if (!parts || parts.some(v => v === null || !Number.isFinite(v))) return null;
+  const total = parts.reduce((a,b)=>a+b, 0);
+  if (total < 0.5) return null;
+  const order = parts.map((v,i)=>({v,i})).sort((a,b)=>b.v-a.v);
+  const top = order[0], second = order[1];
+  if (top.v / total >= 0.5)
+    return {text:'mostly '+DAY_PARTS[top.i].l.toLowerCase(), when:DAY_PARTS[top.i].t, peak:top.i};
+  if ((top.v + second.v) / total >= 0.7){
+    const a = Math.min(top.i, second.i), b = Math.max(top.i, second.i);
+    return {text:DAY_PARTS[a].l.toLowerCase()+' & '+DAY_PARTS[b].l.toLowerCase(), when:'', peak:top.i};
+  }
+  return {text:'on and off all day', when:'', peak:top.i};
+}
+/* Day-part rain for a set of cells: the mean of each part across them. */
+function partsFor(s, indices){
+  if (!Array.isArray(s.rp)) return null;
+  return s.rp.map(arr => {
+    const vals = indices.map(i => arr[i]).filter(v => v !== null && Number.isFinite(v));
+    return vals.length ? vals.reduce((a,b)=>a+b,0) / vals.length : null;
+  });
+}
+
 function paintForecastCards(){
   if (!stationsEl.children.length) return;
   const todayParts = Object.fromEntries(new Intl.DateTimeFormat('en-GB',{
@@ -1061,30 +1107,55 @@ function paintForecastCards(){
   };
   const areaLabel = document.getElementById('outlookArea');
   if (areaLabel){
-    areaLabel.textContent = area ? area.n+(area.k==='state'?' area mean':' forecast')
+    /* With no place picked, the cards cannot describe anyone's weather, so
+       they say what they DO show and how to get a real forecast. */
+    areaLabel.textContent = area ? area.n+(area.k==='state'?' · state average':' forecast')
       : pinned !== null ? (nearestPlaceName(DATA.cells[pinned]) || 'Selected point')+' · grid point'
-      : 'India blended average';
+      : 'All-India coldest to hottest · search a place or use My location for your forecast';
   }
+  const pick = (values, fn) => {
+    if (!Array.isArray(values)) return null;
+    const valid = values.filter(v=>v!==null && v!==undefined && Number.isFinite(Number(v))).map(Number);
+    return valid.length ? fn(valid) : null;
+  };
 
   [...stationsEl.children].forEach(button=>{
     const L = Number(button.dataset.lead), s = run()[String(L)];
-    const rain = average(s.rain), temp = average(s.t2m), wind = average(s.wind);
+    const rain = average(s.rain), wind = average(s.wind);
+    /* Temperature is a RANGE, low to high. For a place it is that place's
+       min and max; for all of India it is the coldest and hottest cells. */
+    let lo = null, hi = null, rangeNote;
+    if (Array.isArray(s.tmax) && Array.isArray(s.tmin)){
+      if (indices){ lo = average(s.tmin); hi = average(s.tmax); rangeNote = 'low – high'; }
+      else { lo = pick(s.tmin, v=>Math.min(...v)); hi = pick(s.tmax, v=>Math.max(...v));
+             rangeNote = 'coldest – hottest in India'; }
+    }
+    const temp = average(s.t2m);
     const iconClass = rain !== null && rain >= 2.5 ? 'rain'
       : rain !== null && rain >= 0.2 ? 'cloud'
       : wind !== null && wind >= (M.high_wind_kmh || 40) ? 'wind' : 'sun';
     const icon = iconClass==='rain'?'🌧️':iconClass==='cloud'?'🌦️':iconClass==='wind'?'🌬️':'☀️';
-    const condition = iconClass==='rain'?'Rain likely':iconClass==='cloud'?'Light rain'
-      :iconClass==='wind'?'Windy':(temp!==null&&temp>=(M.heat_c||34)?'Hot and dry':'Mostly dry');
+    const hot = hi !== null ? hi : temp;
+    let condition = iconClass==='rain'?'Rain likely':iconClass==='cloud'?'Light rain'
+      :iconClass==='wind'?'Windy':(hot!==null&&hot>=(M.heat_c||34)&&indices?'Hot and dry':'Mostly dry');
+    /* WHEN it rains, for a real place only - a national average of timing
+       describes no one's afternoon. */
+    const timing = indices && iconClass!=='sun' && iconClass!=='wind' ? rainTiming(partsFor(s, indices)) : null;
+    if (timing) condition += ' · ' + timing.text + (timing.when ? ' (' + timing.when + ')' : '');
     const dateLabel = s.valid===todayIST ? 'Today' : fmtDate(s.valid);
-    const tempLabel = temp===null?'—':Math.round(temp)+'°';
+    const tempLabel = lo !== null && hi !== null
+      ? Math.round(lo)+'°<span class="fc-dash">–</span>'+Math.round(hi)+'°'
+      : (temp===null?'—':Math.round(temp)+'°');
+    const tempSmall = lo !== null && hi !== null ? rangeNote : 'mean temperature';
     const rainLabel = rain===null?'—':rain.toFixed(1)+' mm';
     const windLabel = wind===null?'—':Math.round(wind)+' km/h';
     button.innerHTML = '<span class="fc-date">'+dateLabel+'</span>'+
       '<span class="fc-main"><span class="fc-icon '+iconClass+'" aria-hidden="true">'+icon+'</span>'+
-      '<span><span class="fc-temp">'+tempLabel+'<small>mean temperature</small></span></span></span>'+
+      '<span><span class="fc-temp'+(lo!==null?' range':'')+'">'+tempLabel+'<small>'+tempSmall+'</small></span></span></span>'+
       '<span class="fc-condition '+iconClass+'">'+condition+'</span>'+
       '<span class="fc-values"><span>💧 '+rainLabel+'</span><span>💨 '+windLabel+'</span></span>';
-    button.setAttribute('aria-label',dateLabel+': mean temperature '+tempLabel+
+    button.setAttribute('aria-label',dateLabel+': temperature '+
+      (lo!==null&&hi!==null ? Math.round(lo)+' to '+Math.round(hi)+' degrees' : tempLabel)+
       ', rainfall '+rainLabel+', wind '+windLabel+', '+condition);
   });
 }
@@ -1719,13 +1790,36 @@ function popupHtml(i, searchedName){
     : '<div class="pop-alert clear">'+(s.valid===todayISOIST()
       ? 'No alert today😌' : 'No alert for '+fmtDate(s.valid)+'😌')+'</div>';
 
+  /* The day at this place: the temperature RANGE, and WHEN the rain falls.
+     Shown on every variable - these are what a person plans a day around. */
+  let dayHtml = '';
+  const lo = Array.isArray(s.tmin) ? Number(s.tmin[i]) : NaN;
+  const hi = Array.isArray(s.tmax) ? Number(s.tmax[i]) : NaN;
+  if (Number.isFinite(lo) && Number.isFinite(hi)){
+    dayHtml += '<div class="pop-range num"><span>Low <b>'+lo.toFixed(0)+'°</b></span>'+
+      '<span class="pop-range-bar"><i></i></span><span>High <b>'+hi.toFixed(0)+'°</b></span></div>';
+  }
+  const parts = Array.isArray(s.rp) ? s.rp.map(a => Number(a[i])) : null;
+  if (parts && parts.every(Number.isFinite)){
+    const t = rainTiming(parts);
+    const peak = Math.max(...parts, 0.001);
+    dayHtml += '<p class="pop-when">'+(t
+        ? 'Rain '+t.text+(t.when ? ' <span>'+t.when+'</span>' : '')
+        : 'Little or no rain through the day')+'</p>'+
+      '<div class="pop-parts">'+DAY_PARTS.map((d, j) =>
+        '<div class="pp'+(t && j===t.peak ? ' peak' : '')+'" title="'+d.l+', '+d.t+'">'+
+          '<span class="pp-bar"><i style="height:'+Math.round(100*parts[j]/peak)+'%"></i></span>'+
+          '<span class="pp-mm num">'+parts[j].toFixed(1)+'</span>'+
+          '<span class="pp-l">'+d.l+'</span></div>').join('')+'</div>';
+  }
+
   return '<div class="pop">'+
     '<h4>'+VARNAME[variable]+' at '+placeName+'</h4>'+
     '<p class="pop-context">Nearest forecast grid point</p>'+
     '<p class="coords num"><span>'+c.lat.toFixed(2)+'°N '+c.lon.toFixed(2)+'°E</span>'+
       '<span>'+c.elev+' m</span></p>'+
     '<p class="pop-context pop-valid"><span>Valid '+fmtFullDate(s.valid)+'</span>'+
-      '<span>'+forecastRefreshLabel()+'</span></p>'+
+      '<span>'+forecastRefreshLabel()+'</span></p>'+dayHtml+
     '<div class="popdonut"><canvas id="cellWeightDonut" aria-label="Model weight donut chart"></canvas></div>'+alertText+
     '</div>';
 }

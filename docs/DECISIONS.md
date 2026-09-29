@@ -381,3 +381,42 @@ against the new surface rather than assumed to still pass: worst adjacent pair
   the archive fetch and retraining.
 - Gauge-based verification via `imdlib` is validated but not yet wired into
   `model_training.py` as an alternative truth source.
+
+## D21 — Show the day's range and when the rain falls
+
+**Problem.** The outlook cards and popups showed the daily *mean* temperature
+and the daily *total* rain. Nobody plans a day around a mean: people want the
+low and the high, and whether the rain comes in the morning or the evening.
+
+**What we fetch now.** Daily `temperature_2m_max` / `temperature_2m_min` and
+hourly `precipitation` from all five models, on **Indian calendar days (IST)**
+instead of UTC, so "today" and "this afternoon" mean what they mean in India.
+
+**How they are blended.** No new weights are fitted. The daily extremes use the
+per-row weights *actually applied* to mean temperature; the day parts use the
+weights applied to daily rain. Reusing the applied weights, rather than
+re-deriving them, keeps everything consistent with the verified blend.
+
+**The ECMWF interpolation trap.** For GFS, ICON and GEM the hourly values sum
+exactly to the daily total. For ECMWF IFS and AIFS they do not — their native
+output is 3- to 6-hourly and the hourly series is interpolated (one AIFS cell:
+3.0 mm hourly vs 4.7 mm daily). So each model's hourly series is used only for
+the *shape* of the day: its share of rain in each part, scaled to that model's
+own daily total. Every model's parts then sum to its daily figure, and the
+blended parts sum to the blended daily rain.
+
+**Day parts** are by the hour each value *ends*: night 00–06, morning 06–12,
+afternoon 12–18, evening 18–24 IST. The 23:00–24:00 hour is stamped 00:00 of the
+next day and is assigned back to the evening it belongs to.
+
+**Honest limits.**
+- The weights were verified on UTC-day totals; the live product now uses IST
+  days, a 5.5-hour shift. The weights describe relative model skill, which that
+  shift does not change materially, but it is not re-verified.
+- Max/min temperature borrow the mean-temperature weights; they were not
+  verified separately.
+- AIFS timing is only as fine as its 6-hourly output — about the resolution of a
+  day part, which is part of why day parts were chosen over hourly curves.
+- The request now carries 30 variables instead of 15, which roughly doubles its
+  cost on the free Open-Meteo tier. The per-batch cache makes a rate-limited run
+  resume rather than restart.
