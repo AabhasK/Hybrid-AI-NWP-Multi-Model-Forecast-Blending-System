@@ -168,6 +168,15 @@ def build_live():
             "conf": r1(g.confidence),
             "pext": r3(g.prob_heavy),
         }
+        # Daily range and when the rain falls. Written only when the live
+        # product carries them, so an older parquet still exports cleanly.
+        if "blend_tmax" in g:
+            slice_["tmax"] = r1(g.blend_tmax)
+            slice_["tmin"] = r1(g.blend_tmin)
+        if "blend_rain_night" in g:
+            # night / morning / afternoon / evening, IST; sums to "rain"
+            slice_["rp"] = [r1(g["blend_rain_%s" % p]) for p in
+                            ("night", "morning", "afternoon", "evening")]
         for m in BLEND:
             slice_["m" + m] = r1(g["model_%s_rain" % m])
             slice_["t" + m] = r1(g["model_%s_t2m" % m])

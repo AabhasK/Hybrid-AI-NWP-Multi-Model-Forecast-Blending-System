@@ -31,9 +31,16 @@ Six cards, **Today** through **+5 days**, each with the date it is valid for.
 **This is the master control** — click a card and every map, chart and number
 below moves to that day. It replaced the older horizon slider.
 
-Each card shows an icon, the mean temperature, a rain descriptor, and rainfall
-and wind. These are **national averages across all 4,645 cells** — see
-`docs/UI_AUDIT.md` item 5 for why that matters.
+Each card shows the **temperature range** (low – high), a rain descriptor with
+**when** the rain falls, and rainfall and wind.
+
+- **With a place selected** (search, My location, or a clicked cell) the cards
+  describe that place: its low and high, and timing such as *"Rain likely ·
+  mostly afternoon (12–6 pm)"*.
+- **With nothing selected** the range is India's **coldest and hottest cell**
+  that day, labelled as such, and the header asks you to pick a place. Rain
+  timing is shown only for a real place: a national average of *when* it rains
+  describes no one's afternoon.
 
 Today has no archived skill of its own, so it uses the T+1 weights.
 
@@ -74,7 +81,9 @@ Colour bands for rainfall follow **IMD's operational classes** (*light*,
 forecaster reads them without a key.
 
 **Click any cell** to open its breakdown: the place name, the grid point, when
-it is valid, and a **donut showing how the five models were weighted there**,
+it is valid, **the day's low and high**, **rain by part of the day** (night,
+morning, afternoon, evening, IST) with the wettest part highlighted, and a
+**donut showing how the five models were weighted there**,
 with the blended value in the centre and any active alert beneath.
 
 **Switch Rainfall → Temperature and click the same cell again** — the donut
