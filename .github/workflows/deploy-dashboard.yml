@@ -1,0 +1,95 @@
+name: Deploy dashboard
+
+# Publishes ONLY the dashboard to GitHub Pages. The previous "deploy from
+# branch" setting served the whole repository - code, docs and data - as a
+# public site; this workflow uploads a single page instead.
+#
+#   push to main      deploy the committed dashboard.html as-is (seconds)
+#   daily schedule    fetch today's model runs, rebuild, deploy
+#   manual run        either, chosen by the "refresh" checkbox
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - dashboard.html
+      - .github/workflows/deploy-dashboard.yml
+  schedule:
+    - cron: "30 0 * * *"   # 06:00 IST, after the 00Z model runs are out
+  workflow_dispatch:
+    inputs:
+      refresh:
+        description: "Fetch today's model runs before deploying"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; never cancel one half-way through.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Decide whether to refresh the forecast
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] || \
+             { [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.refresh }}" = "true" ]; }; then
+            echo "refresh=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "refresh=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.mode.outputs.refresh == 'true'
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-runtime.txt
+
+      - name: Install runtime dependencies
+        if: steps.mode.outputs.refresh == 'true'
+        run: pip install -r requirements-runtime.txt
+
+      # The free Open-Meteo tier rate-limits the national sweep, so this can
+      # take over half an hour. If it fails, the committed dashboard.html is
+      # deployed instead: a slightly older forecast beats a broken site.
+      - name: Fetch today's runs and rebuild
+        if: steps.mode.outputs.refresh == 'true'
+        continue-on-error: true
+        timeout-minutes: 120
+        env:
+          TZ: Asia/Kolkata                         # days are Indian calendar days
+          MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}  # absent -> free MapLibre basemap
+        run: python run_daily.py --publish
+
+      - name: Assemble the site
+        run: |
+          mkdir -p _site
+          cp dashboard.html _site/index.html
+          cp dashboard.html _site/dashboard.html
+          touch _site/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
