@@ -5,8 +5,11 @@ name: Deploy dashboard
 # public site; this workflow uploads a single page instead.
 #
 #   push to main      deploy the committed dashboard.html as-is (seconds)
-#   daily schedule    fetch today's model runs, rebuild, deploy
-#   manual run        either, chosen by the "refresh" checkbox
+#   weekly schedule   Monday: fetch the day's model runs, rebuild, deploy
+#                     (weekly, not daily, to save Actions minutes - each
+#                     refresh takes 40-120 min on the free Open-Meteo tier)
+#   manual run        any time: Actions tab -> Deploy dashboard -> Run workflow,
+#                     or `gh workflow run deploy-dashboard.yml -f refresh=true`
 #
 # A refresh that fails or times out is NOT deployed and the run goes red, so
 # the live site keeps the last good forecast. The first version fell back to
@@ -20,7 +23,7 @@ on:
       - dashboard.html
       - .github/workflows/deploy-dashboard.yml
   schedule:
-    - cron: "17 0 * * *"   # 05:47 IST nominally; GitHub often starts it hours late
+    - cron: "17 0 * * 1"   # Mondays, 05:47 IST nominally; GitHub often starts it hours late
   workflow_dispatch:
     inputs:
       refresh:
