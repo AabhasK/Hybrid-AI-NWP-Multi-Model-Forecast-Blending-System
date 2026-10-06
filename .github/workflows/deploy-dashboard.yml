@@ -7,6 +7,11 @@ name: Deploy dashboard
 #   push to main      deploy the committed dashboard.html as-is (seconds)
 #   daily schedule    fetch today's model runs, rebuild, deploy
 #   manual run        either, chosen by the "refresh" checkbox
+#
+# A refresh that fails or times out is NOT deployed and the run goes red, so
+# the live site keeps the last good forecast. The first version fell back to
+# the committed page instead, which silently put a week-old forecast live on
+# 2, 3 and 5 Oct 2026 while every run still reported success.
 
 on:
   push:
@@ -15,7 +20,7 @@ on:
       - dashboard.html
       - .github/workflows/deploy-dashboard.yml
   schedule:
-    - cron: "30 0 * * *"   # 06:00 IST, after the 00Z model runs are out
+    - cron: "17 0 * * *"   # 05:47 IST nominally; GitHub often starts it hours late
   workflow_dispatch:
     inputs:
       refresh:
@@ -36,7 +41,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 345
+    outputs:
+      deploy: ${{ steps.guard.outputs.deploy }}
     steps:
       - uses: actions/checkout@v4
 
@@ -61,19 +68,66 @@ jobs:
         if: steps.mode.outputs.refresh == 'true'
         run: pip install -r requirements-runtime.txt
 
-      # The free Open-Meteo tier rate-limits the national sweep, so this can
-      # take over half an hour. If it fails, the committed dashboard.html is
-      # deployed instead: a slightly older forecast beats a broken site.
+      # The free Open-Meteo tier rate-limits the national sweep, and each
+      # hourly-quota wait can be ~50 minutes, so allow for several of them.
       - name: Fetch today's runs and rebuild
+        id: refresh
         if: steps.mode.outputs.refresh == 'true'
-        continue-on-error: true
-        timeout-minutes: 120
+        timeout-minutes: 330
         env:
           TZ: Asia/Kolkata                         # days are Indian calendar days
           MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}  # absent -> free MapLibre basemap
         run: python run_daily.py --publish
 
+      # Exit code alone is not proof: confirm the page really carries today's
+      # run before it replaces what is live.
+      - name: Check the page holds today's forecast
+        if: steps.mode.outputs.refresh == 'true'
+        env:
+          TZ: Asia/Kolkata
+        run: |
+          python - <<'PY'
+          import datetime, re, sys
+          html = open("dashboard.html", encoding="utf-8").read()
+          m = re.search(r'"issue_dates":\s*\[([^\]]*)\]', html)
+          dates = re.findall(r'"(\d{4}-\d{2}-\d{2})"', m.group(1)) if m else []
+          today = datetime.date.today().isoformat()
+          print("page run dates:", dates, "| today (IST):", today)
+          if today not in dates:
+              print("::error::Refresh did not produce today's forecast - not deploying; the live site keeps its last good version.")
+              sys.exit(1)
+          PY
+
+      # Never go backwards. The committed dashboard.html is usually days older
+      # than what the daily refresh put live, so a push (a doc tweak, a
+      # workflow edit) would otherwise roll the site back. Deploy only if this
+      # page's forecast is at least as new as the live one.
+      - name: Never deploy an older forecast than the live one
+        id: guard
+        run: |
+          python3 - <<'PY'
+          import os, re, urllib.request
+          def newest(html):
+              m = re.search(r'"issue_dates":\s*\[([^\]]*)\]', html)
+              d = re.findall(r'"(\d{4}-\d{2}-\d{2})"', m.group(1)) if m else []
+              return max(d) if d else ""
+          mine = newest(open("dashboard.html", encoding="utf-8").read())
+          try:
+              url = "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+              live = newest(urllib.request.urlopen(url, timeout=30).read().decode("utf-8", "ignore"))
+          except Exception as e:
+              live = ""
+              print("live site unreachable (%s) - deploying" % e)
+          ok = mine >= live
+          print("this page: %s | live: %s | deploy: %s" % (mine or "?", live or "?", ok))
+          if not ok:
+              print("::notice::Not deploying: this page's forecast (%s) is older than the live one (%s)." % (mine, live))
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write("deploy=" + ("true" if ok else "false") + chr(10))
+          PY
+
       - name: Assemble the site
+        if: steps.guard.outputs.deploy == 'true'
         run: |
           mkdir -p _site
           cp dashboard.html _site/index.html
@@ -81,11 +135,13 @@ jobs:
           touch _site/.nojekyll
 
       - uses: actions/upload-pages-artifact@v3
+        if: steps.guard.outputs.deploy == 'true'
         with:
           path: _site
 
   deploy:
     needs: build
+    if: needs.build.outputs.deploy == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
